@@ -1,9 +1,15 @@
 #pragma warning disable IDE0007 // Use implicit type
 
+using System;
 using System.Buffers;
+using System.IO;
 using System.IO.Pipelines;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Threading.Tasks.Sources;
 using Microsoft.AspNetCore.Connections;
+
+namespace Yarp.ReverseProxy.Tunnel.Frontend;
 
 internal class ConnectionContextStream : Stream, IValueTaskSource<object?>
 {

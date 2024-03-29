@@ -17,7 +17,7 @@ namespace Microsoft.AspNetCore.Builder;
 /// Extension methods for <see cref="IEndpointRouteBuilder"/>
 /// used to add Reverse Proxy to the ASP .NET Core request pipeline.
 /// </summary>
-public static class ReverseProxyIEndpointRouteBuilderExtensions
+public static partial class ReverseProxyIEndpointRouteBuilderExtensions
 {
     /// <summary>
     /// Adds Reverse Proxy routes to the route table using the default processing pipeline.

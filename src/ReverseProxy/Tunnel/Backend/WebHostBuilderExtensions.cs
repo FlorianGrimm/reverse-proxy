@@ -1,8 +1,13 @@
-﻿
 using System;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 
-public static class WebHostBuilderExtensions
+using Yarp.ReverseProxy.Tunnel.Backend;
+
+namespace Microsoft.AspNetCore.Hosting;
+
+public static class YarpTunnelWebHostBuilderExtensions
 {
     public static IWebHostBuilder UseTunnelTransport(this IWebHostBuilder hostBuilder, string url, Action<TunnelOptions>? configure = null)
     {

@@ -1,6 +1,12 @@
-﻿using System.Diagnostics;
+using System;
+using System.Diagnostics;
+using System.IO;
 using System.Net.WebSockets;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Threading.Tasks.Sources;
+
+namespace Yarp.ReverseProxy.Tunnel.Frontend;
 
 internal class WebSocketStream : Stream, IValueTaskSource<object?>, ICloseable
 {

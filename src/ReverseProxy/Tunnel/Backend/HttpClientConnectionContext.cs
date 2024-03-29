@@ -1,8 +1,17 @@
-﻿using System.IO.Pipelines;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Pipelines;
 using System.Net;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
+
+namespace Yarp.ReverseProxy.Tunnel.Backend;
 
 internal class HttpClientConnectionContext : ConnectionContext,
                 IConnectionLifetimeFeature,

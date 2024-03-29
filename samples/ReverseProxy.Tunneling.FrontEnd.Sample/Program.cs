@@ -10,7 +10,7 @@ builder.Services.AddControllers();
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
-TunnelExensions.AddTunnelServices(builder.Services);
+builder.Services.AddTunnelServices();
 
 var app = builder.Build();
 

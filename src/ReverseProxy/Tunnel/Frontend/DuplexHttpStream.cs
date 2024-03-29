@@ -1,4 +1,12 @@
-﻿using System.Threading.Tasks.Sources;
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Threading.Tasks.Sources;
+
+using Microsoft.AspNetCore.Http;
+
+namespace Yarp.ReverseProxy.Tunnel.Frontend;
 
 internal class DuplexHttpStream : Stream, IValueTaskSource<object?>, ICloseable
 {

@@ -1,16 +1,28 @@
-﻿using System.Net.WebSockets;
+#pragma warning disable IL2026 // Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code
+
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Net.WebSockets;
+
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
 using Yarp.ReverseProxy.Forwarder;
+using Yarp.ReverseProxy.Limits;
+using Yarp.ReverseProxy.Management;
+using Yarp.ReverseProxy.Model;
+using Yarp.ReverseProxy.Routing;
+using Yarp.ReverseProxy.Tunnel.Frontend;
 
-public static class TunnelExensions
+namespace Microsoft.AspNetCore.Builder;
+
+public static partial class ReverseProxyIEndpointRouteBuilderExtensions
 {
-    public static IServiceCollection AddTunnelServices(this IServiceCollection services)
-    {
-        var tunnelFactory = new TunnelClientFactory();
-        services.AddSingleton(tunnelFactory);
-        services.AddSingleton<IForwarderHttpClientFactory>(tunnelFactory);
-        return services;
-    }
-
     public static IEndpointConventionBuilder MapHttp2Tunnel(this IEndpointRouteBuilder routes, string path)
     {
         return routes.MapPost(path, static async (HttpContext context, string host, TunnelClientFactory tunnelFactory, IHostApplicationLifetime lifetime) =>
@@ -87,16 +99,5 @@ public static class TunnelExensions
         });
 
         return conventionBuilder;
-    }
-
-    // This is for .NET 6, .NET 7 has Results.Empty
-    internal sealed class EmptyResult : IResult
-    {
-        internal static readonly EmptyResult Instance = new();
-
-        public Task ExecuteAsync(HttpContext httpContext)
-        {
-            return Task.CompletedTask;
-        }
     }
 }

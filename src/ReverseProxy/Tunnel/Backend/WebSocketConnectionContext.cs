@@ -1,7 +1,13 @@
-﻿using System.Net.WebSockets;
+using System;
+using System.Net.WebSockets;
+using System.Threading;
+using System.Threading.Tasks;
+
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Http.Connections.Client;
+
+namespace Yarp.ReverseProxy.Tunnel.Backend;
 
 internal class WebSocketConnectionContext : HttpConnection
 {

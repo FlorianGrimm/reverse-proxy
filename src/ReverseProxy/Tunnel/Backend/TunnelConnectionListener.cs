@@ -1,6 +1,14 @@
-﻿using System.Collections.Concurrent;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+
 using Microsoft.AspNetCore.Connections;
+
+namespace Yarp.ReverseProxy.Tunnel.Backend;
 
 /// <summary>
 /// This has the core logic that creates and maintains connections to the proxy.

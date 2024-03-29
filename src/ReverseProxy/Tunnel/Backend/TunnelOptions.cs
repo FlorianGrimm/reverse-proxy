@@ -1,4 +1,6 @@
-﻿public class TunnelOptions
+namespace Yarp.ReverseProxy.Tunnel.Backend;
+
+public class TunnelOptions
 {
     public int MaxConnectionCount { get; set; } = 10;
 
