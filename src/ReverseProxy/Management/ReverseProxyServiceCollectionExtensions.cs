@@ -22,7 +22,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// Extensions for <see cref="IServiceCollection"/>
 /// used to register the ReverseProxy's components.
 /// </summary>
-public static class ReverseProxyServiceCollectionExtensions
+public static partial class ReverseProxyServiceCollectionExtensions
 {
     /// <summary>
     /// Registers the <see cref="IHttpForwarder"/> service for direct forwarding scenarios.

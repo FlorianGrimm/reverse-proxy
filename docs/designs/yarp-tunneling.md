@@ -15,11 +15,11 @@ The instance in the cloud, we'll refer to as the front-end, will be configured w
 
 ## Tunnel Protocol
 
-The tunnel will establish a Websockets connection between the back-end and the front-end. The back-end will establish the connection so that it can more easily break through firewalls. Once the WSS connection is created, it will be treated as a stream over which HTTP/2 traffic will be routed. HTTP/2 is used so that multiple simultaneous requests can be multiplexed over a single connection. The HTTP/2 protocol is only used between the two proxies, the connections either side can be any protocol that the proxy supports. This means we don't put any specific capability requirement on the destination servers. 
+The tunnel will establish a Websockets connection between the back-end and the front-end. The back-end will establish the connection so that it can more easily break through firewalls. Once the WSS connection is created, it will be treated as a stream over which HTTP/2 traffic will be routed. HTTP/2 is used so that multiple simultaneous requests can be multiplexed over a single connection. The HTTP/2 protocol is only used between the two proxies, the connections either side can be any protocol that the proxy supports. This means we don't put any specific capability requirement on the destination servers.
 
 If the tunnel connection is broken, the back-end will attempt to reconnect to the front-end:
 - If the connection fails, then it will continue to reconnect every 30s until the connection is re-established.
-- If the connection is refused with a 500 series error, then it will be retried at the next 30s timeout. 
+- If the connection is refused with a 500 series error, then it will be retried at the next 30s timeout.
 - If the connection is refused with a 400 series error then further connections for that tunnel will not be made.
 
 > Issue: Do we need an API for the tunnel? As its created from code on the back-end, the app could have additional logic for control over the duration. Does it have API for status, clean shutdown, etc.
@@ -34,12 +34,12 @@ The Front End should keep the WSS connection alive by sending pings every 30s if
 | --- | --- | --- |
 | front-end | EndPoint | The endpoint that the back-end proxy will connect to to create a tunnel. |
 | front-end | Cluster | The cluster that will direct to back-end proxy(ies) that have created tunnels. |
-| front-end | Routes | Routes need to be configured to route specific URLs to the tunnel, by using clusters that are a tunnel. | 
+| front-end | Routes | Routes need to be configured to route specific URLs to the tunnel, by using clusters that are a tunnel. |
 | back-end | Tunnel URL(s) | The URL(s) for the front-end endpoint that can be used to establish the tunnel. |
 | back-end | Routes | The back-end needs to have routes defined that will direct traffic to local resources. |
 
-## front-end 
-The front-end is the proxy that will be called by clients to be able to access resources via the back-end proxy. It will route traffic over a tunnel created using a WSS connection from the back-end proxy. YARP needs a mechanism to know which requests will be routed via the tunnel. This will be achived by extending the existing cluster concept in YARP - The request to create a tunnel will specify the name of a cluster. Once the tunnel is established, it will be treated as a dynmamically created destination for the named cluster. Routes will not need to be changed, they will point at the cluster, and the tunnels will be used in the same way as destinations. 
+## front-end
+The front-end is the proxy that will be called by clients to be able to access resources via the back-end proxy. It will route traffic over a tunnel created using a WSS connection from the back-end proxy. YARP needs a mechanism to know which requests will be routed via the tunnel. This will be achived by extending the existing cluster concept in YARP - The request to create a tunnel will specify the name of a cluster. Once the tunnel is established, it will be treated as a dynmamically created destination for the named cluster. Routes will not need to be changed, they will point at the cluster, and the tunnels will be used in the same way as destinations.
 
 Tunnel services must be enabled by the proxy server:
 
@@ -51,7 +51,7 @@ builder.Services.AddTunnelServices();
 ```
 
 The front-end needs to have a tunnel endpoint that the back-end will connect to. The endpoint should be parameterized to include the name of the cluster as part of the URL, and a callback that is used to validate the connection is approved:
- - Including the ClusterId in the URL enables the same endpoint mechanism to be used for multiple clusters. 
+ - Including the ClusterId in the URL enables the same endpoint mechanism to be used for multiple clusters.
  - Using a callback for authentication enables whatever scheme the proxy author(s) wish to use.
    - Trying to encode specific auth schemes will invariably miss a scenario that is needed.
    - The samples that we produce should be based around client certs as it is a good way to manage secure shared secrets.
@@ -61,7 +61,7 @@ app.MapReversProxy();
 app.MapTunnel("/tunnel/{ClusterId}", async (connectionContext, cluster) => {
 
     // Use the extensions feature https://github.com/microsoft/reverse-proxy/issues/1709 to add auth data for the tunnel
-    var tunnelAuth = cluster.Extensions[typeof(TunnelAuth)]; 
+    var tunnelAuth = cluster.Extensions[typeof(TunnelAuth)];
     if (!context.Connection.ClientCertificate.Verify()) return false;
     foreach (var c in tunnelAuth.Certs)
     {
