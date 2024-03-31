@@ -8,7 +8,7 @@
     }
   },
   "profiles": {
-    "ReverseProxy.Config.Sample": {
+    "ReverseProxy.Tunneling.BackEnd.Sample": {
       "commandName": "Project",
       "launchBrowser": false,
       "environmentVariables": {
