@@ -21,6 +21,9 @@ public sealed record ClusterConfig
 
     public string Transport { get; init; } = default!;
 
+    // TODO: TunnelConfig
+    // public TunnelConfig Tunnel { get; init; } = default!;
+
     /// <summary>
     /// Load balancing policy.
     /// </summary>
@@ -76,6 +79,8 @@ public sealed record ClusterConfig
 
         return string.Equals(ClusterId, other.ClusterId, StringComparison.OrdinalIgnoreCase)
             && string.Equals(Transport, other.Transport, StringComparison.OrdinalIgnoreCase)
+            // TODO: Tunnel
+            // && Tunnel == other.Tunnel
             && string.Equals(LoadBalancingPolicy, other.LoadBalancingPolicy, StringComparison.OrdinalIgnoreCase)
             // CS0252 warning only shows up in VS https://github.com/dotnet/roslyn/issues/49302
             && SessionAffinity == other.SessionAffinity
@@ -90,6 +95,8 @@ public sealed record ClusterConfig
         HashCode result = new();
         result.Add(ClusterId?.GetHashCode(StringComparison.OrdinalIgnoreCase));
         result.Add(Transport?.GetHashCode(StringComparison.OrdinalIgnoreCase));
+        // TODO: Tunnel
+        // result.Add(Tunnel);
         result.Add(LoadBalancingPolicy?.GetHashCode(StringComparison.OrdinalIgnoreCase));
         result.Add(SessionAffinity);
         result.Add(HealthCheck);

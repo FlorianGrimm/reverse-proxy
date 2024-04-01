@@ -126,6 +126,8 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         {
             ClusterId = section.Key,
             Transport = GetTransport(section),
+            // TODO: TunnelConfig
+            // Tunnel = CreateTunnelConfig(section.GetSection(nameof(ClusterConfig.Tunnel))),
             LoadBalancingPolicy = section[nameof(ClusterConfig.LoadBalancingPolicy)],
             SessionAffinity = CreateSessionAffinityConfig(section.GetSection(nameof(ClusterConfig.SessionAffinity))),
             HealthCheck = CreateHealthCheckConfig(section.GetSection(nameof(ClusterConfig.HealthCheck))),
