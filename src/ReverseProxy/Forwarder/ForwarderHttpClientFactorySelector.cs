@@ -37,7 +37,7 @@ public class ForwarderHttpClientFactorySelector
         IForwarderHttpClientFactorySelective? found = null;
         foreach (var item in _forwarderHttpClientFactories)
         {
-            if (item.DoesMatch(context))
+            if (item.CanHandle(context))
             {
                 if (found is null)
                 {

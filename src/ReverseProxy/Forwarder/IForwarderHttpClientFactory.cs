@@ -40,5 +40,5 @@ public interface IForwarderHttpClientFactorySelector : IForwarderHttpClientFacto
 
 public interface IForwarderHttpClientFactorySelective : IForwarderHttpClientFactory
 {
-    bool DoesMatch(ForwarderHttpClientContext context);
+    bool CanHandle(ForwarderHttpClientContext context);
 }

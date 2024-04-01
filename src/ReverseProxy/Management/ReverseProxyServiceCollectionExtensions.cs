@@ -148,25 +148,11 @@ public static class ReverseProxyServiceCollectionExtensions
         {
             throw new ArgumentNullException(nameof(configure));
         }
-
-        // Avoid overriding any other custom factories. This does not handle the case where a IForwarderHttpClientFactory
-        // is registered after this call.
-        var service = builder.Services.FirstOrDefault(service => service.ServiceType == typeof(IForwarderHttpClientFactory));
-        if (service is not null)
+        builder.Services.AddSingleton<ConfigureHttpClientFactorySocketsHttpHandler>(new ConfigureHttpClientFactorySocketsHttpHandler()
         {
-            if (service.ImplementationType != typeof(ForwarderHttpClientFactory))
-            {
-                throw new InvalidOperationException($"ConfigureHttpClient will override the custom IForwarderHttpClientFactory type.");
-            }
-        }
-
-        // TODO
-
-        builder.Services.AddSingleton<IForwarderHttpClientFactory>(services =>
-        {
-            var logger = services.GetRequiredService<ILogger<ForwarderHttpClientFactory>>();
-            return new CallbackHttpClientFactory(logger, configure);
+            ConfigureClient = configure
         });
+
         return builder;
     }
 

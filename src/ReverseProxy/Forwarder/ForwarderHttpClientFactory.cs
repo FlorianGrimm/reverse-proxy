@@ -22,18 +22,29 @@ namespace Yarp.ReverseProxy.Forwarder;
 /// </summary>
 public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarderHttpClientFactorySelective
 {
+    private readonly ConfigureHttpClientFactorySocketsHttpHandler _configureSocketsHttpHandler;
     private readonly ILogger<ForwarderHttpClientFactory> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
     /// </summary>
-    public ForwarderHttpClientFactory() : this(NullLogger<ForwarderHttpClientFactory>.Instance) { }
+    public ForwarderHttpClientFactory() : this(new(), NullLogger<ForwarderHttpClientFactory>.Instance) { }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
     /// </summary>
-    public ForwarderHttpClientFactory(ILogger<ForwarderHttpClientFactory> logger)
+    public ForwarderHttpClientFactory(ILogger<ForwarderHttpClientFactory> logger) : this(new(), logger)
     {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
+    /// </summary>
+    public ForwarderHttpClientFactory(
+        ConfigureHttpClientFactorySocketsHttpHandler configureSocketsHttpHandler,
+        ILogger<ForwarderHttpClientFactory> logger)
+    {
+        _configureSocketsHttpHandler = configureSocketsHttpHandler;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -119,6 +130,11 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarde
             handler.Proxy = webProxy;
             handler.UseProxy = true;
         }
+
+        if (_configureSocketsHttpHandler.ConfigureClient is not null)
+        {
+            _configureSocketsHttpHandler.ConfigureClient(context, handler);
+        }
     }
 
     private static IWebProxy? TryCreateWebProxy(WebProxyConfig? webProxyConfig)
@@ -144,7 +160,7 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarde
         return handler;
     }
 
-    public bool DoesMatch(ForwarderHttpClientContext context)
+    public bool CanHandle(ForwarderHttpClientContext context)
     {
         return string.IsNullOrEmpty(context.NewTransport)
             || string.Equals(context.NewTransport, "HTTP", StringComparison.OrdinalIgnoreCase);
