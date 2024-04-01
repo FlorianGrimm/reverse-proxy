@@ -2,12 +2,17 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Forwarder;
@@ -15,7 +20,7 @@ namespace Yarp.ReverseProxy.Forwarder;
 /// <summary>
 /// Default implementation of <see cref="IForwarderHttpClientFactory"/>.
 /// </summary>
-public class ForwarderHttpClientFactory : IForwarderHttpClientFactory
+public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarderHttpClientFactorySelective
 {
     private readonly ILogger<ForwarderHttpClientFactory> _logger;
 
@@ -137,6 +142,12 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory
     protected virtual HttpMessageHandler WrapHandler(ForwarderHttpClientContext context, HttpMessageHandler handler)
     {
         return handler;
+    }
+
+    public bool DoesMatch(ForwarderHttpClientContext context)
+    {
+        return string.IsNullOrEmpty(context.NewTransport)
+            || string.Equals(context.NewTransport, "HTTP", StringComparison.OrdinalIgnoreCase);
     }
 
     private static class Log

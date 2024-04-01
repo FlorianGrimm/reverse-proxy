@@ -8,10 +8,12 @@ using System.Linq;
 using System.Net.Http;
 using System.Security.Authentication;
 using System.Threading;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+
 using Yarp.ReverseProxy.Forwarder;
 
 namespace Yarp.ReverseProxy.Configuration.ConfigProvider;
@@ -123,6 +125,7 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         return new ClusterConfig
         {
             ClusterId = section.Key,
+            Transport = GetTransport(section),
             LoadBalancingPolicy = section[nameof(ClusterConfig.LoadBalancingPolicy)],
             SessionAffinity = CreateSessionAffinityConfig(section.GetSection(nameof(ClusterConfig.SessionAffinity))),
             HealthCheck = CreateHealthCheckConfig(section.GetSection(nameof(ClusterConfig.HealthCheck))),
@@ -131,6 +134,12 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             Metadata = section.GetSection(nameof(ClusterConfig.Metadata)).ReadStringDictionary(),
             Destinations = destinations,
         };
+    }
+
+    private string GetTransport(IConfigurationSection section)
+    {
+        var transport = section[nameof(ClusterConfig.Transport)];
+        return string.IsNullOrEmpty(transport) ? "HTTP" : transport;
     }
 
     private static RouteConfig CreateRoute(IConfigurationSection section)

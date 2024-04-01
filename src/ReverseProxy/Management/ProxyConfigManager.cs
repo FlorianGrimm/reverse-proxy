@@ -44,7 +44,8 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     private readonly ConcurrentDictionary<string, RouteState> _routes = new(StringComparer.OrdinalIgnoreCase);
     private readonly IProxyConfigFilter[] _filters;
     private readonly IConfigValidator _configValidator;
-    private readonly IForwarderHttpClientFactory _httpClientFactory;
+    //private readonly IForwarderHttpClientFactory _httpClientFactory;
+    private readonly IForwarderHttpClientFactorySelector _forwarderHttpClientFactorySelector;
     private readonly ProxyEndpointFactory _proxyEndpointFactory;
     private readonly ITransformBuilder _transformBuilder;
     private readonly List<Action<EndpointBuilder>> _conventions;
@@ -66,7 +67,8 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         IConfigValidator configValidator,
         ProxyEndpointFactory proxyEndpointFactory,
         ITransformBuilder transformBuilder,
-        IForwarderHttpClientFactory httpClientFactory,
+        //IForwarderHttpClientFactory httpClientFactory,
+        IForwarderHttpClientFactorySelector forwarderHttpClientFactorySelector,
         IActiveHealthCheckMonitor activeHealthCheckMonitor,
         IClusterDestinationsUpdater clusterDestinationsUpdater,
         IEnumerable<IConfigChangeListener> configChangeListeners,
@@ -80,7 +82,8 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         _configValidator = configValidator ?? throw new ArgumentNullException(nameof(configValidator));
         _proxyEndpointFactory = proxyEndpointFactory ?? throw new ArgumentNullException(nameof(proxyEndpointFactory));
         _transformBuilder = transformBuilder ?? throw new ArgumentNullException(nameof(transformBuilder));
-        _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        //_httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        _forwarderHttpClientFactorySelector = forwarderHttpClientFactorySelector ?? throw new ArgumentNullException(nameof(forwarderHttpClientFactorySelector));
         _activeHealthCheckMonitor = activeHealthCheckMonitor ?? throw new ArgumentNullException(nameof(activeHealthCheckMonitor));
         _clusterDestinationsUpdater = clusterDestinationsUpdater ?? throw new ArgumentNullException(nameof(clusterDestinationsUpdater));
         _destinationResolver = destinationResolver ?? throw new ArgumentNullException(nameof(destinationResolver));
@@ -612,12 +615,14 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
                 var currentClusterModel = currentCluster.Model;
 
-                var httpClient = _httpClientFactory.CreateClient(new ForwarderHttpClientContext
+                var httpClient = _forwarderHttpClientFactorySelector.CreateClient(new ForwarderHttpClientContext
                 {
                     ClusterId = currentCluster.ClusterId,
+                    OldTransport = currentClusterModel.Config.Transport,
                     OldConfig = currentClusterModel.Config.HttpClient ?? HttpClientConfig.Empty,
                     OldMetadata = currentClusterModel.Config.Metadata,
                     OldClient = currentClusterModel.HttpClient,
+                    NewTransport = incomingCluster.Transport,
                     NewConfig = incomingCluster.HttpClient ?? HttpClientConfig.Empty,
                     NewMetadata = incomingCluster.Metadata
                 });
@@ -651,9 +656,10 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
                 UpdateRuntimeDestinations(incomingCluster.Destinations, newClusterState.Destinations);
 
-                var httpClient = _httpClientFactory.CreateClient(new ForwarderHttpClientContext
+                var httpClient = _forwarderHttpClientFactorySelector.CreateClient(new ForwarderHttpClientContext
                 {
                     ClusterId = newClusterState.ClusterId,
+                    NewTransport = incomingCluster.Transport,
                     NewConfig = incomingCluster.HttpClient ?? HttpClientConfig.Empty,
                     NewMetadata = incomingCluster.Metadata
                 });

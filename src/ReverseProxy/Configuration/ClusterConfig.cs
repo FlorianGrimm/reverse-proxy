@@ -19,6 +19,8 @@ public sealed record ClusterConfig
     /// </summary>
     public string ClusterId { get; init; } = default!;
 
+    public string Transport { get; init; } = default!;
+
     /// <summary>
     /// Load balancing policy.
     /// </summary>
@@ -73,6 +75,7 @@ public sealed record ClusterConfig
         }
 
         return string.Equals(ClusterId, other.ClusterId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(Transport, other.Transport, StringComparison.OrdinalIgnoreCase)
             && string.Equals(LoadBalancingPolicy, other.LoadBalancingPolicy, StringComparison.OrdinalIgnoreCase)
             // CS0252 warning only shows up in VS https://github.com/dotnet/roslyn/issues/49302
             && SessionAffinity == other.SessionAffinity
@@ -84,14 +87,16 @@ public sealed record ClusterConfig
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(
-            ClusterId?.GetHashCode(StringComparison.OrdinalIgnoreCase),
-            LoadBalancingPolicy?.GetHashCode(StringComparison.OrdinalIgnoreCase),
-            SessionAffinity,
-            HealthCheck,
-            HttpClient,
-            HttpRequest,
-            CollectionEqualityHelper.GetHashCode(Destinations),
-            CaseSensitiveEqualHelper.GetHashCode(Metadata));
+        HashCode result = new();
+        result.Add(ClusterId?.GetHashCode(StringComparison.OrdinalIgnoreCase));
+        result.Add(Transport?.GetHashCode(StringComparison.OrdinalIgnoreCase));
+        result.Add(LoadBalancingPolicy?.GetHashCode(StringComparison.OrdinalIgnoreCase));
+        result.Add(SessionAffinity);
+        result.Add(HealthCheck);
+        result.Add(HttpClient);
+        result.Add(HttpRequest);
+        result.Add(CollectionEqualityHelper.GetHashCode(Destinations));
+        result.Add(CaseSensitiveEqualHelper.GetHashCode(Metadata));
+        return result.ToHashCode();
     }
 }

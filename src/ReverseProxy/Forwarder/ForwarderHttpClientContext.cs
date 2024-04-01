@@ -18,6 +18,9 @@ public class ForwarderHttpClientContext
     /// </summary>
     public string ClusterId { get; init; } = default!;
 
+    public string OldTransport { get; init; } = "HTTP";
+    public string NewTransport { get; init; } = "HTTP";
+
     /// <summary>
     /// Old <see cref="HttpClientConfig"/> instance
     /// from which the <see cref="OldClient"/> was created.

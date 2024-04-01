@@ -32,3 +32,13 @@ public interface IForwarderHttpClientFactory
     /// </remarks>
     HttpMessageInvoker CreateClient(ForwarderHttpClientContext context);
 }
+
+// TODO: how much breaking change: IForwarderHttpClientFactorySelector and IForwarderHttpClientFactorySelective are new interfaces
+public interface IForwarderHttpClientFactorySelector : IForwarderHttpClientFactory
+{
+}
+
+public interface IForwarderHttpClientFactorySelective : IForwarderHttpClientFactory
+{
+    bool DoesMatch(ForwarderHttpClientContext context);
+}

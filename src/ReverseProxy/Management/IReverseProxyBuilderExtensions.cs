@@ -77,7 +77,10 @@ internal static class IReverseProxyBuilderExtensions
 
     public static IReverseProxyBuilder AddProxy(this IReverseProxyBuilder builder)
     {
-        builder.Services.TryAddSingleton<IForwarderHttpClientFactory, ForwarderHttpClientFactory>();
+        // builder.Services.TryAddSingleton<IForwarderHttpClientFactory, ForwarderHttpClientFactory>();
+
+        builder.Services.TryAddSingleton<IForwarderHttpClientFactorySelector>(ForwarderHttpClientFactorySelector.Create);
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IForwarderHttpClientFactorySelective, ForwarderHttpClientFactory>());
 
         builder.Services.AddHttpForwarder();
         return builder;
