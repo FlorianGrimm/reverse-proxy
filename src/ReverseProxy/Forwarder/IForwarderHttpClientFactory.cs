@@ -32,3 +32,8 @@ public interface IForwarderHttpClientFactory
     /// </remarks>
     HttpMessageInvoker CreateClient(ForwarderHttpClientContext context);
 }
+
+public interface IForwarderHttpClientTransportFactory : IForwarderHttpClientFactory
+{
+    string GetTransport();
+}

@@ -70,7 +70,7 @@ internal static class IReverseProxyBuilderExtensions
 
     public static IReverseProxyBuilder AddConfigManager(this IReverseProxyBuilder builder)
     {
-        builder.Services.TryAddSingleton<ProxyConfigManager>();
+        builder.Services.TryAddSingleton<ProxyConfigManager>(sp => ProxyConfigManager.Factory(sp));
         builder.Services.TryAddSingleton<IProxyStateLookup>(sp => sp.GetRequiredService<ProxyConfigManager>());
         return builder;
     }

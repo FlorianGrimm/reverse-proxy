@@ -8,13 +8,18 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Net.Http;
+using System.Security.Cryptography.Xml;
 using System.Threading;
 using System.Threading.Tasks;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Health;
@@ -33,6 +38,25 @@ namespace Yarp.ReverseProxy.Management;
 // https://github.com/dotnet/aspnetcore/blob/cbe16474ce9db7ff588aed89596ff4df5c3f62e1/src/Mvc/Mvc.Core/src/Routing/ActionEndpointDataSourceBase.cs
 internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup, IDisposable
 {
+    internal static ProxyConfigManager Factory(IServiceProvider sp)
+    {
+        return new ProxyConfigManager(
+                logger: sp.GetRequiredService<ILogger<ProxyConfigManager>>(),
+                providers: sp.GetRequiredService<IEnumerable<IProxyConfigProvider>>(),
+                clusterChangeListeners: sp.GetRequiredService<IEnumerable<IClusterChangeListener>>(),
+                filters: sp.GetRequiredService<IEnumerable<IProxyConfigFilter>>(),
+                configValidator: sp.GetRequiredService<IConfigValidator>(),
+                proxyEndpointFactory: sp.GetRequiredService<ProxyEndpointFactory>(),
+                transformBuilder: sp.GetRequiredService<ITransformBuilder>(),
+                httpClientFactory: sp.GetRequiredService<IForwarderHttpClientFactory>(),
+                httpClientTransportFactories: sp.GetServices<IForwarderHttpClientTransportFactory>(),
+                activeHealthCheckMonitor: sp.GetRequiredService<IActiveHealthCheckMonitor>(),
+                clusterDestinationsUpdater: sp.GetRequiredService<IClusterDestinationsUpdater>(),
+                configChangeListeners: sp.GetRequiredService<IEnumerable<IConfigChangeListener>>(),
+                destinationResolver: sp.GetRequiredService<IDestinationResolver>()
+            );
+    }
+
     private static readonly IReadOnlyDictionary<string, ClusterConfig> _emptyClusterDictionary = new ReadOnlyDictionary<string, ClusterConfig>(new Dictionary<string, ClusterConfig>());
 
     private readonly object _syncRoot = new();
@@ -45,6 +69,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     private readonly IProxyConfigFilter[] _filters;
     private readonly IConfigValidator _configValidator;
     private readonly IForwarderHttpClientFactory _httpClientFactory;
+    private readonly Dictionary<string, IForwarderHttpClientTransportFactory> _httpClientTransportFactories; // readonly and immutable
     private readonly ProxyEndpointFactory _proxyEndpointFactory;
     private readonly ITransformBuilder _transformBuilder;
     private readonly List<Action<EndpointBuilder>> _conventions;
@@ -67,6 +92,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         ProxyEndpointFactory proxyEndpointFactory,
         ITransformBuilder transformBuilder,
         IForwarderHttpClientFactory httpClientFactory,
+        IEnumerable<IForwarderHttpClientTransportFactory> httpClientTransportFactories,
         IActiveHealthCheckMonitor activeHealthCheckMonitor,
         IClusterDestinationsUpdater clusterDestinationsUpdater,
         IEnumerable<IConfigChangeListener> configChangeListeners,
@@ -81,6 +107,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         _proxyEndpointFactory = proxyEndpointFactory ?? throw new ArgumentNullException(nameof(proxyEndpointFactory));
         _transformBuilder = transformBuilder ?? throw new ArgumentNullException(nameof(transformBuilder));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        _httpClientTransportFactories = (httpClientTransportFactories ?? []).ToDictionary(item=>item.GetTransport());
         _activeHealthCheckMonitor = activeHealthCheckMonitor ?? throw new ArgumentNullException(nameof(activeHealthCheckMonitor));
         _clusterDestinationsUpdater = clusterDestinationsUpdater ?? throw new ArgumentNullException(nameof(clusterDestinationsUpdater));
         _destinationResolver = destinationResolver ?? throw new ArgumentNullException(nameof(destinationResolver));
@@ -367,7 +394,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                 catch (Exception exception)
                 {
                     var cluster = clusters[i];
-                    throw new InvalidOperationException($"Error resolving destinations for cluster {cluster.ClusterId}", exception); 
+                    throw new InvalidOperationException($"Error resolving destinations for cluster {cluster.ClusterId}", exception);
                 }
 
                 clusters[i] = clusters[i] with { Destinations = resolvedDestinations.Destinations };
@@ -606,13 +633,27 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             var added = desiredClusters.Add(incomingCluster.ClusterId);
             Debug.Assert(added);
 
+            // TODO: add a Transport property to the ClusterConfig
+            var transport = incomingCluster.Metadata?.GetValueOrDefault("Transport");
+            IForwarderHttpClientFactory httpClientFactory;
+            if (!string.IsNullOrEmpty(transport)
+                && !_httpClientTransportFactories.TryGetValue(transport, out var found)
+                && found is not null)
+            {
+                httpClientFactory = found;
+            }
+            else
+            {
+                httpClientFactory = _httpClientFactory;
+            }
+
             if (_clusters.TryGetValue(incomingCluster.ClusterId, out var currentCluster))
             {
                 var destinationsChanged = UpdateRuntimeDestinations(incomingCluster.Destinations, currentCluster.Destinations);
 
                 var currentClusterModel = currentCluster.Model;
 
-                var httpClient = _httpClientFactory.CreateClient(new ForwarderHttpClientContext
+                var httpClient = httpClientFactory.CreateClient(new ForwarderHttpClientContext
                 {
                     ClusterId = currentCluster.ClusterId,
                     OldConfig = currentClusterModel.Config.HttpClient ?? HttpClientConfig.Empty,
@@ -651,7 +692,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
                 UpdateRuntimeDestinations(incomingCluster.Destinations, newClusterState.Destinations);
 
-                var httpClient = _httpClientFactory.CreateClient(new ForwarderHttpClientContext
+                var httpClient = httpClientFactory.CreateClient(new ForwarderHttpClientContext
                 {
                     ClusterId = newClusterState.ClusterId,
                     NewConfig = incomingCluster.HttpClient ?? HttpClientConfig.Empty,
