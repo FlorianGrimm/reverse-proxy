@@ -5,10 +5,13 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO.Pipes;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -18,31 +21,31 @@ using Yarp.ReverseProxy.Configuration;
 namespace Yarp.ReverseProxy.Forwarder;
 
 /// <summary>
-/// Default implementation of <see cref="IForwarderHttpClientFactory"/>.
+/// Namedpipe implementation of <see cref="IForwarderHttpClientFactory"/>.
 /// </summary>
-public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarderHttpClientFactorySelective
+public class ForwarderNamedPipeClientFactory : IForwarderHttpClientFactory, IForwarderHttpClientFactorySelective
 {
     private readonly ConfigureHttpClientFactorySocketsHttpHandler _configureSocketsHttpHandler;
-    private readonly ILogger<ForwarderHttpClientFactory> _logger;
+    private readonly ILogger<ForwarderNamedPipeClientFactory> _logger;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
+    /// Initializes a new instance of the <see cref="ForwarderNamedPipeClientFactory"/> class.
     /// </summary>
-    public ForwarderHttpClientFactory() : this(new(), NullLogger<ForwarderHttpClientFactory>.Instance) { }
+    public ForwarderNamedPipeClientFactory() : this(new(), NullLogger<ForwarderNamedPipeClientFactory>.Instance) { }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
+    /// Initializes a new instance of the <see cref="ForwarderNamedPipeClientFactory"/> class.
     /// </summary>
-    public ForwarderHttpClientFactory(ILogger<ForwarderHttpClientFactory> logger) : this(new(), logger)
+    public ForwarderNamedPipeClientFactory(ILogger<ForwarderNamedPipeClientFactory> logger) : this(new(), logger)
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
+    /// Initializes a new instance of the <see cref="ForwarderNamedPipeClientFactory"/> class.
     /// </summary>
-    public ForwarderHttpClientFactory(
+    public ForwarderNamedPipeClientFactory(
         ConfigureHttpClientFactorySocketsHttpHandler configureSocketsHttpHandler,
-        ILogger<ForwarderHttpClientFactory> logger)
+        ILogger<ForwarderNamedPipeClientFactory> logger)
     {
         _configureSocketsHttpHandler = configureSocketsHttpHandler;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -57,6 +60,13 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarde
             return context.OldClient!;
         }
 
+        if (context.NewMetadata is null
+            || !context.NewMetadata.TryGetValue("pipe", out var pipeName))
+        {
+            pipeName = "sample-server";
+            //throw new Exception("error");
+        }
+
         var handler = new SocketsHttpHandler
         {
             UseProxy = false,
@@ -68,7 +78,22 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarde
 
             // NOTE: MaxResponseHeadersLength = 64, which means up to 64 KB of headers are allowed by default as of .NET Core 3.1.
         };
+        handler.ConnectCallback = async (ctx, ct) =>
+        {
+            var serverName = string.Equals("localhost", ctx.DnsEndPoint.Host, StringComparison.Ordinal) ? "." : ctx.DnsEndPoint.Host;
 
+            var pipeClientStream = new NamedPipeClientStream(
+                //serverName: serverName,
+                //pipeName: pipeName,
+                serverName: ".",
+                pipeName: "sample-server",
+                PipeDirection.InOut,
+                PipeOptions.Asynchronous);
+
+            await pipeClientStream.ConnectAsync(ct);
+
+            return pipeClientStream;
+        };
         ConfigureHandler(context, handler);
 
         var middleware = WrapHandler(context, handler);
@@ -157,13 +182,13 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarde
     /// </summary>
     protected virtual HttpMessageHandler WrapHandler(ForwarderHttpClientContext context, HttpMessageHandler handler)
     {
+        handler = new NamedPipeProcessingHandler(handler);
         return handler;
     }
 
     public bool CanHandle(ForwarderHttpClientContext context)
     {
-        return string.IsNullOrEmpty(context.NewTransport)
-            || string.Equals(context.NewTransport, "HTTP", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(context.NewTransport, "NamedPipe", StringComparison.OrdinalIgnoreCase);
     }
 
     private static class Log
@@ -190,7 +215,37 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarde
     }
 }
 
-public sealed class ConfigureHttpClientFactorySocketsHttpHandler
+internal class NamedPipeProcessingHandler : MessageProcessingHandler
+{
+
+    public NamedPipeProcessingHandler(HttpMessageHandler innerHandler):base(innerHandler)
+    {
+    }
+
+    protected override HttpRequestMessage ProcessRequest(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var requestUri = request.RequestUri;
+        if (requestUri is null)
+        {
+            return request;
+        }
+        else {
+            var nextSchemeAuthority = string.Equals("pipe", requestUri.Scheme, StringComparison.Ordinal)
+                ? "http://localhost"
+                : "https://localhost";
+            var nextRequestUrl = $"{nextSchemeAuthority}{requestUri.PathAndQuery}{requestUri.Fragment}";
+            request.RequestUri = new Uri(nextRequestUrl);
+            return request;
+        }
+    }
+
+    protected override HttpResponseMessage ProcessResponse(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        return response;
+    }
+}
+
+public sealed class ConfigureNamedPipeFactorySocketsHttpHandler
 {
     public Action<ForwarderHttpClientContext, SocketsHttpHandler>? ConfigureClient { get; set; }
 }

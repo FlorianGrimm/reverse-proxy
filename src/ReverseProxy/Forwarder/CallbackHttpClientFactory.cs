@@ -7,11 +7,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Yarp.ReverseProxy.Forwarder;
 
-public sealed class ConfigureHttpClientFactorySocketsHttpHandler
-{
-    public Action<ForwarderHttpClientContext, SocketsHttpHandler>? ConfigureClient { get; set; }
-}
-
 //internal sealed class CallbackHttpClientFactory : ForwarderHttpClientFactory
 //{
 //    private readonly Action<ForwarderHttpClientContext, SocketsHttpHandler> _configureClient;
