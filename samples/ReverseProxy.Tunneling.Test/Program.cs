@@ -1,9 +1,60 @@
 #pragma warning disable IDE0060 // Remove unused parameter
 
+using System.IO.Pipes;
+
 namespace ReverseProxy.Tunneling.Test;
 
 public class Program
 {
+    public static async Task Main2(string[] args)
+    {
+        // https://andrewlock.net/using-named-pipes-with-aspnetcore-and-httpclient/
+        // pipe+https://./sample-server/abc
+        var url = "pipe+https://localhost/sample-server/abc";
+        //url.StartsWith("pipe+")
+        var uri = new Uri(url);
+        var baseAddress = new Uri(uri.GetLeftPart(UriPartial.Authority).Substring(5));   // 👈 Use localhost as the base address     
+        var serverName = string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase) ?  "." : uri.Host ;  // 👈 this machine
+        //var pipeName = "sample-server"; // 👈
+        var pipeName = uri.Segments[1].TrimEnd('/');
+        var urlServerRelative = string.Join("", uri.Segments.Where((_, i) => i != 1))+uri.Query+uri.Fragment;
+        var httpHandler = new SocketsHttpHandler
+        {
+            // Called to open a new connection
+            ConnectCallback = async (ctx, ct) =>
+            {
+                // Configure the named pipe stream
+                var pipeClientStream = new NamedPipeClientStream(
+                    serverName: serverName,
+                    pipeName: pipeName,
+                    PipeDirection.InOut, // We want a duplex stream 
+                    PipeOptions.Asynchronous); // Always go async
+
+                // Connect to the server!
+                await pipeClientStream.ConnectAsync(ct);
+                return pipeClientStream;
+            }
+        };
+
+        // Create an HttpClient using the named pipe handler
+        using var client = new HttpClient(httpHandler)
+        {
+            BaseAddress = baseAddress
+        };
+
+        try
+        {
+            using var response = await client.GetAsync(urlServerRelative);
+            response.EnsureSuccessStatusCode();
+            var responseBody = await response.Content.ReadAsStringAsync();
+            System.Console.Out.WriteLine(responseBody);
+        }
+        catch (Exception error)
+        {
+            System.Console.Error.WriteLine(error.ToString());
+        }
+    }
+
     public static async Task Main(string[] args)
     {
         var assemblyLocation = System.IO.Path.ChangeExtension(typeof(Program).Assembly.Location, ".exe");
@@ -37,10 +88,14 @@ public class Program
             {
                 FileName = sampleServerLocation,
                 WorkingDirectory = System.IO.Path.GetDirectoryName(sampleServerLocation),
-                Arguments = """--Urls https://localhost:5001""",
+                Arguments = "--Urls \"https://pipe:/sample-server;https://localhost:5001\"",
                 UseShellExecute = true,
                 CreateNoWindow = false
             };
+            /*
+             dotnet run --framework net8.0  -- --Urls="https://pipe:/sample-server;https://localhost:5001"
+             dotnet run --framework net8.0  -- --Urls="https://pipe:/sample-server"
+             */
             sampleServerProcess = System.Diagnostics.Process.Start(psiSampleServer);
 
             Console.WriteLine($"start frontend:{frontEndLocation}");

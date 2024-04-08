@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 using Yarp.ReverseProxy.Forwarder;
 
-namespace Yarp.ReverseProxy.Tunnel.Frontend;
+namespace Yarp.ReverseProxy.Tunnel.Backwarder;
 
 /// <summary>
 /// The factory that YARP will use the create outbound connections by host name.

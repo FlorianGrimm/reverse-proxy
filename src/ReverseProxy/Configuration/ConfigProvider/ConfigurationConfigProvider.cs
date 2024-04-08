@@ -13,6 +13,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Yarp.ReverseProxy.Forwarder;
+using Yarp.ReverseProxy.Tunnel;
+using Yarp.ReverseProxy.Tunnel.Backwarder;
 
 namespace Yarp.ReverseProxy.Configuration.ConfigProvider;
 
@@ -130,6 +132,7 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             HttpRequest = CreateProxyRequestConfig(section.GetSection(nameof(ClusterConfig.HttpRequest))),
             Metadata = section.GetSection(nameof(ClusterConfig.Metadata)).ReadStringDictionary(),
             Destinations = destinations,
+            Tunnel = CreateClusterTunnelConfig(section.GetSection(nameof(ClusterConfig.Tunnel))),
         };
     }
 
@@ -385,6 +388,20 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             Health = section[nameof(DestinationConfig.Health)],
             Metadata = section.GetSection(nameof(DestinationConfig.Metadata)).ReadStringDictionary(),
             Host = section[nameof(DestinationConfig.Host)]
+        };
+    }
+
+    private static ClusterTunnelConfig CreateClusterTunnelConfig(IConfigurationSection section)
+    {
+        return new ClusterTunnelConfig
+        {
+            MaxConnectionCount = section.ReadInt32(nameof(ClusterTunnelConfig.MaxConnectionCount)).GetValueOrDefault(10),
+            Transport = (section[nameof(ClusterTunnelConfig.Transport)]) switch {
+                "Disabled" => TransportType.Disabled,
+                "WebSockets" => TransportType.WebSockets,
+                "HTTP2" => TransportType.HTTP2,
+                _=> TransportType.Invalid
+            }
         };
     }
 

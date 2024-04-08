@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Sources;
 using Microsoft.AspNetCore.Connections;
 
-namespace Yarp.ReverseProxy.Tunnel.Frontend;
+namespace Yarp.ReverseProxy.Tunnel.Backwarder;
 
 internal class ConnectionContextStream : Stream, IValueTaskSource<object?>
 {

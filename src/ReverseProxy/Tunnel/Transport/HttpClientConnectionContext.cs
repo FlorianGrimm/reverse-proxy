@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
 
-namespace Yarp.ReverseProxy.Tunnel.Backend;
+namespace Yarp.ReverseProxy.Tunnel.Transport;
 
 internal class HttpClientConnectionContext : ConnectionContext,
                 IConnectionLifetimeFeature,

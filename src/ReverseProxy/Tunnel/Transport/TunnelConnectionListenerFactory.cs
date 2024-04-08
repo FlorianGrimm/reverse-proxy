@@ -5,13 +5,15 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Options;
 
-namespace Yarp.ReverseProxy.Tunnel.Backend;
+using Yarp.ReverseProxy.Configuration;
+
+namespace Yarp.ReverseProxy.Tunnel.Transport;
 
 public class TunnelConnectionListenerFactory : IConnectionListenerFactory
 {
-    private readonly TunnelOptions _options;
+    private readonly TunnelBackendConfig _options;
 
-    public TunnelConnectionListenerFactory(IOptions<TunnelOptions> options)
+    public TunnelConnectionListenerFactory(IOptions<TunnelBackendConfig> options)
     {
         _options = options.Value;
     }

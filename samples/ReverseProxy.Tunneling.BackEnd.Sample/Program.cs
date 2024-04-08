@@ -8,11 +8,16 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddReverseProxy()
-    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+    ;
 
+/*
 var url = builder.Configuration["Tunnel:Url"]!;
-
 builder.WebHost.UseTunnelTransport(url);
+*/
+
+builder.WebHost.UseTunnelTransport(builder.Configuration.GetSection("Tunnel"));
+
 
 /*
 // source https://github.com/davidfowl/YarpTunnelDemo

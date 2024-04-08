@@ -1,4 +1,4 @@
-namespace Yarp.ReverseProxy.Tunnel.Frontend;
+namespace Yarp.ReverseProxy.Tunnel.Backwarder;
 
 internal interface ICloseable
 {

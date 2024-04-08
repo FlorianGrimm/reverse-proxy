@@ -3,7 +3,10 @@
 
 using System;
 using System.Collections.Generic;
+
 using Yarp.ReverseProxy.Forwarder;
+using Yarp.ReverseProxy.Tunnel.Transport;
+using Yarp.ReverseProxy.Tunnel.Backwarder;
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Configuration;
@@ -54,6 +57,8 @@ public sealed record ClusterConfig
     /// </summary>
     public IReadOnlyDictionary<string, string>? Metadata { get; init; }
 
+    public ClusterTunnelConfig? Tunnel { get; init; }
+
     public bool Equals(ClusterConfig? other)
     {
         if (other is null)
@@ -79,19 +84,23 @@ public sealed record ClusterConfig
             && HealthCheck == other.HealthCheck
             && HttpClient == other.HttpClient
             && HttpRequest == other.HttpRequest
-            && CaseSensitiveEqualHelper.Equals(Metadata, other.Metadata);
+            && CaseSensitiveEqualHelper.Equals(Metadata, other.Metadata)
+            && Tunnel == other.Tunnel
+            ;
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(
-            ClusterId?.GetHashCode(StringComparison.OrdinalIgnoreCase),
-            LoadBalancingPolicy?.GetHashCode(StringComparison.OrdinalIgnoreCase),
-            SessionAffinity,
-            HealthCheck,
-            HttpClient,
-            HttpRequest,
-            CollectionEqualityHelper.GetHashCode(Destinations),
-            CaseSensitiveEqualHelper.GetHashCode(Metadata));
+        HashCode result = new();
+        result.Add(ClusterId?.GetHashCode(StringComparison.OrdinalIgnoreCase));
+        result.Add(LoadBalancingPolicy?.GetHashCode(StringComparison.OrdinalIgnoreCase));
+        result.Add(SessionAffinity);
+        result.Add(HealthCheck);
+        result.Add(HttpClient);
+        result.Add(HttpRequest);
+        result.Add(CollectionEqualityHelper.GetHashCode(Destinations));
+        result.Add(CaseSensitiveEqualHelper.GetHashCode(Metadata));
+        result.Add(Tunnel);
+        return result.ToHashCode();
     }
 }

@@ -28,8 +28,9 @@ public static partial class ReverseProxyIEndpointRouteBuilderExtensions
         {
             app.UseSessionAffinity();
             app.UseLoadBalancing();
-            app.UsePassiveHealthChecks();
+            app.UsePassiveHealthChecks();            
         });
+        //endpoints.MapHttp2Tunnel
     }
 
     /// <summary>

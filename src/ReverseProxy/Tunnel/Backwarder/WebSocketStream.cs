@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Sources;
 
-namespace Yarp.ReverseProxy.Tunnel.Frontend;
+namespace Yarp.ReverseProxy.Tunnel.Backwarder;
 
 internal class WebSocketStream : Stream, IValueTaskSource<object?>, ICloseable
 {

@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Http.Connections.Client;
 
-namespace Yarp.ReverseProxy.Tunnel.Backend;
+namespace Yarp.ReverseProxy.Tunnel.Transport;
 
 internal class WebSocketConnectionContext : HttpConnection
 {

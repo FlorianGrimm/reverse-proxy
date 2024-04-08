@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Features;
 
-namespace Yarp.ReverseProxy.Tunnel.Backend;
+namespace Yarp.ReverseProxy.Tunnel.Transport;
 
 /// <summary>
 /// This exists solely to track the lifetime of the connection

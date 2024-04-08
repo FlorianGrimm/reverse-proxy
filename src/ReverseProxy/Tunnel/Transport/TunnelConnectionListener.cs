@@ -7,8 +7,11 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Server.IIS.Core;
 
-namespace Yarp.ReverseProxy.Tunnel.Backend;
+using Yarp.ReverseProxy.Configuration;
+
+namespace Yarp.ReverseProxy.Tunnel.Transport;
 
 /// <summary>
 /// This has the core logic that creates and maintains connections to the proxy.
@@ -17,7 +20,7 @@ internal class TunnelConnectionListener : IConnectionListener
 {
     private readonly SemaphoreSlim _connectionLock;
     private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections = new();
-    private readonly TunnelOptions _options;
+    private readonly TunnelBackendConfig _options;
     private readonly CancellationTokenSource _closedCts = new();
     private readonly HttpMessageInvoker _httpMessageInvoker = new(new SocketsHttpHandler
     {
@@ -26,21 +29,41 @@ internal class TunnelConnectionListener : IConnectionListener
         PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan
     });
 
-    public TunnelConnectionListener(TunnelOptions options, EndPoint endpoint)
+    public TunnelConnectionListener(TunnelBackendConfig options, EndPoint endpoint)
     {
         _options = options;
         _connectionLock = new(options.MaxConnectionCount);
         EndPoint = endpoint;
 
-        if (endpoint is not UriEndPoint2)
+#if NET7_0_OR_GREATER
+        if (endpoint is UriEndPoint uriEndPoint)
         {
-            throw new NotSupportedException($"UriEndPoint is required for {options.Transport} transport");
+            if (uriEndPoint.Uri is null)
+            {
+                throw new ArgumentException("UriEndPoint.Uri is required", nameof(endpoint));
+            }
+            _EndPointUri = uriEndPoint.Uri;
+        }
+        else
+#endif
+        if (endpoint is UriEndPoint2 uriEndPoint2)
+        {
+            if (uriEndPoint2.Uri is null)
+            {
+                throw new ArgumentException("UriEndPoint2.Uri is required", nameof(endpoint));
+            }
+            _EndPointUri = uriEndPoint2.Uri;
+        }
+        else
+        {
+            throw new NotSupportedException($"UriEndPoint2 is required for {options.Transport} transport");
         }
     }
 
     public EndPoint EndPoint { get; }
 
-    private Uri Uri => ((UriEndPoint2)EndPoint).Uri!;
+    private readonly Uri _EndPointUri;
+    // private Uri Uri => ((UriEndPoint2)EndPoint).Uri!;
 
     public async ValueTask<ConnectionContext?> AcceptAsync(CancellationToken cancellationToken = default)
     {
@@ -59,8 +82,8 @@ internal class TunnelConnectionListener : IConnectionListener
                 {
                     var connection = new TrackLifetimeConnectionContext(_options.Transport switch
                     {
-                        TransportType.WebSockets => await WebSocketConnectionContext.ConnectAsync(Uri, cancellationToken),
-                        TransportType.HTTP2 => await HttpClientConnectionContext.ConnectAsync(_httpMessageInvoker, Uri, cancellationToken),
+                        TransportType.WebSockets => await WebSocketConnectionContext.ConnectAsync(_EndPointUri, cancellationToken),
+                        TransportType.HTTP2 => await HttpClientConnectionContext.ConnectAsync(_httpMessageInvoker, _EndPointUri, cancellationToken),
                         _ => throw new NotSupportedException(),
                     });
 

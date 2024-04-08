@@ -6,7 +6,7 @@ using System.Threading.Tasks.Sources;
 
 using Microsoft.AspNetCore.Http;
 
-namespace Yarp.ReverseProxy.Tunnel.Frontend;
+namespace Yarp.ReverseProxy.Tunnel.Backwarder;
 
 internal class DuplexHttpStream : Stream, IValueTaskSource<object?>, ICloseable
 {
