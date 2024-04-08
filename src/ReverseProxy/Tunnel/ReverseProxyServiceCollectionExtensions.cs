@@ -24,6 +24,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Hosting;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -39,92 +40,27 @@ public static partial class ReverseProxyServiceCollectionExtensions
         return services;
     }
 
-    [RequiresUnreferencedCode(message: "TODO")]
-#if NET7_0_OR_GREATER
-    [RequiresDynamicCode(message: "TODO")]
-#endif
     public static IEndpointConventionBuilder MapHttp2Tunnel(this IEndpointRouteBuilder routes, string path)
     {
-        return routes.MapPost(path, static async (HttpContext context, string host, TunnelClientFactory tunnelFactory, IHostApplicationLifetime lifetime) =>
-        {
-            // HTTP/2 duplex stream
-            if (context.Request.Protocol != HttpProtocol.Http2)
-            {
-                return Results.BadRequest();
-            }
+        var pattern = $"{path}/{{TunnelId}}";
 
-#warning host -> channel / tunnel
-            var (requests, responses) = tunnelFactory.GetConnectionChannel(host);
-
-            await requests.Reader.ReadAsync(context.RequestAborted);
-
-            var stream = new DuplexHttpStream(context);
-
-            using var reg = lifetime.ApplicationStopping.Register(() => stream.Abort());
-
-            // Keep reusing this connection while, it's still open on the backend
-            while (!context.RequestAborted.IsCancellationRequested)
-            {
-                // Make this connection available for requests
-                await responses.Writer.WriteAsync(stream, context.RequestAborted);
-
-                await stream.StreamCompleteTask;
-
-                stream.Reset();
-            }
-
-            return EmptyResult.Instance;
-        });
+        return routes.MapPost(pattern, async (HttpContext context) => await TunnelHandler.HandleHttp2Tunnel(context));
     }
 
-    [RequiresUnreferencedCode(message: "TODO")]
-#if NET7_0_OR_GREATER
-    [RequiresDynamicCode(message: "TODO")]
-#endif
     public static IEndpointConventionBuilder MapWebSocketTunnel(this IEndpointRouteBuilder routes, string path)
     {
-        var conventionBuilder = routes.MapGet(path, static async (HttpContext context, string host, TunnelClientFactory tunnelFactory, IHostApplicationLifetime lifetime) =>
-        {
-            if (!context.WebSockets.IsWebSocketRequest)
-            {
-                return Results.BadRequest();
-            }
-
-#warning            context.Request.RouteValues.TryGetValue("channel")
-
-            var (requests, responses) = tunnelFactory.GetConnectionChannel(host);
-
-            await requests.Reader.ReadAsync(context.RequestAborted);
-
-            var ws = await context.WebSockets.AcceptWebSocketAsync();
-
-            var stream = new WebSocketStream(ws);
-
-            // We should make this more graceful
-            using var reg = lifetime.ApplicationStopping.Register(() => stream.Abort());
-
-            // Keep reusing this connection while, it's still open on the backend
-            while (ws.State == WebSocketState.Open)
-            {
-                // Make this connection available for requests
-                await responses.Writer.WriteAsync(stream, context.RequestAborted);
-
-                await stream.StreamCompleteTask;
-
-                stream.Reset();
-            }
-
-            return EmptyResult.Instance;
-        });
+        var pattern = $"{path}/{{TunnelId}}";
+        var conventionBuilder = routes.Map(pattern, async (context) => await TunnelHandler.HandleWebSocketTunnel(context));
 
         // Make this endpoint do websockets automagically as middleware for this specific route
-        conventionBuilder.Add(e =>
+        conventionBuilder.Add(endpointBuilder =>
         {
             var sub = routes.CreateApplicationBuilder();
-            sub.UseWebSockets().Run(e.RequestDelegate!);
-            e.RequestDelegate = sub.Build();
+            sub.UseWebSockets().Run(endpointBuilder.RequestDelegate!);
+            endpointBuilder.RequestDelegate = sub.Build();
         });
 
         return conventionBuilder;
+
     }
 }

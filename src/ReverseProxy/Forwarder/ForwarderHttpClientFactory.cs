@@ -17,7 +17,7 @@ namespace Yarp.ReverseProxy.Forwarder;
 /// </summary>
 public class ForwarderHttpClientFactory : IForwarderHttpClientFactory
 {
-    private readonly ILogger<ForwarderHttpClientFactory> _logger;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
@@ -28,6 +28,11 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory
     /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
     /// </summary>
     public ForwarderHttpClientFactory(ILogger<ForwarderHttpClientFactory> logger)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    protected ForwarderHttpClientFactory(ILogger logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }

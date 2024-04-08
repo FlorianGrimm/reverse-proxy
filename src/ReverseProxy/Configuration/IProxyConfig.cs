@@ -31,6 +31,11 @@ public interface IProxyConfig
     IReadOnlyList<ClusterConfig> Clusters { get; }
 
     /// <summary>
+    /// Tunnel information for where to tunnel from and to.
+    /// </summary>
+    IReadOnlyList<TunnelConfig> Tunnels { get; }
+
+    /// <summary>
     /// A notification that triggers when this snapshot expires.
     /// </summary>
     IChangeToken ChangeToken { get; }

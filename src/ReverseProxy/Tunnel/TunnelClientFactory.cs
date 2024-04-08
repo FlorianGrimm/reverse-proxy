@@ -10,6 +10,9 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
+using Microsoft.Extensions.Logging;
+
+using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Forwarder;
 
 
@@ -20,6 +23,30 @@ namespace Yarp.ReverseProxy.Tunnel
     /// </summary>
     internal class TunnelClientFactory : ForwarderHttpClientFactory, IForwarderHttpClientTransportFactory
     {
+        private readonly IProxyConfigProvider _proxyConfigProvider;
+
+        public TunnelClientFactory(
+            IProxyConfigProvider proxyConfigProvider,
+            ILogger<TunnelClientFactory> logger
+            ) : base(logger)
+        {
+            _proxyConfigProvider = proxyConfigProvider;
+
+            var proxyConfig = proxyConfigProvider.GetConfig();
+            foreach (var cluster in proxyConfig.Clusters) {
+                if (cluster.Metadata is not null
+                    && cluster.Metadata.TryGetValue("Transport", out var transport)
+                    && string.Equals(transport, "Tunnel", StringComparison.Ordinal)
+                    ) {
+                    if (cluster.Destinations is not null) {
+                        foreach (var destination in cluster.Destinations.Values) {
+#warning                    destination.Address
+                        }
+                    }
+                }
+            }
+        }
+
         public string GetTransport() => "Tunnel";
 
 #warning How do i get the channel / tunnel?
@@ -40,12 +67,14 @@ namespace Yarp.ReverseProxy.Tunnel
 
             var previous = handler.ConnectCallback ?? DefaultConnectCallback;
 
-            static async ValueTask<Stream> DefaultConnectCallback(SocketsHttpConnectionContext context, CancellationToken cancellationToken)
+            //v context.ClusterId
+
+            static async ValueTask<Stream> DefaultConnectCallback(SocketsHttpConnectionContext socketsContext, CancellationToken cancellationToken)
             {
                 var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
                 try
                 {
-                    await socket.ConnectAsync(context.DnsEndPoint, cancellationToken);
+                    await socket.ConnectAsync(socketsContext.DnsEndPoint, cancellationToken);
                     return new NetworkStream(socket, ownsSocket: true);
                 }
                 catch
@@ -55,9 +84,10 @@ namespace Yarp.ReverseProxy.Tunnel
                 }
             }
 
-            handler.ConnectCallback = async (context, cancellationToken) =>
+
+            handler.ConnectCallback = async (socketsContext, cancellationToken) =>
             {
-                if (_clusterConnections.TryGetValue(context.DnsEndPoint.Host, out var pair))
+                if (_clusterConnections.TryGetValue(socketsContext.DnsEndPoint.Host, out var pair))
                 {
                     var (requests, responses) = pair;
 
@@ -79,7 +109,7 @@ namespace Yarp.ReverseProxy.Tunnel
                         return stream;
                     }
                 }
-                return await previous(context, cancellationToken);
+                return await previous(socketsContext, cancellationToken);
             };
         }
     }

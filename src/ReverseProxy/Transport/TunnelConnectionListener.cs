@@ -33,7 +33,7 @@ namespace Yarp.ReverseProxy.Transport
             _connectionLock = new(options.MaxConnectionCount);
             EndPoint = endpoint;
 
-            if (endpoint is not UriEndPoint2)
+            if (endpoint is not UriTunnelTransportEndPoint)
             {
                 throw new NotSupportedException($"UriEndPoint is required for {options.Transport} transport");
             }
@@ -41,7 +41,7 @@ namespace Yarp.ReverseProxy.Transport
 
         public EndPoint EndPoint { get; }
 
-        private Uri Uri => ((UriEndPoint2)EndPoint).Uri!;
+        private Uri Uri => ((UriTunnelTransportEndPoint)EndPoint).Uri!;
 
         public async ValueTask<ConnectionContext?> AcceptAsync(CancellationToken cancellationToken = default)
         {

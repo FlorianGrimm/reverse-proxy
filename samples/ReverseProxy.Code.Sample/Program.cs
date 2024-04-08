@@ -18,14 +18,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddReverseProxy()
-    .LoadFromMemory(GetRoutes(), GetClusters());
+    .LoadFromMemory(GetRoutes(), GetClusters(), []);
 
 var app = builder.Build();
 
 
 app.Map("/update", context =>
 {
-    context.RequestServices.GetRequiredService<InMemoryConfigProvider>().Update(GetRoutes(), GetClusters());
+    context.RequestServices.GetRequiredService<InMemoryConfigProvider>().Update(GetRoutes(), GetClusters(), []);
     return Task.CompletedTask;
 });
 // We can customize the proxy pipeline and add/remove/replace steps

@@ -277,6 +277,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         // Extract the routes and clusters from the configs, regardless of whether they were reloaded.
         foreach (var instance in _configs)
         {
+#warning Tunnels
             if (instance.LatestConfig.Routes is { Count: > 0 } updatedRoutes)
             {
                 routes.AddRange(updatedRoutes);
@@ -428,16 +429,19 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     {
         private readonly IProxyConfig _innerConfig;
 
-        public ResolvedProxyConfig(IProxyConfig innerConfig, IReadOnlyList<ClusterConfig> clusters, IChangeToken changeToken)
+        public ResolvedProxyConfig(IProxyConfig innerConfig, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TunnelConfig> tunnels, IChangeToken changeToken)
         {
             _innerConfig = innerConfig;
             Clusters = clusters;
+            Tunnels = tunnels;
             ChangeToken = changeToken;
         }
 
         public IReadOnlyList<RouteConfig> Routes => _innerConfig.Routes;
         public IReadOnlyList<ClusterConfig> Clusters { get; }
+        public IReadOnlyList<TunnelConfig> Tunnels { get; }
         public IChangeToken ChangeToken { get; }
+
     }
 
     private void ListenForConfigChanges()
