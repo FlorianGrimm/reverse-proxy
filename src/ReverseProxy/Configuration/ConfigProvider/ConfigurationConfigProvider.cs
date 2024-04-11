@@ -7,6 +7,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Http;
 using System.Security.Authentication;
+using System.Security.Cryptography.Xml;
 using System.Threading;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -82,6 +83,16 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
                 {
                     newSnapshot.Routes.Add(CreateRoute(section));
                 }
+
+                foreach (var section in _configuration.GetSection("TunnelFrontends").GetChildren())
+                {
+                    newSnapshot.TunnelFrontends.Add(CreateTunnelFrontend(section));
+                }
+
+                foreach (var section in _configuration.GetSection("TunnelBackends").GetChildren())
+                {
+                    newSnapshot.TunnelBackends.Add(CreateTunnelBackend(section));
+                }
             }
             catch (Exception ex)
             {
@@ -123,6 +134,7 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         return new ClusterConfig
         {
             ClusterId = section.Key,
+            Transport = section[nameof(ClusterConfig.Transport)] ?? string.Empty,
             LoadBalancingPolicy = section[nameof(ClusterConfig.LoadBalancingPolicy)],
             SessionAffinity = CreateSessionAffinityConfig(section.GetSection(nameof(ClusterConfig.SessionAffinity))),
             HealthCheck = CreateHealthCheckConfig(section.GetSection(nameof(ClusterConfig.HealthCheck))),
@@ -385,6 +397,23 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             Health = section[nameof(DestinationConfig.Health)],
             Metadata = section.GetSection(nameof(DestinationConfig.Metadata)).ReadStringDictionary(),
             Host = section[nameof(DestinationConfig.Host)]
+        };
+    }
+
+    private static TunnelFrontendConfig CreateTunnelFrontend(IConfigurationSection section)
+    {
+        return new TunnelFrontendConfig()
+        {
+            TunnelId = section.Key,
+        };
+    }
+
+    private static TunnelBackendConfig CreateTunnelBackend(IConfigurationSection section)
+    {
+        return new TunnelBackendConfig()
+        {
+            TunnelId = section.Key,
+            Transport = section[nameof(TunnelBackendConfig.Transport)] ?? string.Empty
         };
     }
 

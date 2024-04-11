@@ -31,4 +31,10 @@ public interface IProxyStateLookup
     /// Enumerates all current clusters. This is thread safe but the collection may change mid enumeration if the configuration is reloaded.
     /// </summary>
     IEnumerable<ClusterState> GetClusters();
+
+    bool TryGetTunnelFrontend(string id, [NotNullWhen(true)] out TunnelFrontendState? tunnelFrontend);
+    IEnumerable<TunnelFrontendState> GetTunnelFrontends();
+
+    bool TryGetTunnelBackend(string id, [NotNullWhen(true)] out TunnelBackendState? tunnelBackend);
+    IEnumerable<TunnelBackendState> GetTunnelBackends();
 }

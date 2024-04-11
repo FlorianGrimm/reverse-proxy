@@ -20,6 +20,11 @@ public sealed record ClusterConfig
     public string ClusterId { get; init; } = default!;
 
     /// <summary>
+    /// The transport to use for requests to destinations in this cluster.
+    /// </summary>
+    public string Transport { get; init; } = default!;
+
+    /// <summary>
     /// Load balancing policy.
     /// </summary>
     public string? LoadBalancingPolicy { get; init; }

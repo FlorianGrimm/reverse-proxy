@@ -5,9 +5,12 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Http;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Configuration.ConfigProvider;
 using Yarp.ReverseProxy.Forwarder;
@@ -15,6 +18,7 @@ using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Routing;
 using Yarp.ReverseProxy.ServiceDiscovery;
 using Yarp.ReverseProxy.Transforms.Builder;
+using Yarp.ReverseProxy.Tunnel;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -30,10 +34,23 @@ public static class ReverseProxyServiceCollectionExtensions
     public static IServiceCollection AddHttpForwarder(this IServiceCollection services)
     {
         services.TryAddSingleton(TimeProvider.System);
-        services.TryAddSingleton<IHttpForwarder, HttpForwarder>();
+        services.TryAddSingleton<IHttpForwarder, HttpForwarderV2>();
+        services.TryAddSingleton<IHttpForwarderV2, HttpForwarderV2>();
         services.TryAddSingleton<ITransformBuilder, TransformBuilder>();
 
         services.AddSingleton<DirectForwardingHttpClientProvider>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddTunnelForwarder(this IServiceCollection services)
+    {
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<IHttpForwarder, HttpForwarderV2>();
+        services.TryAddSingleton<IHttpForwarderV2, HttpForwarderV2>();
+        services.TryAddSingleton<ITransformBuilder, TransformBuilder>();
+
+        services.AddSingleton<IForwarderTransportClientFactory, ForwarderTunnelClientFactory>();
 
         return services;
     }
@@ -54,7 +71,8 @@ public static class ReverseProxyServiceCollectionExtensions
             .AddLoadBalancingPolicies()
             .AddHttpSysDelegation()
             .AddDestinationResolver()
-            .AddProxy();
+            .AddProxy()
+            .AddTunnel();
 
         services.TryAddSingleton<ProxyEndpointFactory>();
 
@@ -81,6 +99,15 @@ public static class ReverseProxyServiceCollectionExtensions
             // This is required because we're capturing the configuration via a closure
             return new ConfigurationConfigProvider(sp.GetRequiredService<ILogger<ConfigurationConfigProvider>>(), config);
         });
+
+#warning here
+        /*
+        if (builder is IReverseProxyBuilderInternal reverseProxyBuilderInternal)
+        {
+            IProxyConfigProvider proxyConfigProvider = new ConfigurationConfigProvider(new NullLogger<ConfigurationConfigProvider>(), config);
+            reverseProxyBuilderInternal.ProxyConfigProvider = proxyConfigProvider;
+        }
+        */
 
         return builder;
     }

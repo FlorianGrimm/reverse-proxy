@@ -3,6 +3,8 @@
 
 using System.Net.Http;
 
+using Yarp.ReverseProxy.Configuration;
+
 namespace Yarp.ReverseProxy.Forwarder;
 
 /// <summary>
@@ -31,4 +33,13 @@ public interface IForwarderHttpClientFactory
     /// </para>
     /// </remarks>
     HttpMessageInvoker CreateClient(ForwarderHttpClientContext context);
+}
+
+public interface IForwarderTransportClientFactory: IForwarderHttpClientFactory
+{
+    string? GetTransport();
+}
+
+public interface IForwarderTransportClientFactorySelector : IForwarderHttpClientFactory {
+    IForwarderHttpClientFactory GetForwarderHttpClientFactory(ClusterConfig incomingCluster);
 }

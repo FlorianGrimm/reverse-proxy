@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+
 using Microsoft.Extensions.Primitives;
 
 namespace Yarp.ReverseProxy.Configuration;
@@ -70,7 +71,10 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
         public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
-            : this(routes, clusters, Guid.NewGuid().ToString())
+            : this(routes, clusters, [], [], Guid.NewGuid().ToString())
+        { }
+        public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TunnelFrontendConfig> tunnelFrontendConfigs, IReadOnlyList<TunnelBackendConfig> tunnelBackendConfigs)
+            : this(routes, clusters, tunnelFrontendConfigs, tunnelBackendConfigs, Guid.NewGuid().ToString())
         { }
 
         public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, string revisionId)
@@ -78,6 +82,18 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
             RevisionId = revisionId ?? throw new ArgumentNullException(nameof(revisionId));
             Routes = routes;
             Clusters = clusters;
+            TunnelFrontends = [];
+            TunnelBackends = [];
+            ChangeToken = new CancellationChangeToken(_cts.Token);
+        }
+
+        public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TunnelFrontendConfig> tunnelFrontendConfigs, IReadOnlyList<TunnelBackendConfig> tunnelBackendConfigs, string revisionId)
+        {
+            RevisionId = revisionId ?? throw new ArgumentNullException(nameof(revisionId));
+            Routes = routes;
+            Clusters = clusters;
+            TunnelFrontends = tunnelFrontendConfigs;
+            TunnelBackends = tunnelBackendConfigs;
             ChangeToken = new CancellationChangeToken(_cts.Token);
         }
 
@@ -94,10 +110,15 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
         /// </summary>
         public IReadOnlyList<ClusterConfig> Clusters { get; }
 
+        public IReadOnlyList<TunnelFrontendConfig> TunnelFrontends { get; }
+
+        public IReadOnlyList<TunnelBackendConfig> TunnelBackends { get; }
+
         /// <summary>
         /// Fired to indicate the the proxy state has changed, and that this snapshot is now stale
         /// </summary>
         public IChangeToken ChangeToken { get; }
+
 
         internal void SignalChange()
         {

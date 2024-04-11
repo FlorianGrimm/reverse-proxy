@@ -41,3 +41,9 @@ public interface IHttpForwarder
         ForwarderRequestConfig requestConfig, HttpTransformer transformer, CancellationToken cancellationToken)
         => SendAsync(context, destinationPrefix, httpClient, requestConfig, transformer);
 }
+
+public interface IHttpForwarderV2: IHttpForwarder
+{
+    ValueTask<ForwarderError> SendAsync(HttpContext context, string destinationPrefix, HttpMessageInvoker httpClient,
+        ForwarderRequestConfig requestConfig, HttpTransformer transformer, TunnelTransformer tunnelTransformer, CancellationToken cancellationToken);
+}

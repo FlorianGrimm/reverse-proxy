@@ -3,6 +3,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -79,9 +80,25 @@ internal sealed class ForwarderMiddleware
             ForwarderTelemetry.Log.ForwarderInvoke(cluster.ClusterId, route.Config.RouteId, destination.DestinationId);
 
             var clusterConfig = reverseProxyFeature.Cluster;
-            var result = await _forwarder.SendAsync(context, destinationModel.Config.Address, clusterConfig.HttpClient,
-                clusterConfig.Config.HttpRequest ?? ForwarderRequestConfig.Empty, route.Transformer);
+            ForwarderError result;
 
+            if (_forwarder is IHttpForwarderV2 forwarderV2)
+            {
+                result = await forwarderV2.SendAsync(
+                    context, destinationModel.Config.Address, clusterConfig.HttpClient,
+                    clusterConfig.Config.HttpRequest ?? ForwarderRequestConfig.Empty,
+                    route.Transformer,
+#warning HERE
+                    //route.TunnelTransformer,
+                    TunnelTransformer.Empty,
+                    context.RequestAborted);
+            }
+            else
+            {
+                result = await _forwarder.SendAsync(context, destinationModel.Config.Address, clusterConfig.HttpClient,
+                    clusterConfig.Config.HttpRequest ?? ForwarderRequestConfig.Empty, route.Transformer);
+            }
+            
             activity?.SetStatus((result == ForwarderError.None) ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
         }
         finally

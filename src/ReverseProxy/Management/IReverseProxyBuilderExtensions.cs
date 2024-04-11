@@ -17,6 +17,7 @@ using Yarp.ReverseProxy.Routing;
 using Yarp.ReverseProxy.ServiceDiscovery;
 using Yarp.ReverseProxy.SessionAffinity;
 using Yarp.ReverseProxy.Transforms;
+using Yarp.ReverseProxy.Tunnel;
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Management;
@@ -77,9 +78,18 @@ internal static class IReverseProxyBuilderExtensions
 
     public static IReverseProxyBuilder AddProxy(this IReverseProxyBuilder builder)
     {
-        builder.Services.TryAddSingleton<IForwarderHttpClientFactory, ForwarderHttpClientFactory>();
+        builder.Services.TryAddSingleton<IForwarderHttpClientFactory, ForwarderTransportClientFactorySelector>();
+        builder.Services.TryAddSingleton<IForwarderTransportClientFactory, ForwarderHttpClientFactory>();
+        
+        builder.Services.AddHttpForwarder();
+        return builder;
+    }
+
+    public static IReverseProxyBuilder AddTunnel(this IReverseProxyBuilder builder) {
+        builder.Services.TryAddSingleton<IForwarderTransportClientFactory, ForwarderTunnelClientFactory>();
 
         builder.Services.AddHttpForwarder();
+        builder.Services.AddTunnelForwarder();
         return builder;
     }
 

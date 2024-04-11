@@ -1,6 +1,3 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
-
 using System;
 using System.Diagnostics;
 using System.Net;
@@ -11,25 +8,17 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Forwarder;
 
-namespace Yarp.ReverseProxy.Forwarder;
-
-/// <summary>
-/// Default implementation of <see cref="IForwarderHttpClientFactory"/>.
-/// </summary>
-public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarderTransportClientFactory
+namespace Yarp.ReverseProxy.Tunnel;
+public class ForwarderTunnelClientFactory : IForwarderHttpClientFactory, IForwarderTransportClientFactory
 {
-    private readonly ILogger<ForwarderHttpClientFactory> _logger;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
     /// </summary>
-    public ForwarderHttpClientFactory() : this(NullLogger<ForwarderHttpClientFactory>.Instance) { }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
-    /// </summary>
-    public ForwarderHttpClientFactory(ILogger<ForwarderHttpClientFactory> logger)
+    public ForwarderTunnelClientFactory(ILogger<ForwarderTunnelClientFactory> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -143,7 +132,7 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarde
 
     public virtual string? GetTransport()
     {
-        return "HTTP";
+        return "Tunnel";
     }
 
     private static class Log
