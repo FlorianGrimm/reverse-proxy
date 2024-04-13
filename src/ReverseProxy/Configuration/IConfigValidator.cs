@@ -22,3 +22,8 @@ public interface IConfigValidator
     /// </summary>
     ValueTask<IList<Exception>> ValidateClusterAsync(ClusterConfig cluster);
 }
+public interface IConfigValidatorV2
+{
+    ValueTask<IList<Exception>> ValidateTunnelFrontendToBackendAsync(TunnelFrontendToBackendConfig tunnelFrontendToBackend);
+    ValueTask<IList<Exception>> ValidateTunnelBackendToFrontendAsync(TunnelBackendToFrontendConfig tunnelFrontendToBackend);
+}

@@ -32,9 +32,9 @@ public interface IProxyStateLookup
     /// </summary>
     IEnumerable<ClusterState> GetClusters();
 
-    bool TryGetTunnelFrontend(string id, [NotNullWhen(true)] out TunnelFrontendState? tunnelFrontend);
-    IEnumerable<TunnelFrontendState> GetTunnelFrontends();
+    bool TryGetTunnelFrontendToBackend(string id, [NotNullWhen(true)] out TunnelFrontendToBackendState? tunnelFrontend);
+    IEnumerable<TunnelFrontendToBackendState> GetTunnelFrontendToBackends();
 
-    bool TryGetTunnelBackend(string id, [NotNullWhen(true)] out TunnelBackendState? tunnelBackend);
-    IEnumerable<TunnelBackendState> GetTunnelBackends();
+    bool TryGetTunnelBackendToFrontend(string id, [NotNullWhen(true)] out TunnelBackendToFrontendState? tunnelBackend);
+    IEnumerable<TunnelBackendToFrontendState> GetTunnelBackendToFrontends();
 }

@@ -26,7 +26,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// Extensions for <see cref="IServiceCollection"/>
 /// used to register the ReverseProxy's components.
 /// </summary>
-public static class ReverseProxyServiceCollectionExtensions
+public static partial class ReverseProxyServiceCollectionExtensions
 {
     /// <summary>
     /// Registers the <see cref="IHttpForwarder"/> service for direct forwarding scenarios.
@@ -71,8 +71,7 @@ public static class ReverseProxyServiceCollectionExtensions
             .AddLoadBalancingPolicies()
             .AddHttpSysDelegation()
             .AddDestinationResolver()
-            .AddProxy()
-            .AddTunnel();
+            .AddProxy();
 
         services.TryAddSingleton<ProxyEndpointFactory>();
 
@@ -99,15 +98,6 @@ public static class ReverseProxyServiceCollectionExtensions
             // This is required because we're capturing the configuration via a closure
             return new ConfigurationConfigProvider(sp.GetRequiredService<ILogger<ConfigurationConfigProvider>>(), config);
         });
-
-#warning here
-        /*
-        if (builder is IReverseProxyBuilderInternal reverseProxyBuilderInternal)
-        {
-            IProxyConfigProvider proxyConfigProvider = new ConfigurationConfigProvider(new NullLogger<ConfigurationConfigProvider>(), config);
-            reverseProxyBuilderInternal.ProxyConfigProvider = proxyConfigProvider;
-        }
-        */
 
         return builder;
     }

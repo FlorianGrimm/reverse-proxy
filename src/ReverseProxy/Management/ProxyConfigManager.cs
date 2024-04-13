@@ -35,6 +35,8 @@ namespace Yarp.ReverseProxy.Management;
 // https://github.com/dotnet/aspnetcore/blob/cbe16474ce9db7ff588aed89596ff4df5c3f62e1/src/Mvc/Mvc.Core/src/Routing/ActionEndpointDataSourceBase.cs
 internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup, IDisposable
 {
+    private static readonly IReadOnlyDictionary<string, TunnelFrontendToBackendConfig> _emptyTunnelFrontendToBackendDictionary = new ReadOnlyDictionary<string, TunnelFrontendToBackendConfig>(new Dictionary<string, TunnelFrontendToBackendConfig>());
+    private static readonly IReadOnlyDictionary<string, TunnelBackendToFrontendConfig> _emptyTunnelBackendToFrontendDictionary = new ReadOnlyDictionary<string, TunnelBackendToFrontendConfig>(new Dictionary<string, TunnelBackendToFrontendConfig>());
     private static readonly IReadOnlyDictionary<string, ClusterConfig> _emptyClusterDictionary = new ReadOnlyDictionary<string, ClusterConfig>(new Dictionary<string, ClusterConfig>());
 
     private readonly object _syncRoot = new();
@@ -44,8 +46,8 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     private readonly IClusterChangeListener[] _clusterChangeListeners;
     private readonly ConcurrentDictionary<string, ClusterState> _clusters = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, RouteState> _routes = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, TunnelFrontendState> _tunnelFrontends = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, TunnelBackendState> _tunnelBackends = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, TunnelFrontendToBackendState> _tunnelFrontendToBackends = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, TunnelBackendToFrontendState> _tunnelBackendToFrontends = new(StringComparer.OrdinalIgnoreCase);
     private readonly IProxyConfigFilter[] _filters;
     private readonly IConfigValidator _configValidator;
     private readonly IForwarderHttpClientFactory _httpClientFactory;
@@ -156,15 +158,21 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         return configStates.Select(state => state.LatestConfig).ToList().AsReadOnly();
     }
 
+    private bool _initialLoadAsyncCalled;
+
     internal async Task<EndpointDataSource> InitialLoadAsync()
     {
+        if (_initialLoadAsyncCalled) { return this; }
+        _initialLoadAsyncCalled = true;
+
         // Trigger the first load immediately and throw if it fails.
         // We intend this to crash the app so we don't try listening for further changes.
         try
         {
             var routes = new List<RouteConfig>();
             var clusters = new List<ClusterConfig>();
-
+            var tunnelFrontendToBackends = new List<TunnelFrontendToBackendConfig>();
+            var tunnelBackendToFrontends = new List<TunnelBackendToFrontendConfig>();
             // Begin resolving config providers concurrently.
             var resolvedConfigs = new List<(int Index, IProxyConfigProvider Provider, ValueTask<IProxyConfig> Config)>(_providers.Length);
             for (var i = 0; i < _providers.Length; i++)
@@ -179,8 +187,22 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             {
                 var config = await configLoadTask;
                 _configs[i] = new ConfigState(provider, config);
-                routes.AddRange(config.Routes ?? Array.Empty<RouteConfig>());
-                clusters.AddRange(config.Clusters ?? Array.Empty<ClusterConfig>());
+                if (config.Routes is { Count: > 0 })
+                {
+                    routes.AddRange(config.Routes);
+                }
+                if (config.Clusters is { Count: > 0 })
+                {
+                    clusters.AddRange(config.Clusters);
+                }
+                if (config.TunnelFrontendToBackends is { Count: > 0 })
+                {
+                    tunnelFrontendToBackends.AddRange(config.TunnelFrontendToBackends);
+                }
+                if (config.TunnelBackendToFrontends is { Count: > 0 })
+                {
+                    tunnelBackendToFrontends.AddRange(config.TunnelBackendToFrontends);
+                }
             }
 
             var proxyConfigs = ExtractListOfProxyConfigs(_configs);
@@ -190,7 +212,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                 configChangeListener.ConfigurationLoaded(proxyConfigs);
             }
 
-            await ApplyConfigAsync(routes, clusters);
+            await ApplyConfigAsync(tunnelFrontendToBackends, tunnelBackendToFrontends, routes, clusters);
 
             foreach (var configChangeListener in _configChangeListeners)
             {
@@ -215,6 +237,8 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         _configChangeSource.Dispose();
 
         var sourcesChanged = false;
+        var tunnelFrontendToBackends = new List<TunnelFrontendToBackendConfig>();
+        var tunnelBackendToFrontends = new List<TunnelBackendToFrontendConfig>();
         var routes = new List<RouteConfig>();
         var clusters = new List<ClusterConfig>();
         var reloadedConfigs = new List<(ConfigState Config, ValueTask<IProxyConfig> ResolveTask)>();
@@ -258,13 +282,20 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             {
                 routes.AddRange(updatedRoutes);
             }
-
             if (instance.LatestConfig.Clusters is { Count: > 0 } updatedClusters)
             {
                 clusters.AddRange(updatedClusters);
             }
+            if (instance.LatestConfig.TunnelFrontendToBackends is { Count: > 0 } updatedTunnelFrontendToBackends)
+            {
+                tunnelFrontendToBackends.AddRange(updatedTunnelFrontendToBackends);
+            }
+            if (instance.LatestConfig.TunnelBackendToFrontends is { Count: > 0 } updatedTunnelBackendToFrontends)
+            {
+                tunnelBackendToFrontends.AddRange(updatedTunnelBackendToFrontends);
+            }
         }
-
+        // TODO: tunnelFrontendToBackends and tunnelBackendToFrontends
         var proxyConfigs = ExtractListOfProxyConfigs(_configs);
         foreach (var configChangeListener in _configChangeListeners)
         {
@@ -276,7 +307,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             // Only reload if at least one provider changed.
             if (sourcesChanged)
             {
-                var hasChanged = await ApplyConfigAsync(routes, clusters);
+                var hasChanged = await ApplyConfigAsync(tunnelFrontendToBackends, tunnelBackendToFrontends, routes, clusters);
                 lock (_syncRoot)
                 {
                     // Skip if changes are signaled before the endpoints are initialized for the first time.
@@ -345,6 +376,17 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
     private async ValueTask<IProxyConfig> LoadConfigAsyncCore(IProxyConfig config, CancellationToken cancellationToken)
     {
+        //TODO : handle changes for TunnelBackendToFrontends and TunnelFrontendToBackends
+        /*
+        List<TunnelBackendToFrontendConfig> tunnelBackendToFrontends = new(config.TunnelBackendToFrontends);
+        List<TunnelFrontendToBackendConfig> tunnelFrontendToBackends = new(config.TunnelFrontendToBackends);
+        for (var i = 0; i < tunnelFrontendToBackends.Count; i++)
+        {
+        }
+        for (var i = 0; i < tunnelBackendToFrontends.Count; i++)
+        {
+        }
+        */
         List<(int Index, ValueTask<ResolvedDestinationCollection> Task)> resolverTasks = new();
         List<ClusterConfig> clusters = new(config.Clusters);
         List<IChangeToken>? changeTokens = null;
@@ -415,12 +457,10 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         public IReadOnlyList<RouteConfig> Routes => _innerConfig.Routes;
         public IReadOnlyList<ClusterConfig> Clusters { get; }
         // TODO: or parameter ?
-        public IReadOnlyList<TunnelFrontendConfig> TunnelFrontends => _innerConfig.TunnelFrontends;
-        public IReadOnlyList<TunnelBackendConfig> TunnelBackends => _innerConfig.TunnelBackends;
+        public IReadOnlyList<TunnelFrontendToBackendConfig> TunnelFrontendToBackends => _innerConfig.TunnelFrontendToBackends;
+        public IReadOnlyList<TunnelBackendToFrontendConfig> TunnelBackendToFrontends => _innerConfig.TunnelBackendToFrontends;
 
         public IChangeToken ChangeToken { get; }
-
-
     }
 
     private void ListenForConfigChanges()
@@ -478,16 +518,22 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     }
 
     // Throws for validation failures
-    private async Task<bool> ApplyConfigAsync(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
+    private async Task<bool> ApplyConfigAsync(
+        IReadOnlyList<TunnelFrontendToBackendConfig> tunnelFrontendToBackends, IReadOnlyList<TunnelBackendToFrontendConfig> tunnelBackendToFrontends,
+        IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
     {
+        var (configuredTunnelFrontendToBackends, tunnelFrontendToBackendErrors) = await VerifyTunnelFrontendToBackendAsync(tunnelFrontendToBackends, cancellation: default);
+        var (configuredTunnelBackendToFrontends, tunnelBackendToFrontendErrors) = await VerifyTunnelBackendToFrontendAsync(tunnelBackendToFrontends, cancellation: default);
         var (configuredClusters, clusterErrors) = await VerifyClustersAsync(clusters, cancellation: default);
         var (configuredRoutes, routeErrors) = await VerifyRoutesAsync(routes, configuredClusters, cancellation: default);
 
-        if (routeErrors.Count > 0 || clusterErrors.Count > 0)
+        if (tunnelFrontendToBackendErrors.Count > 0 || tunnelBackendToFrontendErrors.Count > 0
+            || routeErrors.Count > 0 || clusterErrors.Count > 0)
         {
             throw new AggregateException("The proxy config is invalid.", routeErrors.Concat(clusterErrors));
         }
 
+        // TODO: configuredTunnelFrontendToBackends configuredTunnelBackendToFrontends
         // Update clusters first because routes need to reference them.
         UpdateRuntimeClusters(configuredClusters.Values);
         var routesChanged = UpdateRuntimeRoutes(configuredRoutes);
@@ -554,6 +600,119 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         }
 
         return (configuredRoutes, errors);
+    }
+
+    private async Task<(IReadOnlyDictionary<string, TunnelFrontendToBackendConfig>, IList<Exception>)> VerifyTunnelFrontendToBackendAsync(IReadOnlyList<TunnelFrontendToBackendConfig> tunnelFrontendToBackends, CancellationToken cancellation)
+    {
+        if (tunnelFrontendToBackends is null || tunnelFrontendToBackends.Count == 0)
+        {
+            return (_emptyTunnelFrontendToBackendDictionary, Array.Empty<Exception>());
+        }
+
+        var tunnelFrontendToBackendClusters = new Dictionary<string, TunnelFrontendToBackendConfig>(tunnelFrontendToBackends.Count, StringComparer.OrdinalIgnoreCase);
+        var errors = new List<Exception>();
+        // The IProxyConfigProvider provides a fresh snapshot that we need to reconfigure each time.
+        foreach (var t in tunnelFrontendToBackends)
+        {
+            try
+            {
+                if (tunnelFrontendToBackendClusters.ContainsKey(t.TunnelId))
+                {
+                    errors.Add(new ArgumentException($"Duplicate tunnelFrontendToBackend '{t.TunnelId}'."));
+                    continue;
+                }
+
+                // Don't modify the original
+                var tunnelFrontendToBackend = t;
+
+                foreach (var filter in _filters)
+                {
+                    if (filter is IProxyConfigFilterV2 filterV2)
+                    {
+                        tunnelFrontendToBackend = await filterV2.ConfigureTunnelFrontendToBackendAsync(tunnelFrontendToBackend, cancellation);
+                    }
+                }
+                if (_configValidator is IConfigValidatorV2 configValidatorV2)
+                {
+                    var tunnelFrontendToBackendErrors = await configValidatorV2.ValidateTunnelFrontendToBackendAsync(tunnelFrontendToBackend);
+                    if (tunnelFrontendToBackendErrors.Count > 0)
+                    {
+                        errors.AddRange(tunnelFrontendToBackendErrors);
+                        continue;
+                    }
+                }
+
+                tunnelFrontendToBackendClusters.Add(tunnelFrontendToBackend.TunnelId, tunnelFrontendToBackend);
+            }
+            catch (Exception ex)
+            {
+                errors.Add(new ArgumentException($"An exception was thrown from the configuration callbacks for cluster '{t.TunnelId}'.", ex));
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            return (_emptyTunnelFrontendToBackendDictionary, errors);
+        }
+
+        return (tunnelFrontendToBackendClusters, errors);
+    }
+
+    private async Task<(IReadOnlyDictionary<string, TunnelBackendToFrontendConfig>, IList<Exception>)> VerifyTunnelBackendToFrontendAsync(IReadOnlyList<TunnelBackendToFrontendConfig> tunnelBackendToFrontends, CancellationToken cancellation)
+    {
+        if (tunnelBackendToFrontends is null || tunnelBackendToFrontends.Count == 0)
+        {
+            return (_emptyTunnelBackendToFrontendDictionary, Array.Empty<Exception>());
+        }
+
+        var tunnelBackendToFrontendClusters = new Dictionary<string, TunnelBackendToFrontendConfig>(tunnelBackendToFrontends.Count, StringComparer.OrdinalIgnoreCase);
+        var errors = new List<Exception>();
+        // The IProxyConfigProvider provides a fresh snapshot that we need to reconfigure each time.
+        foreach (var t in tunnelBackendToFrontends)
+        {
+            try
+            {
+                var remoteTunnelId = t.GetRemoteTunnelId();
+                if (tunnelBackendToFrontendClusters.ContainsKey(remoteTunnelId))
+                {
+                    errors.Add(new ArgumentException($"Duplicate tunnelBackendToFrontend '{remoteTunnelId}'."));
+                    continue;
+                }
+
+                // Don't modify the original
+                var tunnelBackendToFrontend = t;
+
+                foreach (var filter in _filters)
+                {
+                    if (filter is IProxyConfigFilterV2 filterV2)
+                    {
+                        tunnelBackendToFrontend = await filterV2.ConfigureTunnelBackendToFrontendAsync(tunnelBackendToFrontend, cancellation);
+                    }
+                }
+                if (_configValidator is IConfigValidatorV2 configValidatorV2)
+                {
+                    var tunnelBackendToFrontendErrors = await configValidatorV2.ValidateTunnelBackendToFrontendAsync(tunnelBackendToFrontend);
+                    if (tunnelBackendToFrontendErrors.Count > 0)
+                    {
+                        errors.AddRange(tunnelBackendToFrontendErrors);
+                        continue;
+                    }
+                }
+
+                tunnelBackendToFrontendClusters.Add(tunnelBackendToFrontend.TunnelId, tunnelBackendToFrontend);
+            }
+            catch (Exception ex)
+            {
+                errors.Add(new ArgumentException($"An exception was thrown from the configuration callbacks for cluster '{t.TunnelId}'.", ex));
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            return (_emptyTunnelBackendToFrontendDictionary, errors);
+        }
+
+        return (tunnelBackendToFrontendClusters, errors);
     }
 
     private async Task<(IReadOnlyDictionary<string, ClusterConfig>, IList<Exception>)> VerifyClustersAsync(IReadOnlyList<ClusterConfig> clusters, CancellationToken cancellation)
@@ -624,7 +783,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
                 var currentClusterModel = currentCluster.Model;
 
-                var httpClientFactory = getHttpClientFactory(incomingCluster);
+                var httpClientFactory = GetHttpClientFactory(incomingCluster);
                 var httpClient = httpClientFactory.CreateClient(new ForwarderHttpClientContext
                 {
                     ClusterId = currentCluster.ClusterId,
@@ -664,7 +823,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
                 UpdateRuntimeDestinations(incomingCluster.Destinations, newClusterState.Destinations);
 
-                var httpClientFactory = getHttpClientFactory(incomingCluster);
+                var httpClientFactory = GetHttpClientFactory(incomingCluster);
                 var httpClient = httpClientFactory.CreateClient(new ForwarderHttpClientContext
                 {
                     ClusterId = newClusterState.ClusterId,
@@ -711,7 +870,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         }
     }
 
-    private IForwarderHttpClientFactory getHttpClientFactory(ClusterConfig incomingCluster)
+    private IForwarderHttpClientFactory GetHttpClientFactory(ClusterConfig incomingCluster)
     {
         if (_httpClientFactory is IForwarderTransportClientFactorySelector selector)
         {
@@ -912,28 +1071,30 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         }
     }
 
-    public bool TryGetTunnelFrontend(string id, [NotNullWhen(true)] out TunnelFrontendState? tunnelFrontend)
+    public bool TryGetTunnelFrontendToBackend(string id, [NotNullWhen(true)] out TunnelFrontendToBackendState? tunnelFrontendToBackend)
     {
-#warning here
-        throw new NotImplementedException();
+        return _tunnelFrontendToBackends.TryGetValue(id, out tunnelFrontendToBackend);
     }
 
-    public IEnumerable<TunnelFrontendState> GetTunnelFrontends()
+    public IEnumerable<TunnelFrontendToBackendState> GetTunnelFrontendToBackends()
     {
-#warning here
-        throw new NotImplementedException();
+        foreach (var (_, tunnelFrontendToBackend) in _tunnelFrontendToBackends)
+        {
+            yield return tunnelFrontendToBackend;
+        }
     }
 
-    public bool TryGetTunnelBackend(string id, [NotNullWhen(true)] out TunnelBackendState? tunnelBackend)
+    public bool TryGetTunnelBackendToFrontend(string id, [NotNullWhen(true)] out TunnelBackendToFrontendState? tunnelBackendToFrontend)
     {
-#warning here
-        throw new NotImplementedException();
+        return _tunnelBackendToFrontends.TryGetValue(id, out tunnelBackendToFrontend);
     }
 
-    public IEnumerable<TunnelBackendState> GetTunnelBackends()
+    public IEnumerable<TunnelBackendToFrontendState> GetTunnelBackendToFrontends()
     {
-#warning here
-        throw new NotImplementedException();
+        foreach (var (_, tunnelBackendToFrontend) in _tunnelBackendToFrontends)
+        {
+            yield return tunnelBackendToFrontend;
+        }
     }
 
     public void Dispose()

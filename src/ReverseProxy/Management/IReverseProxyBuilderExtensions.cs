@@ -80,14 +80,8 @@ internal static class IReverseProxyBuilderExtensions
     {
         builder.Services.TryAddSingleton<IForwarderHttpClientFactory, ForwarderTransportClientFactorySelector>();
         builder.Services.TryAddSingleton<IForwarderTransportClientFactory, ForwarderHttpClientFactory>();
-        
-        builder.Services.AddHttpForwarder();
-        return builder;
-    }
-
-    public static IReverseProxyBuilder AddTunnel(this IReverseProxyBuilder builder) {
         builder.Services.TryAddSingleton<IForwarderTransportClientFactory, ForwarderTunnelClientFactory>();
-
+        
         builder.Services.AddHttpForwarder();
         builder.Services.AddTunnelForwarder();
         return builder;

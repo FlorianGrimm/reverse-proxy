@@ -73,7 +73,7 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
         public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
             : this(routes, clusters, [], [], Guid.NewGuid().ToString())
         { }
-        public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TunnelFrontendConfig> tunnelFrontendConfigs, IReadOnlyList<TunnelBackendConfig> tunnelBackendConfigs)
+        public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TunnelFrontendToBackendConfig> tunnelFrontendConfigs, IReadOnlyList<TunnelBackendToFrontendConfig> tunnelBackendConfigs)
             : this(routes, clusters, tunnelFrontendConfigs, tunnelBackendConfigs, Guid.NewGuid().ToString())
         { }
 
@@ -82,18 +82,18 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
             RevisionId = revisionId ?? throw new ArgumentNullException(nameof(revisionId));
             Routes = routes;
             Clusters = clusters;
-            TunnelFrontends = [];
-            TunnelBackends = [];
+            TunnelFrontendToBackends = [];
+            TunnelBackendToFrontends = [];
             ChangeToken = new CancellationChangeToken(_cts.Token);
         }
 
-        public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TunnelFrontendConfig> tunnelFrontendConfigs, IReadOnlyList<TunnelBackendConfig> tunnelBackendConfigs, string revisionId)
+        public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TunnelFrontendToBackendConfig> tunnelFrontendConfigs, IReadOnlyList<TunnelBackendToFrontendConfig> tunnelBackendConfigs, string revisionId)
         {
             RevisionId = revisionId ?? throw new ArgumentNullException(nameof(revisionId));
             Routes = routes;
             Clusters = clusters;
-            TunnelFrontends = tunnelFrontendConfigs;
-            TunnelBackends = tunnelBackendConfigs;
+            TunnelFrontendToBackends = tunnelFrontendConfigs;
+            TunnelBackendToFrontends = tunnelBackendConfigs;
             ChangeToken = new CancellationChangeToken(_cts.Token);
         }
 
@@ -110,9 +110,9 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
         /// </summary>
         public IReadOnlyList<ClusterConfig> Clusters { get; }
 
-        public IReadOnlyList<TunnelFrontendConfig> TunnelFrontends { get; }
+        public IReadOnlyList<TunnelFrontendToBackendConfig> TunnelFrontendToBackends { get; }
 
-        public IReadOnlyList<TunnelBackendConfig> TunnelBackends { get; }
+        public IReadOnlyList<TunnelBackendToFrontendConfig> TunnelBackendToFrontends { get; }
 
         /// <summary>
         /// Fired to indicate the the proxy state has changed, and that this snapshot is now stale

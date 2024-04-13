@@ -12,9 +12,8 @@ using Yarp.ReverseProxy.Transforms;
 var builder = WebApplication.CreateBuilder(args);
 
 var reverseProxyBuilder = builder.Services.AddReverseProxy()
-    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
-
-builder.WebHost.UseReverseProxyTunnelBackEnd();
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+    .UseReverseProxyTunnelBackendToFrontend(builder.WebHost);
 
 var app = builder.Build();
 

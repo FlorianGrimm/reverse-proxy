@@ -30,11 +30,12 @@ internal class TunnelHandler
         {
             return Results.BadRequest();
         }
-
-        var tunnelFactory = context.RequestServices.GetRequiredService<TunnelClientFactory>();
+        
+        var tunnelFactory = context.RequestServices.GetRequiredService<ForwarderTunnelClientFactory>();
         var lifetime = context.RequestServices.GetRequiredService<IHostApplicationLifetime>();
 
-#warning host -> channel / tunnel
+#warning host -> channel = tunnel || host or channel = tunnel
+
         var (requests, responses) = tunnelFactory.GetConnectionChannel(tunnelId);
 
         await requests.Reader.ReadAsync(context.RequestAborted);

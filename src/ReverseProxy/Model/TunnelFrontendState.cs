@@ -9,9 +9,9 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Model;
 
-public class TunnelFrontendState
+public class TunnelFrontendToBackendState
 {
-    public TunnelFrontendConfig Config { get; set; } = default!;
+    public TunnelFrontendToBackendConfig Config { get; set; } = default!;
 
     internal AtomicCounter ConcurrencyCounter { get; } = new AtomicCounter();
 
@@ -21,13 +21,13 @@ public class TunnelFrontendState
 public class TunnelFrontendModel
 {
     public TunnelFrontendModel(
-        TunnelFrontendState tunnelFrontend
+        TunnelFrontendToBackendState tunnelFrontend
         )
     {
         TunnelFrontend = tunnelFrontend;
     }
 
-    public TunnelFrontendState TunnelFrontend { get; }
+    public TunnelFrontendToBackendState TunnelFrontend { get; }
 
     internal bool HasConfigChanged(TunnelFrontendModel newTunnelFrontend)
     {

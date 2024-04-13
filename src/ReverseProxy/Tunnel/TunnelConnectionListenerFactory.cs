@@ -14,12 +14,15 @@ using Yarp.ReverseProxy.Management;
 namespace Yarp.ReverseProxy.Tunnel
 {
     public class TunnelConnectionListenerFactory : IConnectionListenerFactory
+#if NET8_0_OR_GREATER
+        , IConnectionListenerFactorySelector
+#endif
     {
-        private readonly TunnelOptions _options;
+        private readonly TunnelBackendOptions _options;
         private readonly IServiceProvider _serviceProvider;
-        private IProxyStateLookup? _proxyStateLookup=null;
+        private IProxyStateLookup? _proxyStateLookup = null;
 
-        public TunnelConnectionListenerFactory(IOptions<TunnelOptions> options, IServiceProvider serviceProvider)
+        public TunnelConnectionListenerFactory(IOptions<TunnelBackendOptions> options, IServiceProvider serviceProvider)
         {
             _options = options.Value;
             _serviceProvider = serviceProvider;
@@ -30,11 +33,25 @@ namespace Yarp.ReverseProxy.Tunnel
             var proxyStateLookup = (_proxyStateLookup ??= _serviceProvider.GetRequiredService<IProxyStateLookup>());
             return new(new TunnelConnectionListener(_options, proxyStateLookup, endpoint));
         }
+
+        public bool CanBind(EndPoint endpoint)
+        {
+            if (endpoint is not UriTunnelTransportEndPoint uriTunnelTransportEndPoint) { return false; }
+
+            var tunnelId = uriTunnelTransportEndPoint.Uri?.Host;
+            if (string.IsNullOrEmpty(tunnelId)) { return false; }
+
+            var proxyStateLookup = (_proxyStateLookup ??= _serviceProvider.GetRequiredService<IProxyStateLookup>());
+            if (!proxyStateLookup.TryGetTunnelBackendToFrontend(tunnelId, out var backendToFrontend)) { return false; }
+
+            return (backendToFrontend is not null);
+        }
     }
 
-    public class TunnelOptions {
+    public class TunnelBackendOptions
+    {
         public int MaxConnectionCount { get; set; } = 10;
-        
+
     }
-    
+
 }

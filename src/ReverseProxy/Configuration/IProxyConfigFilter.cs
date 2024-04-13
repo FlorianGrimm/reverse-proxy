@@ -25,4 +25,10 @@ public interface IProxyConfigFilter
     /// <param name="cluster">The <see cref="ClusterConfig"/> instance related to <see cref="RouteConfig"/>.</param>
     /// <param name="cancel"></param>
     ValueTask<RouteConfig> ConfigureRouteAsync(RouteConfig route, ClusterConfig? cluster, CancellationToken cancel);
+
+}
+
+public interface IProxyConfigFilterV2 : IProxyConfigFilter {
+    Task<TunnelFrontendToBackendConfig> ConfigureTunnelFrontendToBackendAsync(TunnelFrontendToBackendConfig value, CancellationToken cancellation);
+    Task<TunnelBackendToFrontendConfig> ConfigureTunnelBackendToFrontendAsync(TunnelBackendToFrontendConfig value, CancellationToken cancellation);
 }

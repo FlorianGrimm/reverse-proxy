@@ -84,14 +84,14 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
                     newSnapshot.Routes.Add(CreateRoute(section));
                 }
 
-                foreach (var section in _configuration.GetSection("TunnelFrontends").GetChildren())
+                foreach (var section in _configuration.GetSection("TunnelFrontendToBackends").GetChildren())
                 {
-                    newSnapshot.TunnelFrontends.Add(CreateTunnelFrontend(section));
+                    newSnapshot.TunnelFrontendToBackends.Add(CreateTunnelFrontendToBackend(section));
                 }
 
-                foreach (var section in _configuration.GetSection("TunnelBackends").GetChildren())
+                foreach (var section in _configuration.GetSection("TunnelBackendToFrontends").GetChildren())
                 {
-                    newSnapshot.TunnelBackends.Add(CreateTunnelBackend(section));
+                    newSnapshot.TunnelBackendToFrontends.Add(CreateTunnelBackendToFrontend(section));
                 }
             }
             catch (Exception ex)
@@ -400,21 +400,35 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         };
     }
 
-    private static TunnelFrontendConfig CreateTunnelFrontend(IConfigurationSection section)
+    private static TunnelFrontendToBackendConfig CreateTunnelFrontendToBackend(IConfigurationSection section)
     {
-        return new TunnelFrontendConfig()
+        return new TunnelFrontendToBackendConfig()
         {
             TunnelId = section.Key,
+            Authentication = CreateFrontendToBackendAuthentication(section.GetSection(nameof(TunnelFrontendToBackendConfig.Authentication)))
         };
     }
 
-    private static TunnelBackendConfig CreateTunnelBackend(IConfigurationSection section)
+    private static TunnelFrontendToBackendAuthenticationConfig CreateFrontendToBackendAuthentication(IConfigurationSection configurationSection)
     {
-        return new TunnelBackendConfig()
+        return new TunnelFrontendToBackendAuthenticationConfig();
+    }
+
+    private static TunnelBackendToFrontendConfig CreateTunnelBackendToFrontend(IConfigurationSection section)
+    {
+        return new TunnelBackendToFrontendConfig()
         {
             TunnelId = section.Key,
-            Transport = section[nameof(TunnelBackendConfig.Transport)] ?? string.Empty
+            RemoteTunnelId = section[nameof(TunnelBackendToFrontendConfig.RemoteTunnelId)] ?? string.Empty,
+            Url = section[nameof(TunnelBackendToFrontendConfig.Url)] ?? string.Empty,
+            Transport = section[nameof(TunnelBackendToFrontendConfig.Transport)] ?? string.Empty,
+            Authentication = CreateBackendToFrontendAuthentication(section.GetSection(nameof(TunnelBackendToFrontendConfig.Authentication)))
         };
+    }
+
+    private static TunnelBackendToFrontendAuthenticationConfig CreateBackendToFrontendAuthentication(IConfigurationSection configurationSection)
+    {
+        return new TunnelBackendToFrontendAuthenticationConfig();
     }
 
     private static class Log

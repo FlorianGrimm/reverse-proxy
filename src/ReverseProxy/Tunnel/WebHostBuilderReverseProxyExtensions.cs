@@ -1,3 +1,4 @@
+#if false
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,12 +17,10 @@ namespace Microsoft.AspNetCore.Hosting
 {
     public static class WebHostBuilderReverseProxyExtensions
     {
-        public static IWebHostBuilder UseReverseProxyTunnelFrontEnd(this IWebHostBuilder hostBuilder)
-        {
-            return hostBuilder;
-        }
-        public static IWebHostBuilder UseReverseProxyTunnelBackEnd(this IWebHostBuilder hostBuilder,
-            Action<TunnelOptions>? configure = null)
+        public static IWebHostBuilder UseReverseProxyTunnelBackend(
+            this IWebHostBuilder hostBuilder,
+            Action<TunnelBackendOptions>? configure = null
+            )
         {
             hostBuilder.ConfigureServices(services =>
             {
@@ -35,13 +34,13 @@ namespace Microsoft.AspNetCore.Hosting
 
             hostBuilder.ConfigureKestrel(options =>
             {
-                // using ProxyConfigManager is not possible here
+                // using ProxyConfigManager is not possible here, since Kestrel is being created now.
                 var proxyConfigProviders = options.ApplicationServices.GetServices<IProxyConfigProvider>();
                 if (proxyConfigProviders is not null)
                 {
                     foreach (var proxyConfigProvider in proxyConfigProviders)
                     {
-                        foreach (var tunnelBackend in proxyConfigProvider.GetConfig().TunnelBackends)
+                        foreach (var tunnelBackend in proxyConfigProvider.GetConfig().TunnelBackendToFrontends)
                         {
                             var url = $"tunnel://{tunnelBackend.TunnelId}";
                             options.Listen(new UriTunnelTransportEndPoint(new Uri(url)));
@@ -53,3 +52,4 @@ namespace Microsoft.AspNetCore.Hosting
         }
     }
 }
+#endif

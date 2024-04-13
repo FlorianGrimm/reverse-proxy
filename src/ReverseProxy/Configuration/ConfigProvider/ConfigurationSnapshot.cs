@@ -12,17 +12,17 @@ internal sealed class ConfigurationSnapshot : IProxyConfig
 
     public List<ClusterConfig> Clusters { get; internal set; } = new List<ClusterConfig>();
 
-    public List<TunnelFrontendConfig> TunnelFrontends { get; internal set; } = new List<TunnelFrontendConfig>();
+    public List<TunnelFrontendToBackendConfig> TunnelFrontendToBackends { get; internal set; } = new List<TunnelFrontendToBackendConfig>();
 
-    public List<TunnelBackendConfig> TunnelBackends { get; internal set; } = new List<TunnelBackendConfig>();
+    public List<TunnelBackendToFrontendConfig> TunnelBackendToFrontends { get; internal set; } = new List<TunnelBackendToFrontendConfig>();
 
     IReadOnlyList<RouteConfig> IProxyConfig.Routes => Routes;
 
     IReadOnlyList<ClusterConfig> IProxyConfig.Clusters => Clusters;
 
-    IReadOnlyList<TunnelFrontendConfig> IProxyConfig.TunnelFrontends => TunnelFrontends;
+    IReadOnlyList<TunnelFrontendToBackendConfig> IProxyConfig.TunnelFrontendToBackends => TunnelFrontendToBackends;
 
-    IReadOnlyList<TunnelBackendConfig> IProxyConfig.TunnelBackends => TunnelBackends;
+    IReadOnlyList<TunnelBackendToFrontendConfig> IProxyConfig.TunnelBackendToFrontends => TunnelBackendToFrontends;
 
     // This field is required.
     public IChangeToken ChangeToken { get; internal set; } = default!;

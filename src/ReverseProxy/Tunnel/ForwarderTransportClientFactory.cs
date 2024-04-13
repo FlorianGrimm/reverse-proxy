@@ -11,20 +11,20 @@ using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Forwarder;
 
 namespace Yarp.ReverseProxy.Tunnel;
-public class ForwarderTunnelClientFactory : IForwarderHttpClientFactory, IForwarderTransportClientFactory
+public abstract class ForwarderTransportClientFactory : IForwarderHttpClientFactory, IForwarderTransportClientFactory
 {
-    private readonly ILogger _logger;
+    protected readonly ILogger _logger;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
+    /// Initializes a new instance of the <see cref="ForwarderTransportClientFactory"/> class.
     /// </summary>
-    public ForwarderTunnelClientFactory(ILogger<ForwarderTunnelClientFactory> logger)
+    public ForwarderTransportClientFactory(ILogger logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <inheritdoc/>
-    public HttpMessageInvoker CreateClient(ForwarderHttpClientContext context)
+    public virtual HttpMessageInvoker CreateClient(ForwarderHttpClientContext context)
     {
         if (CanReuseOldClient(context))
         {
@@ -107,7 +107,7 @@ public class ForwarderTunnelClientFactory : IForwarderHttpClientFactory, IForwar
         }
     }
 
-    private static IWebProxy? TryCreateWebProxy(WebProxyConfig? webProxyConfig)
+    protected static IWebProxy? TryCreateWebProxy(WebProxyConfig? webProxyConfig)
     {
         if (webProxyConfig is null || webProxyConfig.Address is null)
         {
@@ -130,12 +130,9 @@ public class ForwarderTunnelClientFactory : IForwarderHttpClientFactory, IForwar
         return handler;
     }
 
-    public virtual string? GetTransport()
-    {
-        return "Tunnel";
-    }
+    public abstract string? GetTransport();
 
-    private static class Log
+    protected static class Log
     {
         private static readonly Action<ILogger, string, Exception?> _clientCreated = LoggerMessage.Define<string>(
               LogLevel.Debug,

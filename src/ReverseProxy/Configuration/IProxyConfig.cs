@@ -30,8 +30,8 @@ public interface IProxyConfig
     /// </summary>
     IReadOnlyList<ClusterConfig> Clusters { get; }
 
-    IReadOnlyList<TunnelFrontendConfig> TunnelFrontends { get; }
-    IReadOnlyList<TunnelBackendConfig> TunnelBackends { get; }
+    IReadOnlyList<TunnelFrontendToBackendConfig> TunnelFrontendToBackends { get; }
+    IReadOnlyList<TunnelBackendToFrontendConfig> TunnelBackendToFrontends { get; }
 
     /// <summary>
     /// A notification that triggers when this snapshot expires.

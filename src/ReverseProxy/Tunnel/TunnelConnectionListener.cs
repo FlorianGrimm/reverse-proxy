@@ -19,12 +19,12 @@ namespace Yarp.ReverseProxy.Tunnel
     {
         private readonly SemaphoreSlim _connectionLock;
         private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections = new();
-        private readonly TunnelOptions _options;
+        private readonly TunnelBackendOptions _options;
         private readonly IProxyStateLookup _proxyStateLookup;
         private readonly CancellationTokenSource _closedCts = new();
         private readonly HttpMessageInvoker _httpMessageInvoker;
 
-        public TunnelConnectionListener(TunnelOptions options, IProxyStateLookup proxyStateLookup, EndPoint endpoint)
+        public TunnelConnectionListener(TunnelBackendOptions options, IProxyStateLookup proxyStateLookup, EndPoint endpoint)
         {
             _options = options;
             _proxyStateLookup = proxyStateLookup;
@@ -36,6 +36,7 @@ namespace Yarp.ReverseProxy.Tunnel
                 throw new NotSupportedException("UriTunnelTransportEndPoint is required.");
                 // TODO:throw new NotSupportedException($"UriEndPoint is required for {options.Transport} transport");
             }
+
             _httpMessageInvoker = new HttpMessageInvoker(
                new SocketsHttpHandler
                {
@@ -54,7 +55,7 @@ namespace Yarp.ReverseProxy.Tunnel
             try
             {
                 var tunnelId = Uri.Host;
-                if (!_proxyStateLookup.TryGetTunnelBackend(tunnelId, out var tunnel)) {
+                if (!_proxyStateLookup.TryGetTunnelBackendToFrontend(tunnelId, out var tunnel)) {
                     // TODO: create Validator
                     throw new ArgumentException($"Tunnel {tunnel} not found");
                 }
