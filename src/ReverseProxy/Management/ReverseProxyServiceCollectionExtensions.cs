@@ -43,6 +43,7 @@ public static partial class ReverseProxyServiceCollectionExtensions
         return services;
     }
 
+    /*
     public static IServiceCollection AddTunnelForwarder(this IServiceCollection services)
     {
         services.TryAddSingleton(TimeProvider.System);
@@ -54,6 +55,7 @@ public static partial class ReverseProxyServiceCollectionExtensions
 
         return services;
     }
+    */
 
     /// <summary>
     /// Adds ReverseProxy's services to Dependency Injection.

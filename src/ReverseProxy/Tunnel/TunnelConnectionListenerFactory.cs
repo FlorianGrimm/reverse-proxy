@@ -30,8 +30,19 @@ namespace Yarp.ReverseProxy.Tunnel
 
         public ValueTask<IConnectionListener> BindAsync(EndPoint endpoint, CancellationToken cancellationToken = default)
         {
+            if (endpoint is not UriTunnelTransportEndPoint uriTunnelTransportEndPoint) { throw new NotSupportedException(); }
+
+            var tunnelId = uriTunnelTransportEndPoint.Uri?.Host;
+            if (string.IsNullOrEmpty(tunnelId)) { throw new NotSupportedException(); }
+
             var proxyStateLookup = (_proxyStateLookup ??= _serviceProvider.GetRequiredService<IProxyStateLookup>());
-            return new(new TunnelConnectionListener(_options, proxyStateLookup, endpoint));
+            if (!proxyStateLookup.TryGetTunnelBackendToFrontend(tunnelId, out var backendToFrontend)) { throw new NotSupportedException(); }
+
+            return new(new TunnelConnectionListener(
+                uriTunnelTransportEndPoint,
+                tunnelId, backendToFrontend, proxyStateLookup,
+                _options
+                ));
         }
 
         public bool CanBind(EndPoint endpoint)
@@ -41,10 +52,12 @@ namespace Yarp.ReverseProxy.Tunnel
             var tunnelId = uriTunnelTransportEndPoint.Uri?.Host;
             if (string.IsNullOrEmpty(tunnelId)) { return false; }
 
-            var proxyStateLookup = (_proxyStateLookup ??= _serviceProvider.GetRequiredService<IProxyStateLookup>());
-            if (!proxyStateLookup.TryGetTunnelBackendToFrontend(tunnelId, out var backendToFrontend)) { return false; }
+#warning TODO: may be it's better to create a IProxyTransportStateLookup, the problems of the timing might be to big
+            //var proxyStateLookup = (_proxyStateLookup ??= _serviceProvider.GetRequiredService<IProxyStateLookup>());
+            //if (!proxyStateLookup.TryGetTunnelBackendToFrontend(tunnelId, out var backendToFrontend)) { return false; }
 
-            return (backendToFrontend is not null);
+            //return (backendToFrontend is not null);
+            return true;
         }
     }
 

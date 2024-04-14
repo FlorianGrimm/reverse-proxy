@@ -29,21 +29,23 @@ namespace Yarp.ReverseProxy.Tunnel
     /// </summary>
     internal class ForwarderTunnelClientFactory : ForwarderTransportClientFactory, IForwarderTransportClientFactory
     {
-        private readonly ProxyConfigManager _proxyConfigManager;
+        //private readonly ProxyConfigManager _proxyConfigManager;
         //private IChangeToken _proxyConfigManagerChangeToken;
 
         public ForwarderTunnelClientFactory(
-            ProxyConfigManager proxyConfigManager,
-            ILogger logger
+            //ProxyConfigManager proxyConfigManager,
+            IServiceProvider serviceProvider,
+            ILogger<ForwarderTunnelClientFactory> logger
             ) : base(logger)
         {
-            _proxyConfigManager = proxyConfigManager;
+            _serviceProvider = serviceProvider;
+            //_proxyConfigManager = proxyConfigManager;
             // _proxyConfigManagerChangeToken = _proxyConfigManager.GetChangeToken();
-            foreach (var tunnelFrontendToBackend in _proxyConfigManager.GetTunnelFrontendToBackends()) {
-                var tunnelId = tunnelFrontendToBackend.Config.TunnelId;
+            //foreach (var tunnelFrontendToBackend in _proxyConfigManager.GetTunnelFrontendToBackends()) {
+            //    var tunnelId = tunnelFrontendToBackend.Config.TunnelId;
+            //    // TODO: add tunnel - host
+            //}
 
-            }
-            
 
             /*
             var proxyConfig = proxyConfigProvider.GetConfig();
@@ -109,6 +111,7 @@ namespace Yarp.ReverseProxy.Tunnel
         // TODO: These values should be populated by configuration so there's no need to remove
         // channels.
         private readonly ConcurrentDictionary<string, (Channel<int>, Channel<Stream>)> _clusterConnections = new();
+        private readonly IServiceProvider _serviceProvider;
 
         public (Channel<int>, Channel<Stream>) GetConnectionChannel(string host)
         {

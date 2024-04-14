@@ -21,6 +21,25 @@ namespace Yarp.ReverseProxy.Tunnel
         IConnectionTransportFeature,
         IDuplexPipe
     {
+        public static async ValueTask<TrackLifetimeConnectionContext> ConnectAsync(
+            HttpMessageInvoker invoker,
+            Uri uri,
+            CancellationToken cancellationToken)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, uri)
+            {
+                Version = new Version(2, 0)
+            };
+            var connection = new HttpClientConnectionContext();
+            request.Content = new HttpClientConnectionContextContent(connection);
+            var response = await invoker.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            connection.HttpResponseMessage = response;
+            var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            connection.Input = PipeReader.Create(responseStream);
+
+            return new TrackLifetimeConnectionContext(connection);
+        }
+
         private readonly TaskCompletionSource _executionTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         private HttpClientConnectionContext()
@@ -75,22 +94,6 @@ namespace Yarp.ReverseProxy.Tunnel
             Abort();
 
             return base.DisposeAsync();
-        }
-
-        public static async ValueTask<TrackLifetimeConnectionContext> ConnectAsync(HttpMessageInvoker invoker, Uri uri, CancellationToken cancellationToken)
-        {
-            var request = new HttpRequestMessage(HttpMethod.Post, uri)
-            {
-                Version = new Version(2, 0)
-            };
-            var connection = new HttpClientConnectionContext();
-            request.Content = new HttpClientConnectionContextContent(connection);
-            var response = await invoker.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            connection.HttpResponseMessage = response;
-            var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-            connection.Input = PipeReader.Create(responseStream);
-
-            return new TrackLifetimeConnectionContext(connection);
         }
 
         private class HttpClientConnectionContextContent : HttpContent

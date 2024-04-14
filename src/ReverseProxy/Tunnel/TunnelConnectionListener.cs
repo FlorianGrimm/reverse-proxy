@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Tunnel
 {
@@ -18,24 +19,35 @@ namespace Yarp.ReverseProxy.Tunnel
     internal class TunnelConnectionListener : IConnectionListener
     {
         private readonly SemaphoreSlim _connectionLock;
+        private readonly UriTunnelTransportEndPoint _UriTunnelTransportEndPoint;
+        private readonly string _tunnelId;
+        private readonly TunnelBackendToFrontendState _backendToFrontend;
         private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections = new();
         private readonly TunnelBackendOptions _options;
         private readonly IProxyStateLookup _proxyStateLookup;
         private readonly CancellationTokenSource _closedCts = new();
         private readonly HttpMessageInvoker _httpMessageInvoker;
 
-        public TunnelConnectionListener(TunnelBackendOptions options, IProxyStateLookup proxyStateLookup, EndPoint endpoint)
+        public TunnelConnectionListener(
+            UriTunnelTransportEndPoint uriTunnelTransportEndPoint,
+            string tunnelId,
+            TunnelBackendToFrontendState backendToFrontend,
+            IProxyStateLookup proxyStateLookup,
+            TunnelBackendOptions options
+            )
         {
-            _options = options;
+            _UriTunnelTransportEndPoint = uriTunnelTransportEndPoint;
+            _tunnelId = tunnelId;
+            _backendToFrontend = backendToFrontend;
             _proxyStateLookup = proxyStateLookup;
+            _options = options;
             _connectionLock = new(options.MaxConnectionCount);
-            EndPoint = endpoint;
 
-            if (endpoint is not UriTunnelTransportEndPoint)
-            {
-                throw new NotSupportedException("UriTunnelTransportEndPoint is required.");
-                // TODO:throw new NotSupportedException($"UriEndPoint is required for {options.Transport} transport");
-            }
+            //if (endpoint is not UriTunnelTransportEndPoint)
+            //{
+            //    throw new NotSupportedException("UriTunnelTransportEndPoint is required.");
+            //    // TODO:throw new NotSupportedException($"UriEndPoint is required for {options.Transport} transport");
+            //}
 
             _httpMessageInvoker = new HttpMessageInvoker(
                new SocketsHttpHandler
@@ -46,14 +58,16 @@ namespace Yarp.ReverseProxy.Tunnel
                });
         }
 
-        public EndPoint EndPoint { get; }
+        public EndPoint EndPoint => _UriTunnelTransportEndPoint;
 
-        private Uri Uri => ((UriTunnelTransportEndPoint)EndPoint).Uri!;
+        private Uri Uri => _UriTunnelTransportEndPoint.Uri!;
 
         public async ValueTask<ConnectionContext?> AcceptAsync(CancellationToken cancellationToken = default)
         {
             try
             {
+                var url = _backendToFrontend.Config.Url;
+                var uri = new Uri(new Uri(url), "/Tunnel/HTTP");
                 var tunnelId = Uri.Host;
                 if (!_proxyStateLookup.TryGetTunnelBackendToFrontend(tunnelId, out var tunnel)) {
                     // TODO: create Validator
@@ -78,7 +92,7 @@ namespace Yarp.ReverseProxy.Tunnel
                             _ => throw new NotSupportedException(),
                         });
                         */
-                        var connection = await HttpClientConnectionContext.ConnectAsync(_httpMessageInvoker, Uri, cancellationToken);
+                        var connection = await HttpClientConnectionContext.ConnectAsync(_httpMessageInvoker, uri, cancellationToken);
 
                         // Track this connection lifetime
                         _connections.TryAdd(connection, connection);
