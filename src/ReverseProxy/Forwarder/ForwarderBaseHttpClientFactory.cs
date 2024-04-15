@@ -1,3 +1,4 @@
+
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
@@ -6,41 +7,48 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+
 using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Forwarder;
 
-/// <summary>
-/// Default implementation of <see cref="IForwarderHttpClientFactory"/>.
-/// </summary>
-public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarderHttpClientFactorySelectiv
+public abstract class ForwarderBaseHttpClientFactory : IForwarderHttpClientFactory
 {
-    private readonly ILogger<ForwarderHttpClientFactory> _logger;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
     /// </summary>
-    public ForwarderHttpClientFactory() : this(NullLogger<ForwarderHttpClientFactory>.Instance) { }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ForwarderHttpClientFactory"/> class.
-    /// </summary>
-    public ForwarderHttpClientFactory(ILogger<ForwarderHttpClientFactory> logger)
+    protected ForwarderBaseHttpClientFactory(ILogger logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <inheritdoc/>
-    public HttpMessageInvoker CreateClient(ForwarderHttpClientContext context)
+    public virtual HttpMessageInvoker CreateClient(ForwarderHttpClientContext context)
     {
         if (CanReuseOldClient(context))
         {
             Log.ClientReused(_logger, context.ClusterId);
             return context.OldClient!;
         }
+        var handler = CreateRootHttpHandler(context);
 
+        ConfigureHandler(context, handler);
+
+        var middleware = WrapHandler(context, handler);
+        var middlewareTunnel = WrapTunnelHandler(context, middleware);
+
+        Log.ClientCreated(_logger, context.ClusterId);
+
+        return new HttpMessageInvoker(middlewareTunnel, disposeHandler: true);
+    }
+
+    protected virtual SocketsHttpHandler CreateRootHttpHandler(ForwarderHttpClientContext context)
+    {
         var handler = new SocketsHttpHandler
         {
             UseProxy = false,
@@ -52,14 +60,7 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarde
 
             // NOTE: MaxResponseHeadersLength = 64, which means up to 64 KB of headers are allowed by default as of .NET Core 3.1.
         };
-
-        ConfigureHandler(context, handler);
-
-        var middleware = WrapHandler(context, handler);
-
-        Log.ClientCreated(_logger, context.ClusterId);
-
-        return new HttpMessageInvoker(middleware, disposeHandler: true);
+        return handler;
     }
 
     /// <summary>
@@ -116,7 +117,7 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarde
         }
     }
 
-    private static IWebProxy? TryCreateWebProxy(WebProxyConfig? webProxyConfig)
+    protected static IWebProxy? TryCreateWebProxy(WebProxyConfig? webProxyConfig)
     {
         if (webProxyConfig is null || webProxyConfig.Address is null)
         {
@@ -139,12 +140,12 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory, IForwarde
         return handler;
     }
 
-    public string GetTransport()
+    protected virtual HttpMessageHandler WrapTunnelHandler(ForwarderHttpClientContext context, HttpMessageHandler handler)
     {
-        return "Http";
+        return handler;
     }
 
-    private static class Log
+    protected static class Log
     {
         private static readonly Action<ILogger, string, Exception?> _clientCreated = LoggerMessage.Define<string>(
               LogLevel.Debug,

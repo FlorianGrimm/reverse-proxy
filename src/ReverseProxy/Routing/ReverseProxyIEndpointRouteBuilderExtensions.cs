@@ -2,14 +2,18 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Limits;
 using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Routing;
+using Yarp.ReverseProxy.Tunnel;
 
 namespace Microsoft.AspNetCore.Builder;
 
@@ -17,7 +21,7 @@ namespace Microsoft.AspNetCore.Builder;
 /// Extension methods for <see cref="IEndpointRouteBuilder"/>
 /// used to add Reverse Proxy to the ASP .NET Core request pipeline.
 /// </summary>
-public static class ReverseProxyIEndpointRouteBuilderExtensions
+public static partial class ReverseProxyIEndpointRouteBuilderExtensions
 {
     /// <summary>
     /// Adds Reverse Proxy routes to the route table using the default processing pipeline.
@@ -75,5 +79,22 @@ public static class ReverseProxyIEndpointRouteBuilderExtensions
         }
 
         return dataSource;
+    }
+}
+
+public static partial class ReverseProxyIEndpointRouteBuilderExtensions
+{
+    public static void MapReverseProxyTunnelFrontendToBackend(this IEndpointRouteBuilder endpoints) {
+        var proxyTunnelConfigManager = endpoints.ServiceProvider.GetRequiredService<ProxyTunnelConfigManager>();
+        proxyTunnelConfigManager.LateInject(endpoints.ServiceProvider);
+        var tunnelHandlerFactory = endpoints.ServiceProvider.GetRequiredService<ITunnelHandlerFactory>();
+        var tunnelFrontendToBackends = proxyTunnelConfigManager.GetTunnelFrontendToBackends();
+        foreach (var tunnelFrontendToBackend in tunnelFrontendToBackends) {
+            var tunnelHandler = tunnelHandlerFactory.Create(tunnelFrontendToBackend);
+            if (tunnelHandler is not null) {
+                tunnelHandler.Map(endpoints);
+                proxyTunnelConfigManager.AddTunnelHandler(tunnelFrontendToBackend.TunnelId, tunnelHandler);
+            }
+        }
     }
 }

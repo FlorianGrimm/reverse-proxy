@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Http;
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Model;
@@ -14,6 +15,9 @@ namespace Yarp.ReverseProxy.Model;
 /// </summary>
 public sealed class ClusterState
 {
+    // TODO: is this ok? needed?
+    internal TunnelFrontendToBackendState? TunnelFrontendToBackend;
+    
     private volatile ClusterDestinationsState _destinationsState = new ClusterDestinationsState(Array.Empty<DestinationState>(), Array.Empty<DestinationState>());
     private volatile ClusterModel _model = default!; // Initialized right after construction.
 
