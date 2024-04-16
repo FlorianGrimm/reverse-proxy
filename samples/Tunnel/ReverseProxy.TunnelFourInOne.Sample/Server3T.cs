@@ -16,6 +16,7 @@ public class Server3T : ServerBase
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
         builder.Services.AddReverseProxyTunnel()
+            .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
             .UseReverseProxyTunnelBackendToFrontend(builder.WebHost);
 
         var app = builder.Build();

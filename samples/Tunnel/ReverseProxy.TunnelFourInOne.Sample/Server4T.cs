@@ -16,6 +16,7 @@ public class Server4T : ServerBase
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
         builder.Services.AddReverseProxyTunnel()
+            .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
             .UseReverseProxyTunnelBackendToFrontend(builder.WebHost);
 
         var app = builder.Build();

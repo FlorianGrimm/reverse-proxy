@@ -31,12 +31,16 @@ namespace Yarp.ReverseProxy.Tunnel.Transport
 
         public ValueTask<IConnectionListener> BindAsync(EndPoint endpoint, CancellationToken cancellationToken = default)
         {
-            if (endpoint is not UriTunnelTransportEndPoint uriTunnelTransportEndPoint) { throw new NotSupportedException(); }
+            if (endpoint is not UriTunnelTransportEndPoint uriTunnelTransportEndPoint) {
+                throw new NotSupportedException();
+            }
 
             var tunnelId = uriTunnelTransportEndPoint.Uri?.Host;
             if (string.IsNullOrEmpty(tunnelId)) { throw new NotSupportedException(); }
 
-            if (!_proxyTunnelConfigManager.TryGetTunnelBackendToFrontend(tunnelId, out var backendToFrontend)) { throw new NotSupportedException(); }
+            if (!_proxyTunnelConfigManager.TryGetTunnelBackendToFrontend(tunnelId, out var backendToFrontend)) {
+                throw new NotSupportedException();
+            }
 
             // TODO: more di
             TunnelConnectionListenerProtocol listener;
@@ -64,7 +68,9 @@ namespace Yarp.ReverseProxy.Tunnel.Transport
 
         public bool CanBind(EndPoint endpoint)
         {
-            if (endpoint is not UriTunnelTransportEndPoint uriTunnelTransportEndPoint) { return false; }
+            if (endpoint is not UriTunnelTransportEndPoint uriTunnelTransportEndPoint) {
+                return false;
+            }
 
             var tunnelId = uriTunnelTransportEndPoint.Uri?.Host;
             if (string.IsNullOrEmpty(tunnelId)) { return false; }
