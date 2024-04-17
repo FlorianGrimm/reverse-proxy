@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Connections;
+using Microsoft.Extensions.Logging;
 
 using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
@@ -20,22 +21,29 @@ internal abstract class TunnelConnectionListenerProtocol : IConnectionListener
     protected readonly TunnelBackendToFrontendState _backendToFrontend;
     protected readonly IProxyTunnelStateLookup _proxyTunnelConfigManager;
     protected readonly TunnelBackendOptions _options;
+    protected readonly ILogger _logger;
     protected readonly SemaphoreSlim _connectionLock;
     protected readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections = new();
     protected readonly CancellationTokenSource _closedCts = new();
-    protected readonly HttpMessageInvoker _httpMessageInvoker;
+    protected readonly HttpMessageInvoker invoker;
 
-    public TunnelConnectionListenerProtocol(UriTunnelTransportEndPoint uriTunnelTransportEndPoint, string tunnelId, TunnelBackendToFrontendState backendToFrontend, IProxyTunnelStateLookup proxyTunnelConfigManager, TunnelBackendOptions options)
+    public TunnelConnectionListenerProtocol(
+        UriTunnelTransportEndPoint uriTunnelTransportEndPoint,
+        string tunnelId,
+        TunnelBackendToFrontendState backendToFrontend,
+        IProxyTunnelStateLookup proxyTunnelConfigManager,
+        TunnelBackendOptions options,
+        ILogger logger)
     {
         _uriTunnelTransportEndPoint = uriTunnelTransportEndPoint;
         _tunnelId = tunnelId;
         _backendToFrontend = backendToFrontend;
         _proxyTunnelConfigManager = proxyTunnelConfigManager;
         _options = options;
-
+        _logger = logger;
         _connectionLock = new(options.MaxConnectionCount);
 
-        _httpMessageInvoker = new HttpMessageInvoker(
+        invoker = new HttpMessageInvoker(
            new SocketsHttpHandler
            {
                EnableMultipleHttp2Connections = true,
@@ -119,6 +127,10 @@ internal abstract class TunnelConnectionListenerProtocol : IConnectionListener
 
 #endif
 
+    protected abstract Uri GetRemoteUrl(TunnelBackendToFrontendState tunnel);
+
+    protected abstract Task<TrackLifetimeConnectionContext> ConnectAsync(HttpMessageInvoker httpMessageInvoker, Uri uri, CancellationToken cancellationToken);
+
     public async ValueTask DisposeAsync()
     {
         List<Task>? tasks = null;
@@ -148,6 +160,29 @@ internal abstract class TunnelConnectionListenerProtocol : IConnectionListener
         }
 
         return ValueTask.CompletedTask;
+    }
+
+    protected static class Log
+    {
+        private static readonly Action<ILogger, string, Exception?> _tunnelBackendToFrontendNotFound = LoggerMessage.Define<string>(
+            LogLevel.Debug,
+            EventIds.TunnelBackendToFrontendNotFound,
+            "TunnelBackendToFrontend '{tunnelId}' was not found.");
+
+        public static void TunnelBackendToFrontendNotFound(ILogger logger, string tunnelId)
+        {
+            _tunnelBackendToFrontendNotFound(logger, tunnelId, null);
+        }
+
+        private static readonly Action<ILogger, string, string, string, Exception?> _tunnelConnectionListenerAccept = LoggerMessage.Define<string, string, string>(
+            LogLevel.Debug,
+            EventIds.TunnelConnectionListenerAccept,
+            "TunnelConnectionListener '{tunnelId}' as '{transport}' to '{url}' is starting.");
+
+        public static void TunnelConnectionListenerAccept(ILogger logger, string tunnelId, string transport, string url)
+        {
+            _tunnelConnectionListenerAccept(logger, tunnelId, transport, url, null);
+        }
     }
 
 }

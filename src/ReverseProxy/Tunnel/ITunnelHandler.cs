@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Http;
 
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 
 using Yarp.ReverseProxy.Configuration;
@@ -12,6 +13,9 @@ public interface ITunnelHandler
 {
     bool TryGetTunnelConnectionChannel(SocketsHttpConnectionContext socketsContext, [MaybeNullWhen(false)] out ActiveTunnelConnection activeTunnel);
 
-    void Map(IEndpointRouteBuilder endpoints);
+    IEndpointConventionBuilder Map(IEndpointRouteBuilder endpoints);
+
     Dictionary<string, DestinationConfig> GetDestinations();
+
+    string GetTransport();
 }

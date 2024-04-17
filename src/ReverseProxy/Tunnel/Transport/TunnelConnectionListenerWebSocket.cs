@@ -1,8 +1,10 @@
 using System;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Connections;
+using Microsoft.Extensions.Logging;
 
 using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
@@ -16,8 +18,9 @@ internal class TunnelConnectionListenerWebSocket : TunnelConnectionListenerProto
         string tunnelId,
         TunnelBackendToFrontendState backendToFrontend,
         IProxyTunnelStateLookup proxyTunnelConfigManager,
-        TunnelBackendOptions options)
-        : base(uriTunnelTransportEndPoint, tunnelId, backendToFrontend, proxyTunnelConfigManager, options)
+        TunnelBackendOptions options,
+        ILogger<TunnelConnectionListenerWebSocket> logger)
+        : base(uriTunnelTransportEndPoint, tunnelId, backendToFrontend, proxyTunnelConfigManager, options, logger)
     {
     }
     public override async ValueTask<ConnectionContext?> AcceptAsync(CancellationToken cancellationToken = default)
@@ -30,16 +33,15 @@ internal class TunnelConnectionListenerWebSocket : TunnelConnectionListenerProto
                 // TODO: create Validator
                 throw new ArgumentException($"Tunnel {tunnel} not found");
             }
-
-            var url = _backendToFrontend.Url;
-            var remoteTunnelId = _backendToFrontend.RemoteTunnelId;
-            var uri = new Uri(new Uri(url), $"/Tunnel/WebSocket/{remoteTunnelId}/{tunnelId}");
-
-
+            
+            var uri = GetRemoteUrl(tunnel);
+            
             cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(_closedCts.Token, cancellationToken).Token;
 
             // Kestrel will keep an active accept call open as long as the transport is active
             await _connectionLock.WaitAsync(cancellationToken);
+
+            Log.TunnelConnectionListenerAccept(_logger, tunnelId, _backendToFrontend.Transport, uri.ToString());
 
             while (true)
             {
@@ -86,6 +88,18 @@ internal class TunnelConnectionListenerWebSocket : TunnelConnectionListenerProto
             return null;
         }
     }
+    protected override Uri GetRemoteUrl(TunnelBackendToFrontendState tunnel)
+    {
+        var url = tunnel.Url;
+        var remoteTunnelId = tunnel.RemoteTunnelId;
+        var host = tunnel.TunnelId; // TODO: host needs a configuration
+        var uri = new Uri(new Uri(url), $"/Tunnel/WebSocket/{remoteTunnelId}/{host}");
+        return uri;
+    }
 
+    protected override Task<TrackLifetimeConnectionContext> ConnectAsync(HttpMessageInvoker httpMessageInvoker, Uri uri, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
+    }
 }
 // public class TunnelConnectionListenerWebTransport: TunnelConnectionListenerProtocol { }

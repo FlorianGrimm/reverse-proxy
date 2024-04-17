@@ -1,7 +1,11 @@
+using System;
+using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -30,6 +34,9 @@ public class Program
                 tasks[idx] = server.RunAsync();
                 server.Lifetime.ApplicationStopping.Register(stop);
             }
+
+            await RunTests();
+            
             await Task.WhenAll(tasks);
 
             void stop()
@@ -56,5 +63,49 @@ public class Program
             throw;
         }
 
+    }
+
+    private static async Task RunTests()
+    {
+        await Task.Delay(1000);
+
+        /*
+         * 
+        // Backend
+        await HttpClientGet("https://localhost:5005");
+        await HttpClientGet("https://localhost:5006");
+
+        // normal Yarp forwarding
+        await HttpClientGet("https://localhost:5004/alpha");
+        await HttpClientGet("https://localhost:5004/beta");
+        await HttpClientGet("https://localhost:5004/gamma");
+
+        await HttpClientGet("https://localhost:5003/alpha");
+        await HttpClientGet("https://localhost:5003/beta");
+        await HttpClientGet("https://localhost:5003/gamma");
+
+        */
+
+        // Tunnel
+
+        // await HttpClientGet("https://localhost:5002/alpha");
+
+
+
+    }
+
+    private static async Task<(HttpStatusCode, string)> HttpClientGet(string url)
+    {
+        System.Console.WriteLine("");
+        System.Console.WriteLine("---------------------------------------");
+        System.Console.WriteLine("");
+        System.Console.WriteLine($"GET {url}");
+        using var httpClient = new HttpClient();
+        using var response = await httpClient.GetAsync(url);
+        var content = await response.Content.ReadAsStringAsync();
+        var statusCode = response.StatusCode;
+        var displayContent = string.IsNullOrEmpty(content) ? "--EMPTY--" : content.Length < 42 ? content : content.Substring(0, 42);
+        System.Console.WriteLine($"{statusCode} {content}");
+        return (statusCode, content);
     }
 }

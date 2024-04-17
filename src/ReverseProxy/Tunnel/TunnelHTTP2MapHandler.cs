@@ -42,11 +42,12 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
         _forwarderHttpClientFactory = forwarderHttpClientFactory;
     }
 
-    public void Map(IEndpointRouteBuilder endpoints)
+    public IEndpointConventionBuilder Map(IEndpointRouteBuilder endpoints)
     {
         var path = $"/Tunnel/HTTP2/{_tunnelFrontendToBackend.TunnelId}/{{Host}}";
         var builder = endpoints.MapPost(path, async (HttpContext context) => await HandleMapPost(context));
         // TODO: auth ?? builder.RequireAuthorization();
+        return builder;
     }
 
     private async Task<IResult> HandleMapPost(HttpContext context)
@@ -236,6 +237,11 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
             }
         }
         return result;
+    }
+
+    public string GetTransport()
+    {
+        return "TunnelHTTP2";
     }
 }
 

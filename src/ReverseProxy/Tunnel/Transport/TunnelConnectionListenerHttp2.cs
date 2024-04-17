@@ -3,9 +3,18 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Connections;
+using Microsoft.Extensions.Logging;
 
 using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Pipelines;
+using System.Net;
+using System.Net.Http;
+
+using Microsoft.AspNetCore.Connections.Features;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace Yarp.ReverseProxy.Tunnel.Transport;
 
@@ -16,8 +25,9 @@ internal class TunnelConnectionListenerHttp2 : TunnelConnectionListenerProtocol
         string tunnelId,
         TunnelBackendToFrontendState backendToFrontend,
         IProxyTunnelStateLookup proxyTunnelConfigManager,
-        TunnelBackendOptions options)
-        : base(uriTunnelTransportEndPoint, tunnelId, backendToFrontend, proxyTunnelConfigManager, options)
+        TunnelBackendOptions options,
+        ILogger<TunnelConnectionListenerHttp2> logger)
+        : base(uriTunnelTransportEndPoint, tunnelId, backendToFrontend, proxyTunnelConfigManager, options, logger)
     {
     }
 
@@ -28,20 +38,21 @@ internal class TunnelConnectionListenerHttp2 : TunnelConnectionListenerProtocol
             var tunnelId = _backendToFrontend.TunnelId;
             if (!_proxyTunnelConfigManager.TryGetTunnelBackendToFrontend(tunnelId, out var tunnel))
             {
+                Log.TunnelBackendToFrontendNotFound(_logger, tunnelId);
+
                 // TODO: create Validator
                 throw new ArgumentException($"Tunnel {tunnel} not found");
             }
-
-            var url = tunnel.Url;
-            var remoteTunnelId = tunnel.RemoteTunnelId;
-            var host = tunnelId; // TODO: host needs a configuration
-            var uri = new Uri(new Uri(url), $"/Tunnel/HTTP2/{remoteTunnelId}/{host}");
-
+            
+            var uri = GetRemoteUrl(tunnel);
 
             cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(_closedCts.Token, cancellationToken).Token;
 
             // Kestrel will keep an active accept call open as long as the transport is active
             await _connectionLock.WaitAsync(cancellationToken);
+
+            Log.TunnelConnectionListenerAccept(_logger, tunnelId, _backendToFrontend.Transport, uri.ToString());
+
 
             while (true)
             {
@@ -57,9 +68,10 @@ internal class TunnelConnectionListenerHttp2 : TunnelConnectionListenerProtocol
                         _ => throw new NotSupportedException(),
                     });
                     */
-                    var connection = await TunnelConnectionContextHttp2.ConnectAsync(_httpMessageInvoker, uri, cancellationToken);
+                    var connection = await ConnectAsync(invoker, uri, cancellationToken);
 
                     // Track this connection lifetime
+                    _proxyTunnelConfigManager.TryGetTunnelBackendToFrontend
                     _connections.TryAdd(connection, connection);
 
                     _ = Task.Run(async () =>
@@ -88,5 +100,57 @@ internal class TunnelConnectionListenerHttp2 : TunnelConnectionListenerProtocol
             return null;
         }
     }
+
+    protected override async Task<TrackLifetimeConnectionContext> ConnectAsync(HttpMessageInvoker invoker, Uri uri, CancellationToken cancellationToken)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, uri)
+        {
+            Version = new Version(2, 0)
+        };
+        var connection = new TunnelConnectionContextHttp2();
+        request.Content = new HttpClientConnectionContextContent(connection);
+        var response = await invoker.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        connection.HttpResponseMessage = response;
+        var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+        connection.Input = PipeReader.Create(responseStream);
+
+        return new TrackLifetimeConnectionContext(connection);
+
+    }
+
+    protected override Uri GetRemoteUrl(TunnelBackendToFrontendState tunnel)
+    {
+        var url = tunnel.Url;
+        var remoteTunnelId = tunnel.RemoteTunnelId;
+        var host = tunnel.TunnelId; // TODO: host needs a configuration
+        var uri = new Uri(new Uri(url), $"/Tunnel/HTTP2/{remoteTunnelId}/{host}");
+        return uri;
+    }
+
+
+    /*
+    private static class Log
+    {
+        private static readonly Action<ILogger, string, Exception?> _tunnelBackendToFrontendNotFound = LoggerMessage.Define<string>(
+            LogLevel.Debug,
+            EventIds.TunnelBackendToFrontendNotFound,
+            "TunnelBackendToFrontend '{tunnelId}' was not found.");
+
+        public static void TunnelBackendToFrontendNotFound(ILogger logger, string tunnelId)
+        {
+            _tunnelBackendToFrontendNotFound(logger, tunnelId, null);
+        }
+
+        private static readonly Action<ILogger, string, string, string, Exception?> _tunnelConnectionListenerAdd = LoggerMessage.Define<string, string, string>(
+            LogLevel.Debug,
+            EventIds.TunnelConnectionListenerAdd,
+            "TunnelConnectionListener '{tunnelId}' as '{transport}' to '{url}' was added.");
+
+        public static void TunnelConnectionListenerAdd(ILogger logger, string tunnelId, string transport, string url)
+        {
+            _tunnelConnectionListenerAdd(logger, tunnelId, transport, url, null);
+        }
+    }
+    */
 }
 // public class TunnelConnectionListenerWebTransport: TunnelConnectionListenerProtocol { }

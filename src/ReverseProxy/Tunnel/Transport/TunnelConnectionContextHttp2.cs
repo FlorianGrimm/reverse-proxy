@@ -11,127 +11,126 @@ using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
 
-namespace Yarp.ReverseProxy.Tunnel.Transport
+namespace Yarp.ReverseProxy.Tunnel.Transport;
+
+internal class TunnelConnectionContextHttp2 : ConnectionContext,
+    IConnectionLifetimeFeature,
+    IConnectionEndPointFeature,
+    IConnectionItemsFeature,
+    IConnectionIdFeature,
+    IConnectionTransportFeature,
+    IDuplexPipe
 {
-    internal class TunnelConnectionContextHttp2 : ConnectionContext,
-        IConnectionLifetimeFeature,
-        IConnectionEndPointFeature,
-        IConnectionItemsFeature,
-        IConnectionIdFeature,
-        IConnectionTransportFeature,
-        IDuplexPipe
+    public static async ValueTask<TrackLifetimeConnectionContext> ConnectAsync(
+        HttpMessageInvoker invoker,
+        Uri uri,
+        CancellationToken cancellationToken)
     {
-        public static async ValueTask<TrackLifetimeConnectionContext> ConnectAsync(
-            HttpMessageInvoker invoker,
-            Uri uri,
-            CancellationToken cancellationToken)
+        var request = new HttpRequestMessage(HttpMethod.Post, uri)
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, uri)
-            {
-                Version = new Version(2, 0)
-            };
-            var connection = new TunnelConnectionContextHttp2();
-            request.Content = new HttpClientConnectionContextContent(connection);
-            var response = await invoker.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            connection.HttpResponseMessage = response;
-            var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-            connection.Input = PipeReader.Create(responseStream);
+            Version = new Version(2, 0)
+        };
+        var connection = new TunnelConnectionContextHttp2();
+        request.Content = new HttpClientConnectionContextContent(connection);
+        var response = await invoker.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        connection.HttpResponseMessage = response;
+        var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+        connection.Input = PipeReader.Create(responseStream);
 
-            return new TrackLifetimeConnectionContext(connection);
-        }
+        return new TrackLifetimeConnectionContext(connection);
+    }
 
-        private readonly TaskCompletionSource _executionTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _executionTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        private TunnelConnectionContextHttp2()
-        {
-            Transport = this;
+    internal TunnelConnectionContextHttp2()
+    {
+        Transport = this;
 
-            Features.Set<IConnectionIdFeature>(this);
-            Features.Set<IConnectionTransportFeature>(this);
-            Features.Set<IConnectionItemsFeature>(this);
-            Features.Set<IConnectionEndPointFeature>(this);
-            Features.Set<IConnectionLifetimeFeature>(this);
-        }
+        Features.Set<IConnectionIdFeature>(this);
+        Features.Set<IConnectionTransportFeature>(this);
+        Features.Set<IConnectionItemsFeature>(this);
+        Features.Set<IConnectionEndPointFeature>(this);
+        Features.Set<IConnectionLifetimeFeature>(this);
+    }
 
-        public Task ExecutionTask => _executionTcs.Task;
+    public Task ExecutionTask => _executionTcs.Task;
 
-        public override string ConnectionId { get; set; } = Guid.NewGuid().ToString();
+    public override string ConnectionId { get; set; } = Guid.NewGuid().ToString();
 
-        public override IFeatureCollection Features { get; } = new FeatureCollection();
+    public override IFeatureCollection Features { get; } = new FeatureCollection();
 
-        public override IDictionary<object, object?> Items { get; set; } = new ConnectionItems();
-        public override IDuplexPipe Transport { get; set; }
+    public override IDictionary<object, object?> Items { get; set; } = new ConnectionItems();
+    public override IDuplexPipe Transport { get; set; }
 
-        public override EndPoint? LocalEndPoint { get; set; }
+    public override EndPoint? LocalEndPoint { get; set; }
 
-        public override EndPoint? RemoteEndPoint { get; set; }
+    public override EndPoint? RemoteEndPoint { get; set; }
 
-        public PipeReader Input { get; set; } = default!;
+    public PipeReader Input { get; set; } = default!;
 
-        public PipeWriter Output { get; set; } = default!;
+    public PipeWriter Output { get; set; } = default!;
 
-        public override CancellationToken ConnectionClosed { get; set; }
+    public override CancellationToken ConnectionClosed { get; set; }
 
-        public HttpResponseMessage HttpResponseMessage { get; set; } = default!;
+    public HttpResponseMessage HttpResponseMessage { get; set; } = default!;
 
-        public override void Abort()
-        {
-            HttpResponseMessage.Dispose();
+    public override void Abort()
+    {
+        HttpResponseMessage.Dispose();
 
-            _executionTcs.TrySetCanceled();
+        _executionTcs.TrySetCanceled();
 
-            Input.CancelPendingRead();
-            Output.CancelPendingFlush();
-        }
+        Input.CancelPendingRead();
+        Output.CancelPendingFlush();
+    }
 
-        public override void Abort(ConnectionAbortedException abortReason)
-        {
-            Abort();
-        }
+    public override void Abort(ConnectionAbortedException abortReason)
+    {
+        Abort();
+    }
 
-        public override ValueTask DisposeAsync()
-        {
-            Abort();
+    public override ValueTask DisposeAsync()
+    {
+        Abort();
 
-            return base.DisposeAsync();
-        }
+        return base.DisposeAsync();
+    }
+}
 
-        private class HttpClientConnectionContextContent : HttpContent
-        {
-            private readonly TunnelConnectionContextHttp2 _connectionContext;
+internal class HttpClientConnectionContextContent : HttpContent
+{
+    private readonly TunnelConnectionContextHttp2 _connectionContext;
 
-            public HttpClientConnectionContextContent(TunnelConnectionContextHttp2 connectionContext)
-            {
-                _connectionContext = connectionContext;
-            }
+    public HttpClientConnectionContextContent(TunnelConnectionContextHttp2 connectionContext)
+    {
+        _connectionContext = connectionContext;
+    }
 
-            protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken)
-            {
-                _connectionContext.Output = PipeWriter.Create(stream);
+    protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken)
+    {
+        _connectionContext.Output = PipeWriter.Create(stream);
 
-                // Immediately flush request stream to send headers
-                // https://github.com/dotnet/corefx/issues/39586#issuecomment-516210081
-                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        // Immediately flush request stream to send headers
+        // https://github.com/dotnet/corefx/issues/39586#issuecomment-516210081
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-                await _connectionContext.ExecutionTask.ConfigureAwait(false);
-            }
+        await _connectionContext.ExecutionTask.ConfigureAwait(false);
+    }
 
-            protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
-            {
-                _connectionContext.Output = PipeWriter.Create(stream);
+    protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+    {
+        _connectionContext.Output = PipeWriter.Create(stream);
 
-                // Immediately flush request stream to send headers
-                // https://github.com/dotnet/corefx/issues/39586#issuecomment-516210081
-                await stream.FlushAsync().ConfigureAwait(false);
+        // Immediately flush request stream to send headers
+        // https://github.com/dotnet/corefx/issues/39586#issuecomment-516210081
+        await stream.FlushAsync().ConfigureAwait(false);
 
-                await _connectionContext.ExecutionTask.ConfigureAwait(false);
-            }
+        await _connectionContext.ExecutionTask.ConfigureAwait(false);
+    }
 
-            protected override bool TryComputeLength(out long length)
-            {
-                length = -1;
-                return false;
-            }
-        }
+    protected override bool TryComputeLength(out long length)
+    {
+        length = -1;
+        return false;
     }
 }

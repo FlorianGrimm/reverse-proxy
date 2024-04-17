@@ -21,10 +21,10 @@ public sealed record TunnelBackendToFrontendConfig
 
     public TunnelBackendToFrontendAuthenticationConfig Authentication { get; init; } = default!;
 
-    public string GetRemoteTunnelId()
-        =>  (string.IsNullOrEmpty(RemoteTunnelId))
-            ? TunnelId
-            : RemoteTunnelId;
+    //public string GetRemoteTunnelId()
+    //    =>  (string.IsNullOrEmpty(RemoteTunnelId))
+    //        ? TunnelId
+    //        : RemoteTunnelId;
 }
 
 public sealed record TunnelBackendToFrontendAuthenticationConfig

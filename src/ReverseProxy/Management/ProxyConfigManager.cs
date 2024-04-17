@@ -182,8 +182,15 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             {
                 var config = await configLoadTask;
                 _configs[i] = new ConfigState(provider, config);
-                routes.AddRange(config.Routes ?? Array.Empty<RouteConfig>());
-                clusters.AddRange(config.Clusters ?? Array.Empty<ClusterConfig>());
+                if (config.Routes is { Count: > 0 } updatedRoutes)
+                {
+                    routes.AddRange(updatedRoutes);
+                }
+
+                if (config.Clusters is { Count: > 0 } updatedClusters)
+                {
+                    clusters.AddRange(updatedClusters);
+                }
             }
 
             var proxyConfigs = ExtractListOfProxyConfigs(_configs);

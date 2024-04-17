@@ -46,6 +46,7 @@ internal sealed class ProxyTunnelConfigManager
     {
         if (_logger is not NullLogger<ProxyTunnelConfigManager>) { return; }
         _logger = serviceProvider.GetRequiredService<ILogger<ProxyTunnelConfigManager>>();
+        GetCurrentState();
     }
 
     public void AddConfigProvider(IProxyTunnelConfigProvider tunnelConfigProvider)
@@ -202,6 +203,7 @@ internal sealed class ProxyTunnelConfigManager
                 System.Threading.Interlocked.CompareExchange(ref _tunnelHandlers, nextTunnelHandlers, currentTunnelHandlers),
                 currentTunnelHandlers))
             {
+                Log.TunnelHandlerAdded(_logger, tunnelId, tunnelHandler.GetTransport());
                 break;
             }
         }
@@ -227,53 +229,19 @@ internal sealed class ProxyTunnelConfigManager
 
     IProxyConfig IProxyConfigProvider.GetConfig()
     {
+        GetCurrentState();
         return _memoryConfigProvider.GetConfig();
     }
-}
 
-internal class ProxyTunnelConfigState : IProxyTunnelStateLookup
-{
-    public readonly ImmutableDictionary<string, TunnelFrontendToBackendState> TunnelFrontendToBackendByTunnelId;
-    public readonly ImmutableDictionary<string, TunnelBackendToFrontendState> TunnelBackendToFrontendByTunnelId;
-
-    public ProxyTunnelConfigState(
-        List<TunnelFrontendToBackendState> tunnelFrontendToBackends,
-        List<TunnelBackendToFrontendState> tunnelBackendToFrontends)
+    private static class Log
     {
-        Dictionary<string, TunnelFrontendToBackendState> dictTunnelFrontendToBackend = new(StringComparer.OrdinalIgnoreCase);
-        foreach (var tunnelFrontendToBackend in tunnelFrontendToBackends)
+        private static readonly Action<ILogger, string, string, Exception?> _tunnelHandlerAdded = LoggerMessage.Define<string, string>(
+            LogLevel.Debug,
+            EventIds.TunnelHandlerAdded,
+            "TunnelHandler '{tunnelId}' as '{transport}' has been added.");
+        public static void TunnelHandlerAdded(ILogger logger, string tunnelId, string transport)
         {
-            dictTunnelFrontendToBackend.Add(tunnelFrontendToBackend.TunnelId, tunnelFrontendToBackend);
+            _tunnelHandlerAdded(logger, tunnelId, transport, null);
         }
-
-        Dictionary<string, TunnelBackendToFrontendState> dictTunnelBackendToFrontend = new(StringComparer.OrdinalIgnoreCase);
-        foreach (var tunnelBackendToFrontend in tunnelBackendToFrontends)
-        {
-            dictTunnelBackendToFrontend.Add(tunnelBackendToFrontend.TunnelId, tunnelBackendToFrontend);
-        }
-
-        TunnelFrontendToBackendByTunnelId = dictTunnelFrontendToBackend.ToImmutableDictionary();
-        TunnelBackendToFrontendByTunnelId = dictTunnelBackendToFrontend.ToImmutableDictionary();
-    }
-
-    public IEnumerable<TunnelFrontendToBackendState> GetTunnelFrontendToBackends()
-    {
-        return TunnelFrontendToBackendByTunnelId.Values;
-    }
-
-    public bool TryGetTunnelFrontendToBackend(string tunnelId, [MaybeNullWhen(false)] out TunnelFrontendToBackendState state)
-    {
-        return TunnelFrontendToBackendByTunnelId.TryGetValue(tunnelId, out state);
-    }
-
-
-    public IEnumerable<TunnelBackendToFrontendState> GetTunnelBackendToFrontends()
-    {
-        return TunnelBackendToFrontendByTunnelId.Values;
-    }
-
-    public bool TryGetTunnelBackendToFrontend(string tunnelId, [MaybeNullWhen(false)] out TunnelBackendToFrontendState state)
-    {
-        return TunnelBackendToFrontendByTunnelId.TryGetValue(tunnelId, out state);
     }
 }

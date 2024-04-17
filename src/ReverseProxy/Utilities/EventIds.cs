@@ -69,4 +69,11 @@ internal static class EventIds
     public static readonly EventId InvalidSecWebSocketKeyHeader = new EventId(63, "InvalidSecWebSocketKeyHeader");
     public static readonly EventId TimeoutNotApplied = new(64, nameof(TimeoutNotApplied));
     public static readonly EventId DelegationQueueNoLongerExists = new(65, nameof(DelegationQueueNoLongerExists));
+
+    public static readonly EventId TunnelBackendToFrontendAdd = new EventId(66, "TunnelBackendToFrontendAdd");    
+    public static readonly EventId TunnelBackendToFrontendNotFound = new EventId(67, "TunnelBackendToFrontendNotFound");
+    public static readonly EventId TunnelHandlerAdded = new EventId(68, "TunnelHandlerAdded");
+    public static readonly EventId TunnelConnectionListenerAdd = new EventId(69, "TunnelConnectionListenerAdd");
+    public static readonly EventId TunnelConnectionListenerAccept = new EventId(70, "TunnelConnectionListenerAccept");
+
 }

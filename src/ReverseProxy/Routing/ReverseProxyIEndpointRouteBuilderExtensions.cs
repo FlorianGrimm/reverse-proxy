@@ -4,6 +4,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -84,16 +85,23 @@ public static partial class ReverseProxyIEndpointRouteBuilderExtensions
 
 public static partial class ReverseProxyIEndpointRouteBuilderExtensions
 {
-    public static void MapReverseProxyTunnelFrontendToBackend(this IEndpointRouteBuilder endpoints) {
-        var proxyTunnelConfigManager = endpoints.ServiceProvider.GetRequiredService<ProxyTunnelConfigManager>();
-        proxyTunnelConfigManager.LateInject(endpoints.ServiceProvider);
-        var tunnelHandlerFactory = endpoints.ServiceProvider.GetRequiredService<ITunnelHandlerFactory>();
+    public static void MapReverseProxyTunnelFrontendToBackend(this IEndpointRouteBuilder endpoints)
+    {
+        var applicationServices = endpoints.ServiceProvider;
+        var proxyTunnelConfigManager = applicationServices.GetRequiredService<ProxyTunnelConfigManager>();
+        proxyTunnelConfigManager.LateInject(applicationServices);
+        var tunnelHandlerFactory = applicationServices.GetRequiredService<ITunnelHandlerFactory>();
         var tunnelFrontendToBackends = proxyTunnelConfigManager.GetTunnelFrontendToBackends();
-        foreach (var tunnelFrontendToBackend in tunnelFrontendToBackends) {
-            var tunnelHandler = tunnelHandlerFactory.Create(tunnelFrontendToBackend);
-            if (tunnelHandler is not null) {
-                tunnelHandler.Map(endpoints);
-                proxyTunnelConfigManager.AddTunnelHandler(tunnelFrontendToBackend.TunnelId, tunnelHandler);
+        if (tunnelFrontendToBackends.Any())
+        {
+            foreach (var tunnelFrontendToBackend in tunnelFrontendToBackends)
+            {
+                var tunnelHandler = tunnelHandlerFactory.Create(tunnelFrontendToBackend);
+                if (tunnelHandler is not null)
+                {
+                    var endpointConventionBuilder = tunnelHandler.Map(endpoints);
+                    proxyTunnelConfigManager.AddTunnelHandler(tunnelFrontendToBackend.TunnelId, tunnelHandler);
+                }
             }
         }
     }
