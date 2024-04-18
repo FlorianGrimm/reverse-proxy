@@ -4,7 +4,9 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,6 +17,7 @@ using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Routing;
 using Yarp.ReverseProxy.Tunnel;
+using Yarp.ReverseProxy.Tunnel.Transport;
 
 namespace Microsoft.AspNetCore.Builder;
 
@@ -85,8 +88,12 @@ public static partial class ReverseProxyIEndpointRouteBuilderExtensions
 
 public static partial class ReverseProxyIEndpointRouteBuilderExtensions
 {
-    public static void MapReverseProxyTunnelFrontendToBackend(this IEndpointRouteBuilder endpoints)
+    public static IEndpointRouteBuilder MapReverseProxyTunnelFrontendToBackend(this IEndpointRouteBuilder endpoints)
     {
+        if (endpoints is null)
+        {
+            throw new ArgumentNullException(nameof(endpoints));
+        }
         var applicationServices = endpoints.ServiceProvider;
         var proxyTunnelConfigManager = applicationServices.GetRequiredService<ProxyTunnelConfigManager>();
         proxyTunnelConfigManager.LateInject(applicationServices);
@@ -100,9 +107,49 @@ public static partial class ReverseProxyIEndpointRouteBuilderExtensions
                 if (tunnelHandler is not null)
                 {
                     var endpointConventionBuilder = tunnelHandler.Map(endpoints);
+                    endpointConventionBuilder
+                        .WithMetadata(tunnelFrontendToBackend)
+                        ;
                     proxyTunnelConfigManager.AddTunnelHandler(tunnelFrontendToBackend.TunnelId, tunnelHandler);
                 }
             }
+            endpoints.Map("/Tunnel/{protocol}/{tunnel}/{host}", (HttpContext context) =>
+            {
+                context.RequestServices.GetRequiredService<ILogger<TunnelConnectionListenerProtocol>>().LogWarning("Tunnel is not defined {Path}", context.Request.Path);
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                return Task.CompletedTask;
+            });
+
         }
+        return endpoints;
+    }
+
+}
+
+// TODO: WEICHEI?
+internal sealed class ProxyTunnelEndpointFactory
+{
+    private RequestDelegate? _pipeline;
+    public void SetProxyPipeline(RequestDelegate pipeline)
+    {
+        _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
+    }
+}
+// TODO: WEICHEI?
+internal class TunnelPipelineInitializerMiddleware
+{
+    private readonly ILogger _logger;
+    private readonly RequestDelegate _next;
+
+    public TunnelPipelineInitializerMiddleware(RequestDelegate next,
+        ILogger<TunnelPipelineInitializerMiddleware> logger)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _next = next ?? throw new ArgumentNullException(nameof(next));
+    }
+
+    public Task Invoke(HttpContext context)
+    {
+        return _next(context);
     }
 }

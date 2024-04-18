@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Http;
 
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -59,6 +60,7 @@ public static partial class ReverseProxyServiceCollectionExtensions
             .AddProxy();
 
         services.TryAddSingleton<ProxyEndpointFactory>();
+        services.TryAddSingleton<ProxyTunnelEndpointFactory>();
 
         services.AddDataProtection();
         services.AddAuthorization();

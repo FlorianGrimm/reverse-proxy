@@ -24,7 +24,7 @@ internal class TunnelConnectionListenerHttp2 : TunnelConnectionListenerProtocol
         UriTunnelTransportEndPoint uriTunnelTransportEndPoint,
         string tunnelId,
         TunnelBackendToFrontendState backendToFrontend,
-        IProxyTunnelStateLookup proxyTunnelConfigManager,
+        ProxyTunnelConfigManager proxyTunnelConfigManager,
         TunnelBackendOptions options,
         ILogger<TunnelConnectionListenerHttp2> logger)
         : base(uriTunnelTransportEndPoint, tunnelId, backendToFrontend, proxyTunnelConfigManager, options, logger)
@@ -71,7 +71,6 @@ internal class TunnelConnectionListenerHttp2 : TunnelConnectionListenerProtocol
                     var connection = await ConnectAsync(invoker, uri, cancellationToken);
 
                     // Track this connection lifetime
-                    _proxyTunnelConfigManager.TryGetTunnelBackendToFrontend
                     _connections.TryAdd(connection, connection);
 
                     _ = Task.Run(async () =>

@@ -35,8 +35,8 @@ public class Program
                 server.Lifetime.ApplicationStopping.Register(stop);
             }
 
-            await RunTests();
-            
+            // await RunTests();
+
             await Task.WhenAll(tasks);
 
             void stop()
@@ -69,43 +69,44 @@ public class Program
     {
         await Task.Delay(1000);
 
-        /*
-         * 
-        // Backend
-        await HttpClientGet("https://localhost:5005");
-        await HttpClientGet("https://localhost:5006");
+        try
+        {
+            // Backend
+            await HttpClientGet("https://localhost:5005");
+            await HttpClientGet("https://localhost:5006");
 
-        // normal Yarp forwarding
-        await HttpClientGet("https://localhost:5004/alpha");
-        await HttpClientGet("https://localhost:5004/beta");
-        await HttpClientGet("https://localhost:5004/gamma");
+            // normal Yarp forwarding
+            await HttpClientGet("https://localhost:5004/alpha");
+            await HttpClientGet("https://localhost:5004/beta");
+            await HttpClientGet("https://localhost:5004/gamma");
 
-        await HttpClientGet("https://localhost:5003/alpha");
-        await HttpClientGet("https://localhost:5003/beta");
-        await HttpClientGet("https://localhost:5003/gamma");
-
-        */
-
-        // Tunnel
-
-        // await HttpClientGet("https://localhost:5002/alpha");
+            await HttpClientGet("https://localhost:5003/alpha");
+            await HttpClientGet("https://localhost:5003/beta");
+            await HttpClientGet("https://localhost:5003/gamma");
 
 
+            // Tunnel
 
+            await HttpClientGet("https://localhost:5002/alpha");
+        }
+        catch (Exception error)
+        {
+            System.Console.Error.WriteLine(error.ToString());
+        }
     }
 
     private static async Task<(HttpStatusCode, string)> HttpClientGet(string url)
     {
-        System.Console.WriteLine("");
-        System.Console.WriteLine("---------------------------------------");
-        System.Console.WriteLine("");
-        System.Console.WriteLine($"GET {url}");
+        System.Console.Out.WriteLine("");
+        System.Console.Out.WriteLine("---------------------------------------");
+        System.Console.Out.WriteLine("");
+        System.Console.Out.WriteLine($"GET {url}");
         using var httpClient = new HttpClient();
         using var response = await httpClient.GetAsync(url);
         var content = await response.Content.ReadAsStringAsync();
         var statusCode = response.StatusCode;
         var displayContent = string.IsNullOrEmpty(content) ? "--EMPTY--" : content.Length < 42 ? content : content.Substring(0, 42);
-        System.Console.WriteLine($"{statusCode} {content}");
+        System.Console.Out.WriteLine($"{statusCode} {content}");
         return (statusCode, content);
     }
 }

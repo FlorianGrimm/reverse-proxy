@@ -17,7 +17,7 @@ internal class TunnelConnectionListenerWebSocket : TunnelConnectionListenerProto
         UriTunnelTransportEndPoint uriTunnelTransportEndPoint,
         string tunnelId,
         TunnelBackendToFrontendState backendToFrontend,
-        IProxyTunnelStateLookup proxyTunnelConfigManager,
+        ProxyTunnelConfigManager proxyTunnelConfigManager,
         TunnelBackendOptions options,
         ILogger<TunnelConnectionListenerWebSocket> logger)
         : base(uriTunnelTransportEndPoint, tunnelId, backendToFrontend, proxyTunnelConfigManager, options, logger)

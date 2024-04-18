@@ -19,7 +19,7 @@ internal abstract class TunnelConnectionListenerProtocol : IConnectionListener
     protected readonly UriTunnelTransportEndPoint _uriTunnelTransportEndPoint;
     protected readonly string _tunnelId;
     protected readonly TunnelBackendToFrontendState _backendToFrontend;
-    protected readonly IProxyTunnelStateLookup _proxyTunnelConfigManager;
+    protected readonly ProxyTunnelConfigManager _proxyTunnelConfigManager;
     protected readonly TunnelBackendOptions _options;
     protected readonly ILogger _logger;
     protected readonly SemaphoreSlim _connectionLock;
@@ -31,7 +31,7 @@ internal abstract class TunnelConnectionListenerProtocol : IConnectionListener
         UriTunnelTransportEndPoint uriTunnelTransportEndPoint,
         string tunnelId,
         TunnelBackendToFrontendState backendToFrontend,
-        IProxyTunnelStateLookup proxyTunnelConfigManager,
+        ProxyTunnelConfigManager proxyTunnelConfigManager,
         TunnelBackendOptions options,
         ILogger logger)
     {

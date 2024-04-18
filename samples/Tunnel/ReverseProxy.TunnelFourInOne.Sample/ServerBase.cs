@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -23,8 +24,8 @@ public class ServerBase
             .UseReverseProxyTunnelBackendToFrontend(builder.WebHost);
 
         var app = builder.Build();
-        app.MapReverseProxyTunnelFrontendToBackend();
-        app.MapReverseProxy();
+        app.MapReverseProxyTunnelFrontendToBackend()
+            .MapReverseProxy();
 
         return app;
     }
@@ -40,6 +41,9 @@ public class ServerBase
 
     public async Task RunAsync()
     {
+        var listeners = _app.Services.GetServices<IConnectionListenerFactory>();
+        var urls = _app.Configuration.GetValue<string>("Urls");
+        System.Console.Out.WriteLine($"Server {GetType().Name} running at: {urls}");
         await _app.RunAsync();
     }
 }

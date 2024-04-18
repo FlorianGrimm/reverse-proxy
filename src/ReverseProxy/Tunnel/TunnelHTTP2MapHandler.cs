@@ -12,9 +12,11 @@ using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Forwarder;
@@ -28,24 +30,26 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
     private readonly ProxyTunnelConfigManager _proxyTunnelConfigManager;
     private readonly TunnelFrontendToBackendState _tunnelFrontendToBackend;
     private readonly IForwarderHttpClientFactory _forwarderHttpClientFactory;
-
-    private ImmutableDictionary<string, ActiveTunnelConnection> _connectionsById = ImmutableDictionary<string, ActiveTunnelConnection>.Empty;
-    private ImmutableDictionary<string, ImmutableList<ActiveTunnelConnection>> _connectionsByHost = ImmutableDictionary<string, ImmutableList<ActiveTunnelConnection>>.Empty;
+    private readonly ILogger<TunnelHTTP2MapHandler> _logger;
+    private readonly ConcurrentDictionary<string, ActiveTunnelConnection> _connectionsByHost = new(StringComparer.OrdinalIgnoreCase);
 
     public TunnelHTTP2MapHandler(
         ProxyTunnelConfigManager proxyTunnelConfigManager,
         TunnelFrontendToBackendState tunnelFrontendToBackend,
-        IForwarderHttpClientFactory forwarderHttpClientFactory)
+        IForwarderHttpClientFactory forwarderHttpClientFactory,
+        ILogger<TunnelHTTP2MapHandler> logger)
     {
         _proxyTunnelConfigManager = proxyTunnelConfigManager;
         _tunnelFrontendToBackend = tunnelFrontendToBackend;
         _forwarderHttpClientFactory = forwarderHttpClientFactory;
+        _logger = logger;
     }
 
     public IEndpointConventionBuilder Map(IEndpointRouteBuilder endpoints)
     {
         var path = $"/Tunnel/HTTP2/{_tunnelFrontendToBackend.TunnelId}/{{Host}}";
         var builder = endpoints.MapPost(path, async (HttpContext context) => await HandleMapPost(context));
+        Log.TunnelMapAdded(_logger, path);
         // TODO: auth ?? builder.RequireAuthorization();
         return builder;
     }
@@ -69,7 +73,7 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
             return Results.BadRequest();
         }
 
-        var activeTunnel = RegisterTunnelConnection(context, host);
+        var activeTunnel = RegisterTunnelConnection(host);
         try
         {
             var lifetime = context.RequestServices.GetRequiredService<IHostApplicationLifetime>();
@@ -99,108 +103,45 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
         }
     }
 
-    private ActiveTunnelConnection RegisterTunnelConnection(HttpContext context, string host)
+    private ActiveTunnelConnection RegisterTunnelConnection(string host)
     {
-        var id = context.Connection.Id;
-        var activeTunnel = new ActiveTunnelConnection(id, host, Channel.CreateUnbounded<int>(), Channel.CreateUnbounded<Stream>());
-        while (true)
+        int count;
+        if (_connectionsByHost.TryGetValue(host, out var result))
         {
-            var old = _connectionsById;
-            var next = old.Add(id, activeTunnel);
-            if (ReferenceEquals(
-                System.Threading.Interlocked.CompareExchange(ref _connectionsById, next, old),
-                old))
-            {
-                break;
-            }
+            count = System.Threading.Interlocked.Increment(ref result.Count);
         }
-        while (true)
+        else
         {
-            var old = _connectionsByHost;
-            ImmutableDictionary<string, ImmutableList<ActiveTunnelConnection>> next;
-            if (old.TryGetValue(host, out var oldList))
-            {
-                next = old.SetItem(host, oldList.Add(activeTunnel));
-            }
-            else
-            {
-                next = old.Add(host, ImmutableList.Create(activeTunnel));
-            }
-            if (ReferenceEquals(
-                System.Threading.Interlocked.CompareExchange(ref _connectionsByHost, next, old),
-                old))
-            {
-                break;
-            }
+            result = _connectionsByHost.GetOrAdd(host, _ => new ActiveTunnelConnection(host, Channel.CreateUnbounded<int>(), Channel.CreateUnbounded<Stream>()));
+            count = System.Threading.Interlocked.Increment(ref result.Count);
         }
+        if (count == 1)
+        {
+            _proxyTunnelConfigManager.UpdateMemoryConfigProvider(null);
+        }
+        Log.TunnelConnectionAdded(_logger, _tunnelFrontendToBackend.Transport, _tunnelFrontendToBackend.TunnelId, host);
 
-        _proxyTunnelConfigManager.UpdateMemoryConfigProvider(null);
-
-        return activeTunnel;
-
+        return result;
     }
 
     private void UnregisterConnection(ActiveTunnelConnection activeTunnel)
     {
-        var id = activeTunnel.Id;
-        while (true)
+        var count = System.Threading.Interlocked.Decrement(ref activeTunnel.Count);
+        if (count == 0)
         {
-            var old = _connectionsById;
-            var next = old.Remove(id);
-            if (ReferenceEquals(
-                System.Threading.Interlocked.CompareExchange(ref _connectionsById, next, old),
-                old))
-            {
-                break;
-            }
+            _proxyTunnelConfigManager.UpdateMemoryConfigProvider(null);
         }
-
-        var host = activeTunnel.Address;
-        while (true)
-        {
-            var old = _connectionsByHost;
-            ImmutableDictionary<string, ImmutableList<ActiveTunnelConnection>> next;
-            if (old.TryGetValue(host, out var oldList))
-            {
-                var nextList = oldList.Remove(activeTunnel);
-                next = old.SetItem(host, nextList);
-            }
-            else
-            {
-                break;
-            }
-
-            if (ReferenceEquals(
-                System.Threading.Interlocked.CompareExchange(ref _connectionsByHost, next, old),
-                old))
-            {
-                break;
-            }
-        }
-
-        _proxyTunnelConfigManager.UpdateMemoryConfigProvider(null);
     }
 
-
-    private int _indexGetConnectionChannel = 0;
+    
     public bool TryGetConnectionChannel(
         string host,
         [MaybeNullWhen(false)] out ActiveTunnelConnection activeTunnel)
     {
         // TODO: ILoadBalancingPolicy would be nicer...
-        if (_connectionsByHost.TryGetValue(host, out var activeTunnels))
+        if (_connectionsByHost.TryGetValue(host, out activeTunnel))
         {
-            for (var iWatchDog = activeTunnels.Count; 0 < iWatchDog && 0 < activeTunnels.Count; iWatchDog--)
-            {
-                var index = (_indexGetConnectionChannel + 1) % activeTunnels.Count;
-                _indexGetConnectionChannel = index;
-
-                activeTunnel = activeTunnels[index];
-                if (!activeTunnel.IsClosed)
-                {
-                    return true;
-                }
-            }
+            return true;
         }
 
         {
@@ -220,21 +161,27 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
     public Dictionary<string, DestinationConfig> GetDestinations()
     {
         var result = new Dictionary<string, DestinationConfig>(StringComparer.OrdinalIgnoreCase);
-        foreach (var activeTunnels in _connectionsByHost.Values)
+        foreach (var activeTunnel in _connectionsByHost.Values)
         {
-            foreach (var activeTunnel in activeTunnels)
+            var address = activeTunnel.Address;
+            if (address.StartsWith("https://") || address.StartsWith("http://") || address.Contains("://"))
             {
-                var destination = new DestinationConfig
-                {
-                    Address = activeTunnel.Address,
-                    Health = nameof(DestinationHealth.Healthy),
-                    Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            }
+            else
+            {
+                address = "https://" + address;
+            }
+
+            var destination = new DestinationConfig
+            {
+                Address = address,
+                Health = nameof(DestinationHealth.Healthy),
+                Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                     {
                         { "TunnelId", _tunnelFrontendToBackend.TunnelId }
                     }
-                };
-                result.Add($"{activeTunnel.Address}-{activeTunnel.Id}", destination);
-            }
+            };
+            result.Add($"{activeTunnel.Address}-{activeTunnel.Id}", destination);
         }
         return result;
     }
@@ -243,14 +190,42 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
     {
         return "TunnelHTTP2";
     }
+
+    private static class Log
+    {
+        private static readonly Action<ILogger, string, Exception?> _tunnelMapAdded = LoggerMessage.Define<string>(
+            LogLevel.Debug,
+            EventIds.TunnelMapAdded,
+            "TunnelMap '{path}' has been added.");
+
+        public static void TunnelMapAdded(ILogger logger, string path)
+        {
+            _tunnelMapAdded(logger, path, null);
+        }
+
+        private static readonly Action<ILogger, string, string, string, Exception?> _tunnelConnectionAdded = LoggerMessage.Define<string, string, string>(
+            LogLevel.Debug,
+            EventIds.TunnelMapAdded,
+            "TunnelConnection '{transport}' '{tunnelId}' '{host}' has been added.");
+
+        public static void TunnelConnectionAdded(ILogger logger, string transport, string tunnelId, string host)
+        {
+            _tunnelConnectionAdded(logger, transport, tunnelId, host, null);
+        }
+    }
 }
 
 public record class ActiveTunnelConnection(
-    string Id,
     string Address,
     Channel<int> Requests,
     Channel<Stream> Responses
     )
 {
-    public bool IsClosed { get; set; }
+    private string? _Id;
+
+    public string Id => _Id ??= Guid.NewGuid().ToString();
+
+    public int Count = 0;
+
+    public bool IsClosed => Count == 0;
 }

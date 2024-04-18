@@ -14,19 +14,19 @@ using Yarp.ReverseProxy.Management;
 
 namespace Yarp.ReverseProxy.Tunnel.Transport;
 
-public class TunnelConnectionListenerFactory : IConnectionListenerFactory
+internal class TunnelConnectionListenerFactory : IConnectionListenerFactory
 #if NET8_0_OR_GREATER
     , IConnectionListenerFactorySelector
 #endif
 {
     private readonly TunnelBackendOptions _options;
-    private readonly IProxyTunnelStateLookup _proxyTunnelConfigManager;
+    private readonly ProxyTunnelConfigManager _proxyTunnelConfigManager;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<TunnelConnectionListenerFactory> _logger;
 
     public TunnelConnectionListenerFactory(
         IOptions<TunnelBackendOptions> options,
-        IProxyTunnelStateLookup proxyTunnelConfigManager,
+        ProxyTunnelConfigManager proxyTunnelConfigManager,
         ILoggerFactory loggerFactory
         )
     {

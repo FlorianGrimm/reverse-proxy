@@ -13,10 +13,14 @@ public class ReverseProxyConventionBuilder : IEndpointConventionBuilder
 {
     private readonly List<Action<EndpointBuilder>> _conventions;
 
-    internal ReverseProxyConventionBuilder(List<Action<EndpointBuilder>> conventions)
+    internal ReverseProxyConventionBuilder(List<Action<EndpointBuilder>> conventions, IServiceProvider serviceProvider)
     {
         _conventions = conventions ?? throw new ArgumentNullException(nameof(conventions));
+        ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
+
+    // TODO: WEICHEI?
+    public IServiceProvider ServiceProvider { get; }
 
     /// <summary>
     /// Adds the specified convention to the builder. Conventions are used to customize <see cref="EndpointBuilder"/> instances.

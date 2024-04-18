@@ -54,6 +54,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     private readonly IClusterDestinationsUpdater _clusterDestinationsUpdater;
     private readonly IDestinationResolver _destinationResolver;
     private readonly ProxyTunnelConfigManager _proxyTunnelConfigManager;
+    private readonly IServiceProvider _serviceProvider;
     private readonly IConfigChangeListener[] _configChangeListeners;
     private List<Endpoint>? _endpoints;
     private CancellationTokenSource _endpointsChangeSource = new();
@@ -75,7 +76,8 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         IClusterDestinationsUpdater clusterDestinationsUpdater,
         IEnumerable<IConfigChangeListener> configChangeListeners,
         IDestinationResolver destinationResolver,
-        ProxyTunnelConfigManager proxyTunnelConfigManager)
+        ProxyTunnelConfigManager proxyTunnelConfigManager,
+        IServiceProvider serviceProvider)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _providers = providers?.ToArray() ?? throw new ArgumentNullException(nameof(providers));
@@ -91,6 +93,8 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         _clusterDestinationsUpdater = clusterDestinationsUpdater ?? throw new ArgumentNullException(nameof(clusterDestinationsUpdater));
         _destinationResolver = destinationResolver ?? throw new ArgumentNullException(nameof(destinationResolver));
         _proxyTunnelConfigManager = proxyTunnelConfigManager ?? throw new ArgumentNullException(nameof(proxyTunnelConfigManager));
+        // TODO: WEICHEI?
+        _serviceProvider = serviceProvider;
         _configChangeListeners = configChangeListeners?.ToArray() ?? Array.Empty<IConfigChangeListener>();
 
         if (_providers.Length == 0)
@@ -101,7 +105,8 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         _configs = new ConfigState[_providers.Length];
 
         _conventions = new List<Action<EndpointBuilder>>();
-        DefaultBuilder = new ReverseProxyConventionBuilder(_conventions);
+        // TODO: WEICHEI?
+        DefaultBuilder = new ReverseProxyConventionBuilder(_conventions, serviceProvider);
 
         _endpointsChangeToken = new CancellationChangeToken(_endpointsChangeSource.Token);
     }

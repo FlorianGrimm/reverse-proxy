@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging;
 
+using Yarp.ReverseProxy.Model;
+
 namespace Yarp.ReverseProxy.Limits;
 
 /// <summary>
@@ -30,6 +32,11 @@ internal sealed class LimitsMiddleware
     public Task Invoke(HttpContext context)
     {
         _ = context ?? throw new ArgumentNullException(nameof(context));
+
+        // TODO: Better solution ? 
+        if (context.Features.Get<IReverseProxyTunnelFeature>() is not null) {
+            return _next(context);
+        }
 
         var config = context.GetRouteModel().Config;
 

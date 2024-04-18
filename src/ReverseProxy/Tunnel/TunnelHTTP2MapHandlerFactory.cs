@@ -1,6 +1,8 @@
 using System;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
@@ -12,6 +14,7 @@ public class TunnelHTTP2MapHandlerFactory : ITunnelHandlerFactory
     private readonly IServiceProvider _serviceProvider;
     private IForwarderHttpClientFactorySelector? _forwarderHttpClientFactorySelector;
     private ProxyTunnelConfigManager? _proxyTunnelConfigManager;
+    private ILogger<TunnelHTTP2MapHandler>? _loggerTunnelHTTP2MapHandler = null;
 
     public TunnelHTTP2MapHandlerFactory(IServiceProvider serviceProvider)
     {
@@ -30,10 +33,14 @@ public class TunnelHTTP2MapHandlerFactory : ITunnelHandlerFactory
             out var forwarderHttpClientFactory))
         {
             _proxyTunnelConfigManager ??= _serviceProvider.GetRequiredService<ProxyTunnelConfigManager>();
+
+            _loggerTunnelHTTP2MapHandler ??= _serviceProvider.GetRequiredService<ILogger<TunnelHTTP2MapHandler>>();
+
             return new TunnelHTTP2MapHandler(
                 _proxyTunnelConfigManager,
                 tunnelFrontendToBackend,
-                forwarderHttpClientFactory);
+                forwarderHttpClientFactory,
+                _loggerTunnelHTTP2MapHandler);
         }
         else
         {

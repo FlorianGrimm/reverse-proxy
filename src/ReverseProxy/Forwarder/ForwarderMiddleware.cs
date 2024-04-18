@@ -4,8 +4,10 @@
 using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
 
@@ -33,6 +35,13 @@ internal sealed class ForwarderMiddleware
     public async Task Invoke(HttpContext context)
     {
         _ = context ?? throw new ArgumentNullException(nameof(context));
+
+        // TODO: Better solution ? 
+        if (context.Features.Get<IReverseProxyTunnelFeature>() is not null)
+        {
+            await _next(context);
+            return;
+        }
 
         var reverseProxyFeature = context.GetReverseProxyFeature();
         var destinations = reverseProxyFeature.AvailableDestinations

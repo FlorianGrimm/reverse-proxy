@@ -36,6 +36,18 @@ internal sealed class ProxyPipelineInitializerMiddleware
         var endpoint = context.GetEndpoint()
            ?? throw new InvalidOperationException($"Routing Endpoint wasn't set for the current request.");
 
+        // TODO: Better solution ?
+        var tunnelFrontendToBackend = endpoint.Metadata.GetMetadata<TunnelFrontendToBackendState>();
+        if (tunnelFrontendToBackend is not null)
+        {
+            context.Features.Set<IReverseProxyTunnelFeature>(new ReverseProxyTunnelFeature
+            {
+                TunnelFrontendToBackend = tunnelFrontendToBackend,
+            });
+
+            return _next(context);
+        }
+
         var route = endpoint.Metadata.GetMetadata<RouteModel>()
             ?? throw new InvalidOperationException($"Routing Endpoint is missing {typeof(RouteModel).FullName} metadata.");
 

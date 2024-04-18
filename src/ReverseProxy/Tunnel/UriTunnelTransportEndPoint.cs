@@ -17,4 +17,9 @@ public class UriTunnelTransportEndPoint : IPEndPoint
     public UriTunnelTransportEndPoint(long address, int port) : base(address, port)
     {
     }
+
+    public override string ToString()
+    {
+        return Uri?.ToString() ?? base.ToString();
+    }
 }

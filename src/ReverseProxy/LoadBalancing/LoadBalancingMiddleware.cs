@@ -33,6 +33,12 @@ internal sealed class LoadBalancingMiddleware
 
     public Task Invoke(HttpContext context)
     {
+        // TODO: Better solution ? 
+        if (context.Features.Get<IReverseProxyTunnelFeature>() is not null)
+        {
+            return _next(context);
+        }
+
         var proxyFeature = context.GetReverseProxyFeature();
 
         var destinations = proxyFeature.AvailableDestinations;
