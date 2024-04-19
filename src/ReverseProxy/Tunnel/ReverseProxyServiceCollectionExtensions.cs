@@ -54,7 +54,7 @@ public static partial class ReverseProxyServiceCollectionExtensions
                     {
                         Log.TunnelBackendToFrontendAdd(logger, tunnelBackendToFrontend.TunnelId, tunnelBackendToFrontend.RemoteTunnelId, tunnelBackendToFrontend.Url, tunnelBackendToFrontend.Transport);
 
-                        var url = $"https://{tunnelBackendToFrontend.TunnelId}";
+                        var url = $"http://{tunnelBackendToFrontend.TunnelId}";
                         options.Listen(new UriTunnelTransportEndPoint(new Uri(url)));
                     }
                 }

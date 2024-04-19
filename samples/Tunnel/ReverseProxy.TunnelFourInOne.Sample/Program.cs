@@ -35,7 +35,7 @@ public class Program
                 server.Lifetime.ApplicationStopping.Register(stop);
             }
 
-            // await RunTests();
+            await RunTests();
 
             await Task.WhenAll(tasks);
 

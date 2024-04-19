@@ -169,7 +169,7 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
             }
             else
             {
-                address = "https://" + address;
+                address = "http://" + address;
             }
 
             var destination = new DestinationConfig
