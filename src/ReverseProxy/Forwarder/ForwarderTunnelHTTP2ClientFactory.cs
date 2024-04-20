@@ -31,19 +31,6 @@ internal class ForwarderTunnelHTTP2ClientFactory
         _proxyTunnelConfigManager = proxyTunnelConfigManager;
     }
 
-    /*
-    public override HttpMessageInvoker CreateClient(ForwarderHttpClientContext context)
-    {
-        if (!_proxyTunnelConfigManager.TryGetTunnelFrontendToBackend(context.ClusterId, out var tunnelFrontendToBackendState))
-        {
-            throw new NotSupportedException("TunnelFrontendToBackend not found");
-        }
-
-        return new HttpMessageInvoker(
-            new TunnelHttpMessageHandler(context, _proxyTunnelConfigManager, tunnelFrontendToBackendState)
-            );
-    }
-    */
 
     protected override SocketsHttpHandler CreateSocketsHttpHandler(ForwarderHttpClientContext context)
     {
@@ -51,6 +38,7 @@ internal class ForwarderTunnelHTTP2ClientFactory
 
         if (!_proxyTunnelConfigManager.TryGetTunnelFrontendToBackend(context.ClusterId, out var tunnelFrontendToBackendState))
         {
+            // TODO: return 503 Service Unavailable? log?
             throw new NotSupportedException("TunnelFrontendToBackend not found");
         }
 
@@ -58,15 +46,18 @@ internal class ForwarderTunnelHTTP2ClientFactory
         {
             if (!_proxyTunnelConfigManager.TryGetTunnelFrontendToBackend(context.ClusterId, out var tunnelFrontendToBackendState))
             {
+                // TODO: return 503 Service Unavailable? log?
                 throw new NotSupportedException();
             }
             if (!_proxyTunnelConfigManager.TryGetTunnelHandler(context.ClusterId, out var tunnelHandler))
             {
+                // TODO: return 503 Service Unavailable? log?
                 throw new NotSupportedException();
             }
             if (!tunnelHandler.TryGetTunnelConnectionChannel(socketsContext, out var activeTunnel))
             {
                 // TODO: return 503 Service Unavailable
+                // TODO: Help I have no idea how to do this properly
                 throw new NotSupportedException("503");
             }
             var requests = activeTunnel.Requests;
@@ -94,11 +85,6 @@ internal class ForwarderTunnelHTTP2ClientFactory
         return handler;
     }
 
-    protected override HttpMessageHandler WrapMiddleware(ForwarderHttpClientContext context, HttpMessageHandler handler)
-    {
-        handler = base.WrapMiddleware(context, handler);
-        return handler;
-    }
 
     public override string GetTransport()
     {
@@ -106,6 +92,8 @@ internal class ForwarderTunnelHTTP2ClientFactory
     }
 }
 
+
+#if false
 internal class TunnelHttpMessageHandler : DelegatingHandler
 {
     private readonly ForwarderHttpClientContext _context;
@@ -136,6 +124,24 @@ internal class TunnelHttpMessageHandler : DelegatingHandler
     //}
 
 }
+internal class TunnelHttpContent : HttpContent
+{
+    public TunnelHttpContent()
+    {
+    }
+
+    protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+    {
+        throw new NotImplementedException();
+    }
+
+    protected override bool TryComputeLength(out long length)
+    {
+        throw new NotImplementedException();
+    }
+}
+#endif
+
 #if false
 
 
@@ -189,19 +195,3 @@ internal class TunnelHttpMessageHandler : DelegatingHandler
 
         return handler;
 #endif
-internal class TunnelHttpContent : HttpContent
-{
-    public TunnelHttpContent()
-    {
-    }
-
-    protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
-    {
-        throw new NotImplementedException();
-    }
-
-    protected override bool TryComputeLength(out long length)
-    {
-        throw new NotImplementedException();
-    }
-}

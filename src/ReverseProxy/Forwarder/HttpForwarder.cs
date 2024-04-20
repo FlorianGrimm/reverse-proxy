@@ -144,12 +144,9 @@ internal sealed class HttpForwarder : IHttpForwarder
             {
                 // :: Step 1-3: Create outgoing HttpRequestMessage
                 bool tryDowngradingH2WsOnFailure;
-#warning HERE
 
-                /*
-                destinationPrefix
-                 
-                 */
+                // TODO: how to mod the transformer to add an header to the request?
+
                 (destinationRequest, requestContent, tryDowngradingH2WsOnFailure) = await CreateRequestMessageAsync(
                     context, destinationPrefix, transformer, requestConfig, isStreamingRequest, activityCancellationSource);
 

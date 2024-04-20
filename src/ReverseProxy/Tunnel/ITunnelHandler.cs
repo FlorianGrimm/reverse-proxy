@@ -11,7 +11,7 @@ namespace Yarp.ReverseProxy.Tunnel;
 
 public interface ITunnelHandler
 {
-    bool TryGetTunnelConnectionChannel(SocketsHttpConnectionContext socketsContext, [MaybeNullWhen(false)] out ActiveTunnelConnection activeTunnel);
+    bool TryGetTunnelConnectionChannel(SocketsHttpConnectionContext socketsContext, [MaybeNullWhen(false)] out TunnelConnectionChannel tunnelConnectionChannel);
 
     IEndpointConventionBuilder Map(IEndpointRouteBuilder endpoints);
 

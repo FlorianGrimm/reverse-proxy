@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Configuration.ConfigProvider;
+using Yarp.ReverseProxy.Configuration.TunnelValidators;
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Tunnel;
@@ -31,6 +32,9 @@ public static partial class ReverseProxyTunnelServiceCollectionExtensions
             services.AddSingleton<IProxyTunnelStateLookup>(proxyTunnelConfigManager);
             services.AddSingleton<ProxyTunnelConfigManager>(proxyTunnelConfigManager);
             services.AddSingleton<IProxyConfigProvider>(proxyTunnelConfigManager);
+            services.AddSingleton<IProxyTunnelConfigValidator, ProxyTunnelConfigValidator>();
+            services.AddSingleton<IProxyTunnelBackendToFrontendConfigValidator, ProxyTunnelBackendToFrontendConfigValidator>();
+            services.AddSingleton<IProxyTunnelFrontendToBackendConfigValidator, ProxyTunnelFrontendToBackendConfigValidator>();
         }
         return proxyTunnelConfigManager;
     }

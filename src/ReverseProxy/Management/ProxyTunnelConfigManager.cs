@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -12,6 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Configuration.ConfigProvider;
+using Yarp.ReverseProxy.Configuration.TunnelValidators;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Tunnel;
 
@@ -35,7 +37,9 @@ internal sealed class ProxyTunnelConfigManager
     private bool _needConstruction = false;
     private ProxyTunnelConfigState _proxyTunnelConfigState = new ProxyTunnelConfigState([], []);
     private ILogger<ProxyTunnelConfigManager> _logger;
+    private IProxyTunnelConfigValidator _configValidator = new ProxyTunnelConfigValidator([], []);
     private readonly InMemoryConfigProvider _memoryConfigProvider = new([], []);
+    private object _LockSync = new();
 
     public ProxyTunnelConfigManager()
     {
@@ -46,6 +50,7 @@ internal sealed class ProxyTunnelConfigManager
     {
         if (_logger is not NullLogger<ProxyTunnelConfigManager>) { return; }
         _logger = serviceProvider.GetRequiredService<ILogger<ProxyTunnelConfigManager>>();
+        _configValidator = serviceProvider.GetRequiredService<IProxyTunnelConfigValidator>();
         GetCurrentState();
     }
 
@@ -89,43 +94,13 @@ internal sealed class ProxyTunnelConfigManager
             {
                 if (_needConstruction)
                 {
-                    List<TunnelFrontendToBackendState> tunnelFrontendToBackends = new();
-                    List<TunnelBackendToFrontendState> tunnelBackendToFrontends = new();
-
-                    foreach (var configProvider in _configProviders)
-                    {
-                        var tunnelConfig = configProvider.GetTunnelConfig();
-                        foreach (var tunnelFrontendToBackendConfig in tunnelConfig.TunnelFrontendToBackends)
-                        {
-                            tunnelFrontendToBackends.Add(CreateTunnelFrontendToBackend(tunnelFrontendToBackendConfig));
-                        }
-                        foreach (var tunnelBackendToFrontendConfig in tunnelConfig.TunnelBackendToFrontends)
-                        {
-                            tunnelBackendToFrontends.Add(CreateTunnelBackendToFrontend(tunnelBackendToFrontendConfig));
-                        }
-                    }
-                    var currentProxyTunnelConfigState = _proxyTunnelConfigState;
-                    var nextProxyTunnelConfigState = new ProxyTunnelConfigState(tunnelFrontendToBackends, tunnelBackendToFrontends);
+                    var nextProxyTunnelConfigState = CreateTunnelConfigState();
 
                     _proxyTunnelConfigState = nextProxyTunnelConfigState;
                     _needConstruction = false;
+                    UpdateMemoryConfigProvider(nextProxyTunnelConfigState);
 
-#if TODO
-                    {
-                        foreach (var current in currentProxyTunnelConfigState.TunnelFrontendToBackendByTunnelId) {
-                            if (nextProxyTunnelConfigState.TunnelBackendToFrontendByTunnelId.TryGetValue(current.Key, out var next))
-                            {
-                                if (next.Equals(current.Value)) {
-                                }
-                            }
-                            else
-                            {
-                                // removed
-                            }
-                        }
-                    }
-#endif
-                    UpdateMemoryConfigProvider(_proxyTunnelConfigState);
+                    // TODO: need to handle the changes?? How is it possible that this is called multiple times?
 
                     return _proxyTunnelConfigState;
                 }
@@ -134,37 +109,70 @@ internal sealed class ProxyTunnelConfigManager
         return _proxyTunnelConfigState;
     }
 
+    private ProxyTunnelConfigState CreateTunnelConfigState()
+    {
+        List<TunnelFrontendToBackendState> tunnelFrontendToBackends = new();
+        List<TunnelBackendToFrontendState> tunnelBackendToFrontends = new();
+
+        List<Exception> errors = new();
+        foreach (var configProvider in _configProviders)
+        {
+            var tunnelConfig = configProvider.GetTunnelConfig();
+            foreach (var tunnelFrontendToBackendConfig in tunnelConfig.TunnelFrontendToBackends)
+            {
+                _configValidator.ValidateTunnelFrontendToBackendConfig(tunnelFrontendToBackendConfig, errors);
+                tunnelFrontendToBackends.Add(CreateTunnelFrontendToBackend(tunnelFrontendToBackendConfig));
+            }
+            foreach (var tunnelBackendToFrontendConfig in tunnelConfig.TunnelBackendToFrontends)
+            {
+                _configValidator.ValidateTunnelBackendToFrontendConfig(tunnelBackendToFrontendConfig, errors);
+                tunnelBackendToFrontends.Add(CreateTunnelBackendToFrontend(tunnelBackendToFrontendConfig));
+            }
+        }
+
+        if (errors.Count > 0) {
+            throw new AggregateException("The proxy tunnel config is invalid.", errors);
+        }
+
+        var currentProxyTunnelConfigState = _proxyTunnelConfigState;
+        var nextProxyTunnelConfigState = new ProxyTunnelConfigState(tunnelFrontendToBackends, tunnelBackendToFrontends);
+        return nextProxyTunnelConfigState;
+    }
+
     internal void UpdateMemoryConfigProvider(ProxyTunnelConfigState? proxyTunnelConfigState)
     {
-        proxyTunnelConfigState ??= _proxyTunnelConfigState;
-
-        List<ClusterConfig> clusters = new();
-
-        foreach (var tunnel in proxyTunnelConfigState.TunnelFrontendToBackendByTunnelId.Values)
+        lock (_LockSync)
         {
-            var clusterId = tunnel.TunnelId;
-            var destinations = TryGetTunnelHandler(clusterId, out var tunnelHandler)
-                ? tunnelHandler.GetDestinations()
-                : new Dictionary<string, DestinationConfig>(StringComparer.OrdinalIgnoreCase);
-            var clusterConfig = new ClusterConfig()
+            proxyTunnelConfigState ??= _proxyTunnelConfigState;
+
+            List<ClusterConfig> clusters = new();
+
+            foreach (var tunnel in proxyTunnelConfigState.TunnelFrontendToBackendByTunnelId.Values)
             {
-                ClusterId = clusterId,
-                Destinations = destinations,
-                Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                var clusterId = tunnel.TunnelId;
+                var destinations = TryGetTunnelHandler(clusterId, out var tunnelHandler)
+                    ? tunnelHandler.GetDestinations()
+                    : new Dictionary<string, DestinationConfig>(StringComparer.OrdinalIgnoreCase);
+                var clusterConfig = new ClusterConfig()
+                {
+                    ClusterId = clusterId,
+                    Destinations = destinations,
+                    Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     { "TunnelId", clusterId }
                 }
-            };
-            clusters.Add(clusterConfig);
-        }
-        if ((clusters.Count == 0)
-            && (_memoryConfigProvider.GetConfig().Clusters.Count == 0))
-        {
-            // skip
-        }
-        else
-        {
-            _memoryConfigProvider.Update([], clusters);
+                };
+                clusters.Add(clusterConfig);
+            }
+            if ((clusters.Count == 0)
+                && (_memoryConfigProvider.GetConfig().Clusters.Count == 0))
+            {
+                // skip
+            }
+            else
+            {
+                _memoryConfigProvider.Update([], clusters);
+            }
         }
     }
 

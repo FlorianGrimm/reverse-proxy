@@ -12,6 +12,8 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Forwarder;
 
+// TODO: Is this close enough to the original? can i modify the original to match this?
+
 public abstract class ForwarderTunnelHttpClientFactory
     : IForwarderHttpClientFactory
     , IForwarderHttpClientFactorySelectiv
@@ -141,6 +143,7 @@ public abstract class ForwarderTunnelHttpClientFactory
         return handler;
     }
 
+    // TODO: finally not needed? remove it?
     protected virtual HttpMessageHandler WrapMiddleware(ForwarderHttpClientContext context, HttpMessageHandler handler)
     {
         return handler;

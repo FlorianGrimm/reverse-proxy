@@ -31,7 +31,7 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
     private readonly TunnelFrontendToBackendState _tunnelFrontendToBackend;
     private readonly IForwarderHttpClientFactory _forwarderHttpClientFactory;
     private readonly ILogger<TunnelHTTP2MapHandler> _logger;
-    private readonly ConcurrentDictionary<string, ActiveTunnelConnection> _connectionsByHost = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, TunnelConnectionChannel> _connectionsByHost = new(StringComparer.OrdinalIgnoreCase);
 
     public TunnelHTTP2MapHandler(
         ProxyTunnelConfigManager proxyTunnelConfigManager,
@@ -103,7 +103,7 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
         }
     }
 
-    private ActiveTunnelConnection RegisterTunnelConnection(string host)
+    private TunnelConnectionChannel RegisterTunnelConnection(string host)
     {
         int count;
         if (_connectionsByHost.TryGetValue(host, out var result))
@@ -112,7 +112,7 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
         }
         else
         {
-            result = _connectionsByHost.GetOrAdd(host, _ => new ActiveTunnelConnection(host, Channel.CreateUnbounded<int>(), Channel.CreateUnbounded<Stream>()));
+            result = _connectionsByHost.GetOrAdd(host, _ => new TunnelConnectionChannel(host, Channel.CreateUnbounded<int>(), Channel.CreateUnbounded<Stream>()));
             count = System.Threading.Interlocked.Increment(ref result.Count);
         }
         if (count == 1)
@@ -124,7 +124,7 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
         return result;
     }
 
-    private void UnregisterConnection(ActiveTunnelConnection activeTunnel)
+    private void UnregisterConnection(TunnelConnectionChannel activeTunnel)
     {
         var count = System.Threading.Interlocked.Decrement(ref activeTunnel.Count);
         if (count == 0)
@@ -136,26 +136,25 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
     
     public bool TryGetConnectionChannel(
         string host,
-        [MaybeNullWhen(false)] out ActiveTunnelConnection activeTunnel)
+        [MaybeNullWhen(false)] out TunnelConnectionChannel tunnelConnectionChannel)
     {
-        // TODO: ILoadBalancingPolicy would be nicer...
-        if (_connectionsByHost.TryGetValue(host, out activeTunnel))
+        if (_connectionsByHost.TryGetValue(host, out tunnelConnectionChannel))
         {
             return true;
         }
 
         {
-            activeTunnel = default;
+            tunnelConnectionChannel = default;
             return false;
         }
     }
 
     public bool TryGetTunnelConnectionChannel(
         SocketsHttpConnectionContext socketsContext,
-        [MaybeNullWhen(false)] out ActiveTunnelConnection activeTunnel)
+        [MaybeNullWhen(false)] out TunnelConnectionChannel tunnelConnectionChannel)
     {
         var host = socketsContext.DnsEndPoint.Host;
-        return TryGetConnectionChannel(host, out activeTunnel);
+        return TryGetConnectionChannel(host, out tunnelConnectionChannel);
     }
 
     public Dictionary<string, DestinationConfig> GetDestinations()
@@ -215,7 +214,7 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
     }
 }
 
-public record class ActiveTunnelConnection(
+public record class TunnelConnectionChannel(
     string Address,
     Channel<int> Requests,
     Channel<Stream> Responses
