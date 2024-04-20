@@ -629,13 +629,8 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             {
                 var destinationsChanged = UpdateRuntimeDestinations(incomingCluster.Destinations, currentCluster.Destinations);
 
-#warning HERE ForwarderHttpClientContext
-
-                var httpClientFactory = GetHttpClientFactory(currentCluster);
-
                 var currentClusterModel = currentCluster.Model;
-
-                var httpClient = httpClientFactory.CreateClient(new ForwarderHttpClientContext
+                var forwarderHttpClientContext = new ForwarderHttpClientContext
                 {
                     ClusterId = currentCluster.ClusterId,
                     OldConfig = currentClusterModel.Config.HttpClient ?? HttpClientConfig.Empty,
@@ -643,7 +638,12 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                     OldClient = currentClusterModel.HttpClient,
                     NewConfig = incomingCluster.HttpClient ?? HttpClientConfig.Empty,
                     NewMetadata = incomingCluster.Metadata
-                });
+                };
+
+                var httpClientFactory = GetHttpClientFactory(currentCluster);
+                var httpClient = (httpClientFactory is IForwarderHttpClientFactoryV2 forwarderHttpClientFactoryV2)
+                    ? forwarderHttpClientFactoryV2.CreateClient(currentCluster, forwarderHttpClientContext)
+                    : httpClientFactory.CreateClient(forwarderHttpClientContext);
 
                 var newClusterModel = new ClusterModel(incomingCluster, httpClient);
 
@@ -674,14 +674,17 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
                 UpdateRuntimeDestinations(incomingCluster.Destinations, currentCluster.Destinations);
 
-                var httpClientFactory = GetHttpClientFactory(currentCluster);
-
-                var httpClient = httpClientFactory.CreateClient(new ForwarderHttpClientContext
+                var forwarderHttpClientContext = new ForwarderHttpClientContext
                 {
                     ClusterId = currentCluster.ClusterId,
                     NewConfig = incomingCluster.HttpClient ?? HttpClientConfig.Empty,
                     NewMetadata = incomingCluster.Metadata
-                });
+                };
+
+                var httpClientFactory = GetHttpClientFactory(currentCluster);
+                var httpClient = (httpClientFactory is IForwarderHttpClientFactoryV2 forwarderHttpClientFactoryV2)
+                    ? forwarderHttpClientFactoryV2.CreateClient(currentCluster, forwarderHttpClientContext)
+                    : httpClientFactory.CreateClient(forwarderHttpClientContext);
 
                 currentCluster.Model = new ClusterModel(incomingCluster, httpClient);
                 currentCluster.Revision++;
