@@ -20,20 +20,15 @@ internal class ForwarderTunnelHTTP2ClientFactory
     , IForwarderHttpClientFactory
     , IForwarderHttpClientFactorySelectiv
 {
-    public const string Transport= "TunnelHTTP2";
+    public const string Transport = "TunnelHTTP2";
 
     public ForwarderTunnelHTTP2ClientFactory(
-        IProxyTunnelStateLookup proxyTunnelConfigManager,
+        IProxyTunnelConfigManager proxyTunnelConfigManager,
         ILogger<ForwarderTunnelHTTP2ClientFactory> logger
         )
-        : base(proxyTunnelConfigManager, logger)
-    {
-    }
+        : base(proxyTunnelConfigManager, logger) { }
 
-    public override string GetTransport()
-    {
-        return Transport;
-    }
+    public override string GetTransport() => Transport;
 }
 
 #if false

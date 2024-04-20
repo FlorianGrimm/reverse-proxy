@@ -30,6 +30,7 @@ public static partial class ReverseProxyTunnelServiceCollectionExtensions
         {
             proxyTunnelConfigManager = new ProxyTunnelConfigManager();
             services.AddSingleton<IProxyTunnelStateLookup>(proxyTunnelConfigManager);
+            services.AddSingleton<IProxyTunnelConfigManager>(proxyTunnelConfigManager);            
             services.AddSingleton<ProxyTunnelConfigManager>(proxyTunnelConfigManager);
             services.AddSingleton<IProxyConfigProvider>(proxyTunnelConfigManager);
             services.AddSingleton<IProxyTunnelConfigValidator, ProxyTunnelConfigValidator>();

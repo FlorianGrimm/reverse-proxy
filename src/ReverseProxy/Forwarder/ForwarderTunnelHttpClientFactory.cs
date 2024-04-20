@@ -24,10 +24,10 @@ public abstract class ForwarderTunnelHttpClientFactory
     : ForwarderBaseClientFactory
     , IForwarderHttpClientFactorySelectiv
 {
-    protected readonly IProxyTunnelStateLookup _proxyTunnelConfigManager;
+    protected readonly IProxyTunnelConfigManager _proxyTunnelConfigManager;
 
     protected ForwarderTunnelHttpClientFactory(
-        IProxyTunnelStateLookup proxyTunnelConfigManager,
+        IProxyTunnelConfigManager proxyTunnelConfigManager,
         ILogger logger)
         : base(logger)
     {
@@ -81,16 +81,18 @@ public abstract class ForwarderTunnelHttpClientFactory
         var responses = activeTunnel.Responses;
 
         // Ask for a connection
-        await requests.Writer.WriteAsync(0, cancellationToken);
+        var idxConnection = 1;
+        await requests.Writer.WriteAsync(idxConnection++, cancellationToken);
 
         while (true)
         {
             var stream = await responses.Reader.ReadAsync(cancellationToken);
+            // TODO: log telemetry ???
 
             if (stream is ICloseable c && c.IsClosed && !activeTunnel.IsClosed)
             {
                 // Ask for another connection
-                await requests.Writer.WriteAsync(0, cancellationToken);
+                await requests.Writer.WriteAsync(idxConnection++, cancellationToken);
 
                 continue;
             }
