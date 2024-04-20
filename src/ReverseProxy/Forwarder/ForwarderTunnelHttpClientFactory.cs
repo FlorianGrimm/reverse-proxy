@@ -1,177 +1,101 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading.Tasks;
+using System.Threading;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Management;
+using Yarp.ReverseProxy.Tunnel;
 
 
 namespace Yarp.ReverseProxy.Forwarder;
 
-// TODO: Is this close enough to the original? can i modify the original to match this?
-
+/// <summary>
+/// Base class for forwarder factories that use a tunnel to connect to the backend.
+/// </summary>
 public abstract class ForwarderTunnelHttpClientFactory
-    : IForwarderHttpClientFactory
+    : ForwarderBaseClientFactory
     , IForwarderHttpClientFactorySelectiv
 {
-    private readonly ILogger _logger;
+    protected readonly IProxyTunnelStateLookup _proxyTunnelConfigManager;
 
     protected ForwarderTunnelHttpClientFactory(
-        ILogger logger
-        )
+        IProxyTunnelStateLookup proxyTunnelConfigManager,
+        ILogger logger)
+        : base(logger)
     {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _proxyTunnelConfigManager = proxyTunnelConfigManager;
     }
 
-    /// <inheritdoc/>
-    public HttpMessageInvoker CreateClient(ForwarderHttpClientContext context)
+
+    protected override SocketsHttpHandler CreateSocketsHttpHandler(ForwarderHttpClientContext context)
     {
-        if (CanReuseOldClient(context))
+        var handler = base.CreateSocketsHttpHandler(context);
+
+        if (!_proxyTunnelConfigManager.TryGetTunnelFrontendToBackend(context.ClusterId, out var tunnelFrontendToBackendState))
         {
-            Log.ClientReused(_logger, context.ClusterId);
-            return context.OldClient!;
+            // TODO: return 503 Service Unavailable? log?
+            throw new NotSupportedException("TunnelFrontendToBackend not found");
         }
 
-        var handler = CreateSocketsHttpHandler(context);
-
-        ConfigureHandler(context, handler);
-
-        var middleware = WrapHandler(context, handler);
-
-        var middlewareTunnel = WrapMiddleware(context, middleware);
-
-        Log.ClientCreated(_logger, context.ClusterId);
-
-        return new HttpMessageInvoker(middlewareTunnel, disposeHandler: true);
-    }
-
-    /// <summary>
-    /// Checks if the options have changed since the old client was created. If not then the
-    /// old client will be re-used. Re-use can avoid the latency of creating new connections.
-    /// </summary>
-    protected virtual bool CanReuseOldClient(ForwarderHttpClientContext context)
-    {
-        return context.OldClient is not null && context.NewConfig == context.OldConfig;
-    }
-
-    protected virtual SocketsHttpHandler CreateSocketsHttpHandler(ForwarderHttpClientContext context)
-    {
-        var handler = new SocketsHttpHandler
+        handler.ConnectCallback = (SocketsHttpConnectionContext socketsContext, CancellationToken cancellationToken) =>
         {
-            UseProxy = false,
-            AllowAutoRedirect = false,
-            AutomaticDecompression = DecompressionMethods.None,
-            UseCookies = false,
-            ActivityHeadersPropagator = new ReverseProxyPropagator(DistributedContextPropagator.Current),
-            ConnectTimeout = TimeSpan.FromSeconds(15),
-
-            // NOTE: MaxResponseHeadersLength = 64, which means up to 64 KB of headers are allowed by default as of .NET Core 3.1.
+            return ConnectSocketsHttpHandler(context, socketsContext, cancellationToken);
         };
+
         return handler;
     }
 
 
-    /// <summary>
-    /// Allows configuring the <see cref="SocketsHttpHandler"/> instance. The base implementation
-    /// applies settings from <see cref="ForwarderHttpClientContext.NewConfig"/>.
-    /// <see cref="SocketsHttpHandler.UseProxy"/>, <see cref="SocketsHttpHandler.AllowAutoRedirect"/>,
-    /// <see cref="SocketsHttpHandler.AutomaticDecompression"/>, and <see cref="SocketsHttpHandler.UseCookies"/>
-    /// are disabled prior to this call.
-    /// </summary>
-    protected virtual void ConfigureHandler(ForwarderHttpClientContext context, SocketsHttpHandler handler)
+    protected virtual async ValueTask<Stream> ConnectSocketsHttpHandler(
+        ForwarderHttpClientContext context,
+        SocketsHttpConnectionContext socketsContext,
+        CancellationToken cancellationToken)
     {
-        var newConfig = context.NewConfig;
-        if (newConfig.SslProtocols.HasValue)
-        {
-            handler.SslOptions.EnabledSslProtocols = newConfig.SslProtocols.Value;
-        }
-        if (newConfig.MaxConnectionsPerServer is not null)
-        {
-            handler.MaxConnectionsPerServer = newConfig.MaxConnectionsPerServer.Value;
-        }
-        if (newConfig.DangerousAcceptAnyServerCertificate ?? false)
-        {
-            handler.SslOptions.RemoteCertificateValidationCallback = delegate { return true; };
-        }
 
-        handler.EnableMultipleHttp2Connections = newConfig.EnableMultipleHttp2Connections.GetValueOrDefault(true);
-
-        if (newConfig.RequestHeaderEncoding is not null)
+        if (!_proxyTunnelConfigManager.TryGetTunnelFrontendToBackend(context.ClusterId, out var tunnelFrontendToBackendState))
         {
-            var encoding = Encoding.GetEncoding(newConfig.RequestHeaderEncoding);
-            handler.RequestHeaderEncodingSelector = (_, _) => encoding;
+            // TODO: return 503 Service Unavailable? log?
+            throw new NotSupportedException();
+        }
+        if (!_proxyTunnelConfigManager.TryGetTunnelHandler(context.ClusterId, out var tunnelHandler))
+        {
+            // TODO: return 503 Service Unavailable? log?
+            throw new NotSupportedException();
+        }
+        if (!tunnelHandler.TryGetTunnelConnectionChannel(socketsContext, out var activeTunnel))
+        {
+            // TODO: return 503 Service Unavailable
+            // TODO: Help I have no idea how to do this properly
+            throw new NotSupportedException("503");
         }
 
-        if (newConfig.ResponseHeaderEncoding is not null)
+        var requests = activeTunnel.Requests;
+        var responses = activeTunnel.Responses;
+
+        // Ask for a connection
+        await requests.Writer.WriteAsync(0, cancellationToken);
+
+        while (true)
         {
-            var encoding = Encoding.GetEncoding(newConfig.ResponseHeaderEncoding);
-            handler.ResponseHeaderEncodingSelector = (_, _) => encoding;
-        }
+            var stream = await responses.Reader.ReadAsync(cancellationToken);
 
-        var webProxy = TryCreateWebProxy(newConfig.WebProxy);
-        if (webProxy is not null)
-        {
-            handler.Proxy = webProxy;
-            handler.UseProxy = true;
-        }
-    }
+            if (stream is ICloseable c && c.IsClosed && !activeTunnel.IsClosed)
+            {
+                // Ask for another connection
+                await requests.Writer.WriteAsync(0, cancellationToken);
 
-    protected static IWebProxy? TryCreateWebProxy(WebProxyConfig? webProxyConfig)
-    {
-        if (webProxyConfig is null || webProxyConfig.Address is null)
-        {
-            return null;
-        }
+                continue;
+            }
 
-        var webProxy = new WebProxy(webProxyConfig.Address);
-
-        webProxy.UseDefaultCredentials = webProxyConfig.UseDefaultCredentials.GetValueOrDefault(false);
-        webProxy.BypassProxyOnLocal = webProxyConfig.BypassOnLocal.GetValueOrDefault(false);
-
-        return webProxy;
-    }
-
-    /// <summary>
-    /// Adds any wrapping middleware around the <see cref="HttpMessageHandler"/>.
-    /// </summary>
-    protected virtual HttpMessageHandler WrapHandler(ForwarderHttpClientContext context, HttpMessageHandler handler)
-    {
-        return handler;
-    }
-
-    // TODO: finally not needed? remove it?
-    protected virtual HttpMessageHandler WrapMiddleware(ForwarderHttpClientContext context, HttpMessageHandler handler)
-    {
-        return handler;
-    }
-
-
-    public abstract string GetTransport();
-
-    protected static class Log
-    {
-        private static readonly Action<ILogger, string, Exception?> _clientCreated = LoggerMessage.Define<string>(
-              LogLevel.Debug,
-              EventIds.ClientCreated,
-              "New client created for cluster '{clusterId}'.");
-
-        private static readonly Action<ILogger, string, Exception?> _clientReused = LoggerMessage.Define<string>(
-            LogLevel.Debug,
-            EventIds.ClientReused,
-            "Existing client reused for cluster '{clusterId}'.");
-
-        public static void ClientCreated(ILogger logger, string clusterId)
-        {
-            _clientCreated(logger, clusterId, null);
-        }
-
-        public static void ClientReused(ILogger logger, string clusterId)
-        {
-            _clientReused(logger, clusterId, null);
+            return stream;
         }
     }
 }

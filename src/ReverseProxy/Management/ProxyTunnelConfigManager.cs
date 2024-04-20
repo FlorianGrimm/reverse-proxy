@@ -26,6 +26,7 @@ public interface IProxyTunnelStateLookup
 
     IEnumerable<TunnelFrontendToBackendState> GetTunnelFrontendToBackends();
     bool TryGetTunnelFrontendToBackend(string tunnelId, [MaybeNullWhen(false)] out TunnelFrontendToBackendState state);
+    bool TryGetTunnelHandler(string tunnelId, [MaybeNullWhen(false)] out ITunnelHandler tunnelHandler);
 }
 
 internal sealed class ProxyTunnelConfigManager
@@ -39,7 +40,7 @@ internal sealed class ProxyTunnelConfigManager
     private ILogger<ProxyTunnelConfigManager> _logger;
     private IProxyTunnelConfigValidator _configValidator = new ProxyTunnelConfigValidator([], []);
     private readonly InMemoryConfigProvider _memoryConfigProvider = new([], []);
-    private object _LockSync = new();
+    private readonly object _LockSync = new();
 
     public ProxyTunnelConfigManager()
     {
@@ -216,10 +217,12 @@ internal sealed class ProxyTunnelConfigManager
             }
         }
     }
-    internal bool TryGetTunnelHandler(string tunnelId, [MaybeNullWhen(false)] out ITunnelHandler tunnelHandler)
+
+    public bool TryGetTunnelHandler(string tunnelId, [MaybeNullWhen(false)] out ITunnelHandler tunnelHandler)
     {
         return _tunnelHandlers.TryGetValue(tunnelId, out tunnelHandler);
     }
+
     internal void RemoveTunnelHandler(string tunnelId)
     {
         while (true)

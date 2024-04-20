@@ -1,40 +1,6 @@
-using System.IO;
-using System.Net.Http;
-using System.Net.Sockets;
-using System.Threading.Tasks;
-using System.Threading;
+﻿namespace Yarp.ReverseProxy.Forwarder;
 
-using Microsoft.Extensions.Logging;
-
-using Yarp.ReverseProxy.Tunnel;
-using Yarp.ReverseProxy.Management;
-using System;
-using Microsoft.AspNetCore.WebUtilities;
-using Yarp.ReverseProxy.Model;
-using System.Net;
-
-namespace Yarp.ReverseProxy.Forwarder;
-
-internal class ForwarderTunnelHTTP2ClientFactory
-    : ForwarderTunnelHttpClientFactory
-    , IForwarderHttpClientFactory
-    , IForwarderHttpClientFactorySelectiv
-{
-    public const string Transport= "TunnelHTTP2";
-
-    public ForwarderTunnelHTTP2ClientFactory(
-        IProxyTunnelStateLookup proxyTunnelConfigManager,
-        ILogger<ForwarderTunnelHTTP2ClientFactory> logger
-        )
-        : base(proxyTunnelConfigManager, logger)
-    {
-    }
-
-    public override string GetTransport()
-    {
-        return Transport;
-    }
-}
+internal class ForwarderTunnelWebSocketClientFactory { }
 
 #if false
 internal class TunnelHttpMessageHandler : DelegatingHandler
