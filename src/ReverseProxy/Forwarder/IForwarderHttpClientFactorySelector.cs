@@ -42,9 +42,4 @@ public class ForwarderHttpClientFactorySelector : IForwarderHttpClientFactorySel
             return false;
         }
     }
-
-    //public HttpMessageInvoker CreateClient(ForwarderHttpClientContext context)
-    //{
-    //    throw new System.NotImplementedException();
-    //}
 }

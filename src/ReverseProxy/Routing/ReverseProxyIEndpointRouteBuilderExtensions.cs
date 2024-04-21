@@ -90,17 +90,15 @@ public static partial class ReverseProxyIEndpointRouteBuilderExtensions
 {
     public static IEndpointRouteBuilder MapReverseProxyTunnelFrontendToBackend(this IEndpointRouteBuilder endpoints)
     {
-        if (endpoints is null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
         var applicationServices = endpoints.ServiceProvider;
         var proxyTunnelConfigManager = applicationServices.GetRequiredService<ProxyTunnelConfigManager>();
-        proxyTunnelConfigManager.LateInject(applicationServices);
+        proxyTunnelConfigManager.Initialize(applicationServices);
         var tunnelHandlerFactory = applicationServices.GetRequiredService<ITunnelHandlerFactory>();
         var tunnelFrontendToBackends = proxyTunnelConfigManager.GetTunnelFrontendToBackends();
         if (tunnelFrontendToBackends.Any())
         {
+            endpoints.DataSources.Add(proxyTunnelConfigManager);
             foreach (var tunnelFrontendToBackend in tunnelFrontendToBackends)
             {
                 var tunnelHandler = tunnelHandlerFactory.Create(tunnelFrontendToBackend);
@@ -119,7 +117,6 @@ public static partial class ReverseProxyIEndpointRouteBuilderExtensions
                 context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
                 return Task.CompletedTask;
             });
-
         }
         return endpoints;
     }

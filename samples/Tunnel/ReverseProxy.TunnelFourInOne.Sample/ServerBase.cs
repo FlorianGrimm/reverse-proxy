@@ -26,7 +26,7 @@ public class ServerBase
         var app = builder.Build();
         app.MapReverseProxyTunnelFrontendToBackend()
             .MapReverseProxy();
-
+        
         return app;
     }
 

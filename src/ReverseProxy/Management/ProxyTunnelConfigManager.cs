@@ -6,15 +6,23 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Net;
+using System.Threading;
 
+using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Primitives;
 
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Configuration.ConfigProvider;
 using Yarp.ReverseProxy.Configuration.TunnelValidators;
 using Yarp.ReverseProxy.Model;
+using Yarp.ReverseProxy.Routing;
 using Yarp.ReverseProxy.Tunnel;
 
 namespace Yarp.ReverseProxy.Management;
@@ -37,20 +45,26 @@ internal sealed class ProxyTunnelConfigManager
     , IProxyTunnelConfigManager
     , IProxyConfigProvider
 {
+    private readonly object _syncRoot = new();
 
-    private readonly List<IProxyTunnelConfigProvider> _configProviders = new();
-    private bool _needConstruction = false;
     private ProxyTunnelConfigState _proxyTunnelConfigState = new ProxyTunnelConfigState([], []);
-    private ILogger<ProxyTunnelConfigManager> _logger;
+    private bool _needConstruction = false;
+    private readonly List<IProxyTunnelConfigProvider> _configProviders = new();
     private IProxyTunnelConfigValidator _configValidator = new ProxyTunnelConfigValidator([], []);
     private readonly InMemoryConfigProvider _memoryConfigProvider = new([], []);
 
+    // by Initialize
+    private ILogger<ProxyTunnelConfigManager> _logger;
+
+    /// <summary>
+    /// The ProxyTunnelConfigManager is create before the services are available.
+    /// </summary>
     public ProxyTunnelConfigManager()
     {
         _logger = NullLogger<ProxyTunnelConfigManager>.Instance;
     }
 
-    internal void LateInject(IServiceProvider serviceProvider)
+    internal void Initialize(IServiceProvider serviceProvider)
     {
         if (_logger is not NullLogger<ProxyTunnelConfigManager>) { return; }
         _logger = serviceProvider.GetRequiredService<ILogger<ProxyTunnelConfigManager>>();
@@ -145,10 +159,10 @@ internal sealed class ProxyTunnelConfigManager
 
     internal void UpdateMemoryConfigProvider(ProxyTunnelConfigState? proxyTunnelConfigState)
     {
-        lock (_memoryConfigProvider)
+        lock (_syncRoot)
         {
             proxyTunnelConfigState ??= _proxyTunnelConfigState;
-
+            List<RouteConfig> routes = new();
             List<ClusterConfig> clusters = new();
 
             foreach (var tunnel in proxyTunnelConfigState.TunnelFrontendToBackendByTunnelId.Values)
@@ -175,6 +189,7 @@ internal sealed class ProxyTunnelConfigManager
             }
             else
             {
+                // TODO: TransformBuilderContext uses routes and clusters - so it might be easier to just use the existing classes.
                 _memoryConfigProvider.Update([], clusters);
             }
         }
@@ -195,7 +210,7 @@ internal sealed class ProxyTunnelConfigManager
         return new TunnelBackendToFrontendState()
         {
             TunnelId = tunnelBackendToFrontendConfig.TunnelId,
-            RemoteTunnelId = tunnelBackendToFrontendConfig.RemoteTunnelId,
+            RemoteTunnelId = tunnelBackendToFrontendConfig.RemoteTunnelId!,
             Transport = tunnelBackendToFrontendConfig.Transport,
             MaxConnectionCount = tunnelBackendToFrontendConfig.MaxConnectionCount, //??
             Url = tunnelBackendToFrontendConfig.Url,
