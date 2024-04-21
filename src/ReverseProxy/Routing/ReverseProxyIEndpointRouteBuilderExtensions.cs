@@ -119,7 +119,6 @@ public static partial class ReverseProxyIEndpointRouteBuilderExtensions
                 context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
                 return Task.CompletedTask;
             });
-
         }
         return endpoints;
     }
