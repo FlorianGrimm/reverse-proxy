@@ -10,7 +10,10 @@ using Yarp.ReverseProxy.Forwarder;
 
 namespace Yarp.ReverseProxy.Model;
 
-public class TunnelFrontendToBackendState
+/// <summary>
+/// TODO
+/// </summary>
+public sealed class TunnelFrontendToBackendState
     : IEquatable<TunnelFrontendToBackendState>
 {
     /// <summary>
@@ -18,13 +21,12 @@ public class TunnelFrontendToBackendState
     /// </summary>
     public string TunnelId { get; init; } = default!;
 
+    /// <summary>
+    /// The transport used for the tunnel.
+    /// </summary>
     public string Transport { get; init; } = default!;
 
     public TunnelFrontendToBackendAuthenticationConfig Authentication { get; init; } = default!;
-
-    public TunnelFrontendToBackendState()
-    {
-    }
 
     private bool _forwarderHttpClientFactoryResolved;
     private IForwarderHttpClientFactory? _forwarderHttpClientFactory = default;

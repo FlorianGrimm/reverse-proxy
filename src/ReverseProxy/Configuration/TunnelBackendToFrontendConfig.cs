@@ -5,6 +5,9 @@ using Yarp.ReverseProxy.Forwarder;
 
 namespace Yarp.ReverseProxy.Configuration;
 
+/// <summary>
+/// TODO
+/// </summary>
 public sealed record TunnelBackendToFrontendConfig
 {
     /// <summary>
@@ -25,17 +28,15 @@ public sealed record TunnelBackendToFrontendConfig
 
     public int MaxConnectionCount { get; init; } = 10;
 
+    /// <summary>
+    /// The remote URL (protocol+server) to connect to.
+    /// </summary>
     public string Url { get; init; } = default!;
 
     // WebSocket HTTP2 WebTransport 
     public string Transport { get; init; } = ForwarderTunnelHTTP2ClientFactory.Transport;
 
     public TunnelBackendToFrontendAuthenticationConfig Authentication { get; init; } = default!;
-
-    //public string GetRemoteTunnelId()
-    //    =>  (string.IsNullOrEmpty(RemoteTunnelId))
-    //        ? TunnelId
-    //        : RemoteTunnelId;
 }
 
 public sealed record TunnelBackendToFrontendAuthenticationConfig

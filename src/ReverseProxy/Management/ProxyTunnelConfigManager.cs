@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
@@ -36,7 +37,8 @@ public interface IProxyTunnelStateLookup
     bool TryGetTunnelFrontendToBackend(string tunnelId, [MaybeNullWhen(false)] out TunnelFrontendToBackendState state);
 }
 
-public interface IProxyTunnelConfigManager : IProxyTunnelStateLookup {
+public interface IProxyTunnelConfigManager : IProxyTunnelStateLookup
+{
     bool TryGetTunnelHandler(string tunnelId, [MaybeNullWhen(false)] out ITunnelHandler tunnelHandler);
 }
 
@@ -52,6 +54,7 @@ internal sealed class ProxyTunnelConfigManager
     private readonly List<IProxyTunnelConfigProvider> _configProviders = new();
     private IProxyTunnelConfigValidator _configValidator = new ProxyTunnelConfigValidator([], []);
     private readonly InMemoryConfigProvider _memoryConfigProvider = new([], []);
+    private readonly ConcurrentDictionary<string, string> _tunnelChannelIdTunnelBackendToFrontend = new(StringComparer.OrdinalIgnoreCase);
 
     // by Initialize
     private ILogger<ProxyTunnelConfigManager> _logger;
@@ -144,11 +147,13 @@ internal sealed class ProxyTunnelConfigManager
             foreach (var tunnelBackendToFrontendConfig in tunnelConfig.TunnelBackendToFrontends)
             {
                 _configValidator.ValidateTunnelBackendToFrontendConfig(tunnelBackendToFrontendConfig, errors);
-                tunnelBackendToFrontends.Add(CreateTunnelBackendToFrontend(tunnelBackendToFrontendConfig));
+                var tunnelChannelId = _tunnelChannelIdTunnelBackendToFrontend.GetOrAdd($"{tunnelBackendToFrontendConfig.Url}-{tunnelBackendToFrontendConfig.TunnelId}-{tunnelBackendToFrontendConfig.RemoteTunnelId}-{tunnelBackendToFrontendConfig.Transport}", (_) => Guid.NewGuid().ToString("n"));
+                tunnelBackendToFrontends.Add(CreateTunnelBackendToFrontend(tunnelBackendToFrontendConfig, tunnelChannelId));
             }
         }
 
-        if (errors.Count > 0) {
+        if (errors.Count > 0)
+        {
             throw new AggregateException("The proxy tunnel config is invalid.", errors);
         }
 
@@ -205,15 +210,36 @@ internal sealed class ProxyTunnelConfigManager
         };
     }
 
-    private TunnelBackendToFrontendState CreateTunnelBackendToFrontend(TunnelBackendToFrontendConfig tunnelBackendToFrontendConfig)
+
+    private static string? _Hostname;
+    private static string GetHostname()
     {
+        if (string.IsNullOrEmpty(_Hostname))
+        {
+            return _Hostname = System.Environment.GetEnvironmentVariable("COMPUTERNAME") ?? string.Empty;
+        }
+        else
+        {
+            return _Hostname;
+        }
+    }
+
+    private TunnelBackendToFrontendState CreateTunnelBackendToFrontend(TunnelBackendToFrontendConfig tunnelBackendToFrontendConfig, string tunnelChannelId)
+    {
+        var hostname = !string.IsNullOrEmpty(tunnelBackendToFrontendConfig.Hostname)
+            ? tunnelBackendToFrontendConfig.Hostname
+            : GetHostname();
+        var remoteHost = $"{tunnelBackendToFrontendConfig.TunnelId}-{tunnelChannelId}-{hostname}";
+
         return new TunnelBackendToFrontendState()
         {
+            TunnelChannelId = tunnelChannelId,
             TunnelId = tunnelBackendToFrontendConfig.TunnelId,
-            RemoteTunnelId = tunnelBackendToFrontendConfig.RemoteTunnelId!,
             Transport = tunnelBackendToFrontendConfig.Transport,
+            RemoteTunnelId = tunnelBackendToFrontendConfig.RemoteTunnelId!,
             MaxConnectionCount = tunnelBackendToFrontendConfig.MaxConnectionCount, //??
             Url = tunnelBackendToFrontendConfig.Url,
+            RemoteHost = remoteHost,
             Authentication = new TunnelBackendToFrontendAuthenticationConfig()
         };
     }

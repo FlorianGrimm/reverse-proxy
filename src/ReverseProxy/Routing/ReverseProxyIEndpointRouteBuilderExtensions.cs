@@ -98,7 +98,6 @@ public static partial class ReverseProxyIEndpointRouteBuilderExtensions
         var tunnelFrontendToBackends = proxyTunnelConfigManager.GetTunnelFrontendToBackends();
         if (tunnelFrontendToBackends.Any())
         {
-            endpoints.DataSources.Add(proxyTunnelConfigManager);
             foreach (var tunnelFrontendToBackend in tunnelFrontendToBackends)
             {
                 var tunnelHandler = tunnelHandlerFactory.Create(tunnelFrontendToBackend);

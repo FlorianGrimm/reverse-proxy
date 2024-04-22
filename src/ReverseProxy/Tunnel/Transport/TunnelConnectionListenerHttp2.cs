@@ -120,9 +120,7 @@ internal class TunnelConnectionListenerHttp2 : TunnelConnectionListenerProtocol
     protected override Uri GetRemoteUrl(TunnelBackendToFrontendState tunnel)
     {
         var url = tunnel.Url;
-        var remoteTunnelId = tunnel.RemoteTunnelId;
-        var host = tunnel.TunnelId; // TODO: host needs a configuration
-        var uri = new Uri(new Uri(url), $"/Tunnel/HTTP2/{remoteTunnelId}/{host}");
+        var uri = new Uri(new Uri(url), $"/Tunnel/HTTP2/{tunnel.RemoteTunnelId}/{tunnel.RemoteHost}");
         return uri;
     }
 

@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.Http.Features;
 
 namespace Yarp.ReverseProxy.Tunnel.Transport;
 
-internal class TunnelConnectionContextHttp2 : ConnectionContext,
+internal sealed class TunnelConnectionContextHttp2 : ConnectionContext,
     IConnectionLifetimeFeature,
     IConnectionEndPointFeature,
     IConnectionItemsFeature,
@@ -97,7 +97,7 @@ internal class TunnelConnectionContextHttp2 : ConnectionContext,
     }
 }
 
-internal class HttpClientConnectionContextContent : HttpContent
+internal sealed class HttpClientConnectionContextContent : HttpContent
 {
     private readonly TunnelConnectionContextHttp2 _connectionContext;
 

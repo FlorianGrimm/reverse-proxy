@@ -3,6 +3,9 @@
 
 namespace Yarp.ReverseProxy.Configuration;
 
+/// <summary>
+/// TODO
+/// </summary>
 public sealed record TunnelFrontendToBackendConfig
 {
     /// <summary>
@@ -10,13 +13,18 @@ public sealed record TunnelFrontendToBackendConfig
     /// </summary>
     public string TunnelId { get; init; } = default!;
 
-    public TunnelFrontendToBackendAuthenticationConfig Authentication { get; init; } = default!;
-
-    //public List<string> AllowedDest
 
     // WebSocket HTTP2 WebTransport 
     public string Transport { get; init; } = default!;
+
+    // TODO: public List<string> AllowedOrigins
+    
+    /// <summary>
+    /// Big TODO
+    /// </summary>
+    public TunnelFrontendToBackendAuthenticationConfig Authentication { get; init; } = default!;
 }
+
 public sealed record TunnelFrontendToBackendAuthenticationConfig
 {
 }

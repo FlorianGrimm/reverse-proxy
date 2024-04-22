@@ -73,7 +73,7 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
             return Results.BadRequest();
         }
 
-        var activeTunnel = RegisterTunnelConnection(host);
+        var activeTunnel = RegisterTunnelConnectionChannel(host);
         try
         {
             var lifetime = context.RequestServices.GetRequiredService<IHostApplicationLifetime>();
@@ -99,11 +99,11 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
         }
         finally
         {
-            UnregisterConnection(activeTunnel);
+            UnregisterTunnelConnectionChannel(activeTunnel);
         }
     }
 
-    private TunnelConnectionChannel RegisterTunnelConnection(string host)
+    private TunnelConnectionChannel RegisterTunnelConnectionChannel(string host)
     {
         int count;
         if (_connectionsByHost.TryGetValue(host, out var result))
@@ -112,11 +112,12 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
         }
         else
         {
-            result = _connectionsByHost.GetOrAdd(host, _ => new TunnelConnectionChannel(host, Channel.CreateUnbounded<int>(), Channel.CreateUnbounded<Stream>()));
+            result = _connectionsByHost.GetOrAdd(host, _ => TunnelConnectionChannel.Create(host));
             count = System.Threading.Interlocked.Increment(ref result.Count);
         }
-        if (count == 1)
+        if (count == 1 || result.IsFirstRequest)
         {
+            result.IsFirstRequest = false;
             _proxyTunnelConfigManager.UpdateMemoryConfigProvider(null);
         }
         Log.TunnelConnectionAdded(_logger, _tunnelFrontendToBackend.Transport, _tunnelFrontendToBackend.TunnelId, host);
@@ -124,7 +125,7 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
         return result;
     }
 
-    private void UnregisterConnection(TunnelConnectionChannel activeTunnel)
+    private void UnregisterTunnelConnectionChannel(TunnelConnectionChannel activeTunnel)
     {
         var count = System.Threading.Interlocked.Decrement(ref activeTunnel.Count);
         if (count == 0)
@@ -162,25 +163,17 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
         var result = new Dictionary<string, DestinationConfig>(StringComparer.OrdinalIgnoreCase);
         foreach (var activeTunnel in _connectionsByHost.Values)
         {
-            var address = activeTunnel.Address;
-            if (address.StartsWith("https://") || address.StartsWith("http://") || address.Contains("://"))
-            {
-            }
-            else
-            {
-                address = "http://" + address;
-            }
-
             var destination = new DestinationConfig
             {
-                Address = address,
+                Address = activeTunnel.Address,
                 Health = nameof(DestinationHealth.Healthy),
                 Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                     {
                         { "TunnelId", _tunnelFrontendToBackend.TunnelId }
                     }
             };
-            result.Add($"{activeTunnel.Address}-{activeTunnel.Id}", destination);
+            
+            result.Add(activeTunnel.ConnectionChannelId, destination);
         }
         return result;
     }
@@ -212,19 +205,4 @@ internal class TunnelHTTP2MapHandler : ITunnelHandler
             _tunnelConnectionAdded(logger, transport, tunnelId, host, null);
         }
     }
-}
-
-public record class TunnelConnectionChannel(
-    string Address,
-    Channel<int> Requests,
-    Channel<Stream> Responses
-    )
-{
-    private string? _Id;
-
-    public string Id => _Id ??= Guid.NewGuid().ToString();
-
-    public int Count = 0;
-
-    public bool IsClosed => Count == 0;
 }
