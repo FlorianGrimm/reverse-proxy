@@ -20,7 +20,6 @@ namespace Yarp.ReverseProxy.Forwarder;
 /// </summary>
 public abstract class ForwarderBaseClientFactory
     : IForwarderHttpClientFactory
-    , IForwarderHttpClientFactoryV2
     , IForwarderHttpClientFactorySelectiv
 {
     protected readonly ILogger _logger;
@@ -32,13 +31,8 @@ public abstract class ForwarderBaseClientFactory
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public HttpMessageInvoker CreateClient(ForwarderHttpClientContext context)
-    {
-        return CreateClient(null, context);
-    }
-
     /// <inheritdoc/>
-    public HttpMessageInvoker CreateClient(ClusterState? cluster, ForwarderHttpClientContext context)
+    public HttpMessageInvoker CreateClient(ForwarderHttpClientContext context)
     {
         if (CanReuseOldClient(context))
         {
@@ -52,11 +46,9 @@ public abstract class ForwarderBaseClientFactory
 
         var middleware = WrapHandler(context, handler);
 
-        var result = WrapTunnelHandler(cluster, context, handler);
-
         Log.ClientCreated(_logger, context.ClusterId);
 
-        return new HttpMessageInvoker(result, disposeHandler: true);
+        return new HttpMessageInvoker(middleware, disposeHandler: true);
     }
 
     /// <summary>
@@ -68,6 +60,10 @@ public abstract class ForwarderBaseClientFactory
         return context.OldClient is not null && context.NewConfig == context.OldConfig;
     }
 
+    /// <summary>
+    /// Seperates the creation of the <see cref="SocketsHttpHandler"/> to allow for easier customization.
+    /// </summary>
+    /// <param name="context">An <see cref="ForwarderHttpClientContext"/> carrying old and new cluster configurations.</param>
     protected virtual SocketsHttpHandler CreateSocketsHttpHandler(ForwarderHttpClientContext context)
     {
         var handler = new SocketsHttpHandler
@@ -150,12 +146,6 @@ public abstract class ForwarderBaseClientFactory
     /// </summary>
     protected virtual HttpMessageHandler WrapHandler(ForwarderHttpClientContext context, HttpMessageHandler handler)
     {
-        return handler;
-    }
-
-    protected virtual HttpMessageHandler WrapTunnelHandler(ClusterState? cluster, ForwarderHttpClientContext context, HttpMessageHandler handler)
-    {
-        // TODO: rethink
         return handler;
     }
 

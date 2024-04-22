@@ -15,9 +15,6 @@ namespace Yarp.ReverseProxy.Model;
 /// </summary>
 public sealed class ClusterState
 {
-    // TODO: is this ok? needed?
-    internal TunnelFrontendToBackendState? TunnelFrontendToBackend;
-    
     private volatile ClusterDestinationsState _destinationsState = new ClusterDestinationsState(Array.Empty<DestinationState>(), Array.Empty<DestinationState>());
     private volatile ClusterModel _model = default!; // Initialized right after construction.
 

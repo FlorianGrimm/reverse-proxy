@@ -638,9 +638,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                 };
 
                 var httpClientFactory = GetHttpClientFactory(currentCluster);
-                var httpClient = (httpClientFactory is IForwarderHttpClientFactoryV2 forwarderHttpClientFactoryV2)
-                    ? forwarderHttpClientFactoryV2.CreateClient(currentCluster, forwarderHttpClientContext)
-                    : httpClientFactory.CreateClient(forwarderHttpClientContext);
+                var httpClient = httpClientFactory.CreateClient(forwarderHttpClientContext);
 
                 var newClusterModel = new ClusterModel(incomingCluster, httpClient);
 
@@ -679,9 +677,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                 };
 
                 var httpClientFactory = GetHttpClientFactory(currentCluster);
-                var httpClient = (httpClientFactory is IForwarderHttpClientFactoryV2 forwarderHttpClientFactoryV2)
-                    ? forwarderHttpClientFactoryV2.CreateClient(currentCluster, forwarderHttpClientContext)
-                    : httpClientFactory.CreateClient(forwarderHttpClientContext);
+                var httpClient = httpClientFactory.CreateClient(forwarderHttpClientContext);
 
                 currentCluster.Model = new ClusterModel(incomingCluster, httpClient);
                 currentCluster.Revision++;
@@ -724,26 +720,23 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
     private IForwarderHttpClientFactory GetHttpClientFactory(ClusterState currentCluster)
     {
-        // TODO: do we need to check is tunnel is allowed?
-        // incomingCluster.Metadata.TryGetValue("IsTunnel", out var IsTunnel);
-        // incomingCluster.Metadata.TryGetValue("TunnelId", out var tunnelId);
-
         var clusterId = currentCluster.ClusterId;
         if (_proxyTunnelConfigManager.TryGetTunnelFrontendToBackend(clusterId, out var tunnelFrontendToBackendState))
         {
             if (tunnelFrontendToBackendState.TryGetForwarderHttpClientFactory(_httpClientFactorySelector, out var forwarderHttpClientFactory))
             {
-                currentCluster.TunnelFrontendToBackend = tunnelFrontendToBackendState;
                 return forwarderHttpClientFactory;
             }
             else
             {
+                // TODO: proper logging
                 _logger.LogWarning("No forwarder HTTP client factory found for tunnel '{TunnelId}' with transport '{Transport}'.", tunnelFrontendToBackendState.TunnelId, tunnelFrontendToBackendState.GetNormalizedTransport());
                 return new ForwarderMissconfiguredHttpClientFactory(_logger);
             }
         }
         else
         {
+            // return the default factory
             return _httpClientFactory;
         }
     }

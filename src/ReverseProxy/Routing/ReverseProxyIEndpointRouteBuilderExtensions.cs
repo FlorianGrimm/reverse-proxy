@@ -94,10 +94,10 @@ public static partial class ReverseProxyIEndpointRouteBuilderExtensions
         var applicationServices = endpoints.ServiceProvider;
         var proxyTunnelConfigManager = applicationServices.GetRequiredService<ProxyTunnelConfigManager>();
         proxyTunnelConfigManager.Initialize(applicationServices);
-        var tunnelHandlerFactory = applicationServices.GetRequiredService<ITunnelHandlerFactory>();
         var tunnelFrontendToBackends = proxyTunnelConfigManager.GetTunnelFrontendToBackends();
         if (tunnelFrontendToBackends.Any())
         {
+            var tunnelHandlerFactory = applicationServices.GetRequiredService<TunnelHandlerFactorySelector>();
             foreach (var tunnelFrontendToBackend in tunnelFrontendToBackends)
             {
                 var tunnelHandler = tunnelHandlerFactory.Create(tunnelFrontendToBackend);
@@ -112,6 +112,7 @@ public static partial class ReverseProxyIEndpointRouteBuilderExtensions
             }
             endpoints.Map("/Tunnel/{protocol}/{tunnel}/{host}", (HttpContext context) =>
             {
+                // TODO: proper logging
                 context.RequestServices.GetRequiredService<ILogger<TunnelConnectionListenerProtocol>>().LogWarning("Tunnel is not defined {Path}", context.Request.Path);
                 context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
                 return Task.CompletedTask;
@@ -120,32 +121,4 @@ public static partial class ReverseProxyIEndpointRouteBuilderExtensions
         return endpoints;
     }
 
-}
-
-// TODO: WEICHEI?
-internal sealed class ProxyTunnelEndpointFactory
-{
-    private RequestDelegate? _pipeline;
-    public void SetProxyPipeline(RequestDelegate pipeline)
-    {
-        _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
-    }
-}
-// TODO: WEICHEI?
-internal class TunnelPipelineInitializerMiddleware
-{
-    private readonly ILogger _logger;
-    private readonly RequestDelegate _next;
-
-    public TunnelPipelineInitializerMiddleware(RequestDelegate next,
-        ILogger<TunnelPipelineInitializerMiddleware> logger)
-    {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _next = next ?? throw new ArgumentNullException(nameof(next));
-    }
-
-    public Task Invoke(HttpContext context)
-    {
-        return _next(context);
-    }
 }

@@ -60,7 +60,6 @@ public static partial class ReverseProxyServiceCollectionExtensions
             .AddProxy();
 
         services.TryAddSingleton<ProxyEndpointFactory>();
-        services.TryAddSingleton<ProxyTunnelEndpointFactory>();
 
         services.AddDataProtection();
         services.AddAuthorization();

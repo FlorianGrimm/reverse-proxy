@@ -35,7 +35,6 @@ public static partial class ReverseProxyServiceCollectionExtensions
         )
     {
         reverseProxyBuilder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TunnelConnectionListenerFactory>());
-        //reverseProxyBuilder.Services.AddSingleton<IConnectionListenerFactory, TunnelConnectionListenerFactory>();
         if (configure is not null)
         {
             reverseProxyBuilder.Services.Configure(configure);
@@ -43,7 +42,7 @@ public static partial class ReverseProxyServiceCollectionExtensions
 
         webHostBuilder.ConfigureKestrel(options =>
         {
-            // using ProxyConfigManager is not possible here, since Kestrel is being created now.
+            // using ProxyConfigManager with and as an is not possible here, since Kestrel is being created now - which results in a circular dependency.            
             var proxyTunnelConfigManager = options.ApplicationServices.GetRequiredService<ProxyTunnelConfigManager>();
             var logger = options.ApplicationServices.GetRequiredService<ILogger<TunnelConnectionListenerFactory>>();
             if (proxyTunnelConfigManager is not null)
@@ -54,6 +53,8 @@ public static partial class ReverseProxyServiceCollectionExtensions
                     {
                         Log.TunnelBackendToFrontendAdd(logger, tunnelBackendToFrontend.TunnelId, tunnelBackendToFrontend.RemoteTunnelId, tunnelBackendToFrontend.Url, tunnelBackendToFrontend.Transport);
 
+                        // http is used since the tunnel Frontend is using https... hopefully
+                        // TODO: https leads to a error - retry
                         var url = $"http://{tunnelBackendToFrontend.TunnelId}";
                         options.Listen(new UriTunnelTransportEndPoint(new Uri(url)));
                     }
