@@ -1,5 +1,7 @@
 # YARP -Tunnel
 
+this is more a todo-list, brain dump than a documentation.
+
 based on https://github.com/davidfowl/YarpTunnelDemo
 
 ## Szenario
@@ -24,7 +26,7 @@ c) DMZ
 d) DMZ + Local
 - Outer Frontend - WebServer in the DMZ
 - Inner Frontend - OnPrem WebServer
-- Backend - OnPrem WebServer
+- Backend API - OnPrem WebServer
 
 The Inner Frontend establishes a tunnel to the Outer Frontend.
 The Inner Frontend is used by the internal users.
@@ -52,11 +54,15 @@ Better idea?
 
 ## ChannelId - TunnelId
 
+```json
+Route : { "Channel": "Tunnel" }
+```
 if ChannelId == TunnelId => use tunnel.
 
 ## Configuration + Creation
 
-- TODO
+- KestrelServerImpl has argument - IEnumerable<IConnectionListenerFactory> transportFactories - it was easy to create a cycle dependency.
+- ProxyTunnelConfigManager cannot have the ProxyConfigManager as an dependcy
 
 ## IForwarderHttpClientFactory + ITunnelHandler
 
@@ -66,3 +72,4 @@ if ChannelId == TunnelId => use tunnel.
 
 
 
+https://github.com/microsoft/reverse-proxy/issues/1618
