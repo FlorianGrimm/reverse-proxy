@@ -8,6 +8,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
@@ -45,12 +46,14 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     private readonly IProxyConfigFilter[] _filters;
     private readonly IConfigValidator _configValidator;
     private readonly IForwarderHttpClientFactory _httpClientFactory;
+    private readonly IForwarderHttpClientFactorySelector _httpClientFactorySelector;
     private readonly ProxyEndpointFactory _proxyEndpointFactory;
     private readonly ITransformBuilder _transformBuilder;
     private readonly List<Action<EndpointBuilder>> _conventions;
     private readonly IActiveHealthCheckMonitor _activeHealthCheckMonitor;
     private readonly IClusterDestinationsUpdater _clusterDestinationsUpdater;
     private readonly IDestinationResolver _destinationResolver;
+    private readonly ProxyTunnelConfigManager _proxyTunnelConfigManager;
     private readonly IConfigChangeListener[] _configChangeListeners;
     private List<Endpoint>? _endpoints;
     private CancellationTokenSource _endpointsChangeSource = new();
@@ -67,10 +70,12 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         ProxyEndpointFactory proxyEndpointFactory,
         ITransformBuilder transformBuilder,
         IForwarderHttpClientFactory httpClientFactory,
+        IForwarderHttpClientFactorySelector httpClientFactorySelector,
         IActiveHealthCheckMonitor activeHealthCheckMonitor,
         IClusterDestinationsUpdater clusterDestinationsUpdater,
         IEnumerable<IConfigChangeListener> configChangeListeners,
-        IDestinationResolver destinationResolver)
+        IDestinationResolver destinationResolver,
+        ProxyTunnelConfigManager proxyTunnelConfigManager)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _providers = providers?.ToArray() ?? throw new ArgumentNullException(nameof(providers));
@@ -81,9 +86,12 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         _proxyEndpointFactory = proxyEndpointFactory ?? throw new ArgumentNullException(nameof(proxyEndpointFactory));
         _transformBuilder = transformBuilder ?? throw new ArgumentNullException(nameof(transformBuilder));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        _httpClientFactorySelector = httpClientFactorySelector ?? throw new ArgumentNullException(nameof(httpClientFactorySelector));
         _activeHealthCheckMonitor = activeHealthCheckMonitor ?? throw new ArgumentNullException(nameof(activeHealthCheckMonitor));
         _clusterDestinationsUpdater = clusterDestinationsUpdater ?? throw new ArgumentNullException(nameof(clusterDestinationsUpdater));
         _destinationResolver = destinationResolver ?? throw new ArgumentNullException(nameof(destinationResolver));
+        _proxyTunnelConfigManager = proxyTunnelConfigManager ?? throw new ArgumentNullException(nameof(proxyTunnelConfigManager));
+        // TODO: WEICHEI?
         _configChangeListeners = configChangeListeners?.ToArray() ?? Array.Empty<IConfigChangeListener>();
 
         if (_providers.Length == 0)
@@ -94,6 +102,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         _configs = new ConfigState[_providers.Length];
 
         _conventions = new List<Action<EndpointBuilder>>();
+        // TODO: WEICHEI? remove serviceProvider 
         DefaultBuilder = new ReverseProxyConventionBuilder(_conventions);
 
         _endpointsChangeToken = new CancellationChangeToken(_endpointsChangeSource.Token);
@@ -175,8 +184,15 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             {
                 var config = await configLoadTask;
                 _configs[i] = new ConfigState(provider, config);
-                routes.AddRange(config.Routes ?? Array.Empty<RouteConfig>());
-                clusters.AddRange(config.Clusters ?? Array.Empty<ClusterConfig>());
+                if (config.Routes is { Count: > 0 } updatedRoutes)
+                {
+                    routes.AddRange(updatedRoutes);
+                }
+
+                if (config.Clusters is { Count: > 0 } updatedClusters)
+                {
+                    clusters.AddRange(updatedClusters);
+                }
             }
 
             var proxyConfigs = ExtractListOfProxyConfigs(_configs);
@@ -611,8 +627,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                 var destinationsChanged = UpdateRuntimeDestinations(incomingCluster.Destinations, currentCluster.Destinations);
 
                 var currentClusterModel = currentCluster.Model;
-
-                var httpClient = _httpClientFactory.CreateClient(new ForwarderHttpClientContext
+                var forwarderHttpClientContext = new ForwarderHttpClientContext
                 {
                     ClusterId = currentCluster.ClusterId,
                     OldConfig = currentClusterModel.Config.HttpClient ?? HttpClientConfig.Empty,
@@ -620,7 +635,10 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                     OldClient = currentClusterModel.HttpClient,
                     NewConfig = incomingCluster.HttpClient ?? HttpClientConfig.Empty,
                     NewMetadata = incomingCluster.Metadata
-                });
+                };
+
+                var httpClientFactory = GetHttpClientFactory(currentCluster);
+                var httpClient = httpClientFactory.CreateClient(forwarderHttpClientContext);
 
                 var newClusterModel = new ClusterModel(incomingCluster, httpClient);
 
@@ -647,29 +665,32 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             }
             else
             {
-                var newClusterState = new ClusterState(incomingCluster.ClusterId);
+                currentCluster = new ClusterState(incomingCluster.ClusterId);
 
-                UpdateRuntimeDestinations(incomingCluster.Destinations, newClusterState.Destinations);
+                UpdateRuntimeDestinations(incomingCluster.Destinations, currentCluster.Destinations);
 
-                var httpClient = _httpClientFactory.CreateClient(new ForwarderHttpClientContext
+                var forwarderHttpClientContext = new ForwarderHttpClientContext
                 {
-                    ClusterId = newClusterState.ClusterId,
+                    ClusterId = currentCluster.ClusterId,
                     NewConfig = incomingCluster.HttpClient ?? HttpClientConfig.Empty,
                     NewMetadata = incomingCluster.Metadata
-                });
+                };
 
-                newClusterState.Model = new ClusterModel(incomingCluster, httpClient);
-                newClusterState.Revision++;
+                var httpClientFactory = GetHttpClientFactory(currentCluster);
+                var httpClient = httpClientFactory.CreateClient(forwarderHttpClientContext);
+
+                currentCluster.Model = new ClusterModel(incomingCluster, httpClient);
+                currentCluster.Revision++;
                 Log.ClusterAdded(_logger, incomingCluster.ClusterId);
 
-                _clusterDestinationsUpdater.UpdateAllDestinations(newClusterState);
+                _clusterDestinationsUpdater.UpdateAllDestinations(currentCluster);
 
-                added = _clusters.TryAdd(newClusterState.ClusterId, newClusterState);
+                added = _clusters.TryAdd(currentCluster.ClusterId, currentCluster);
                 Debug.Assert(added);
 
                 foreach (var listener in _clusterChangeListeners)
                 {
-                    listener.OnClusterAdded(newClusterState);
+                    listener.OnClusterAdded(currentCluster);
                 }
             }
         }
@@ -694,6 +715,29 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                     listener.OnClusterRemoved(existingCluster);
                 }
             }
+        }
+    }
+
+    private IForwarderHttpClientFactory GetHttpClientFactory(ClusterState currentCluster)
+    {
+        var clusterId = currentCluster.ClusterId;
+        if (_proxyTunnelConfigManager.TryGetTunnelFrontendToBackend(clusterId, out var tunnelFrontendToBackendState))
+        {
+            if (tunnelFrontendToBackendState.TryGetForwarderHttpClientFactory(_httpClientFactorySelector, out var forwarderHttpClientFactory))
+            {
+                return forwarderHttpClientFactory;
+            }
+            else
+            {
+                // TODO: proper logging
+                _logger.LogWarning("No forwarder HTTP client factory found for tunnel '{TunnelId}' with transport '{Transport}'.", tunnelFrontendToBackendState.TunnelId, tunnelFrontendToBackendState.GetNormalizedTransport());
+                return new ForwarderMissconfiguredHttpClientFactory(_logger);
+            }
+        }
+        else
+        {
+            // return the default factory
+            return _httpClientFactory;
         }
     }
 

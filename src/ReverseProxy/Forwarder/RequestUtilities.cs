@@ -124,8 +124,13 @@ public static class RequestUtilities
         }
 
         var targetAddress = string.Concat(prefixSpan, EncodePath(path), query.ToUriComponent());
-
-        return new Uri(targetAddress, UriKind.Absolute);
+        try
+        {
+            return new Uri(targetAddress, UriKind.Absolute);
+        }
+        catch {
+            throw;
+        }
     }
 
     // This isn't using PathString.ToUriComponent() because it doesn't round trip some escape sequences the way we want.

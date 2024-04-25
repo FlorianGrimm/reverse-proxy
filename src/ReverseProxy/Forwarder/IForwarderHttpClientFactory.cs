@@ -3,6 +3,8 @@
 
 using System.Net.Http;
 
+using Yarp.ReverseProxy.Model;
+
 namespace Yarp.ReverseProxy.Forwarder;
 
 /// <summary>

@@ -5,9 +5,12 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Http;
+
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Configuration.ConfigProvider;
 using Yarp.ReverseProxy.Forwarder;
@@ -22,7 +25,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// Extensions for <see cref="IServiceCollection"/>
 /// used to register the ReverseProxy's components.
 /// </summary>
-public static class ReverseProxyServiceCollectionExtensions
+public static partial class ReverseProxyServiceCollectionExtensions
 {
     /// <summary>
     /// Registers the <see cref="IHttpForwarder"/> service for direct forwarding scenarios.

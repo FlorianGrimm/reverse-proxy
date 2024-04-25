@@ -2,9 +2,11 @@
 // Licensed under the MIT License.
 
 using System.Linq;
+
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Configuration.ClusterValidators;
 using Yarp.ReverseProxy.Configuration.RouteValidators;
@@ -72,12 +74,18 @@ internal static class IReverseProxyBuilderExtensions
     {
         builder.Services.TryAddSingleton<ProxyConfigManager>();
         builder.Services.TryAddSingleton<IProxyStateLookup>(sp => sp.GetRequiredService<ProxyConfigManager>());
+
+        builder.Services.AddReverseProxyTunnelConfigManager();
+
         return builder;
     }
 
     public static IReverseProxyBuilder AddProxy(this IReverseProxyBuilder builder)
     {
         builder.Services.TryAddSingleton<IForwarderHttpClientFactory, ForwarderHttpClientFactory>();
+        builder.Services.TryAddSingleton<IForwarderHttpClientFactorySelector, ForwarderHttpClientFactorySelector>();
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IForwarderHttpClientFactorySelectiv, ForwarderHttpClientFactory>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IForwarderHttpClientFactorySelectiv, ForwarderTunnelHTTP2ClientFactory>());
 
         builder.Services.AddHttpForwarder();
         return builder;

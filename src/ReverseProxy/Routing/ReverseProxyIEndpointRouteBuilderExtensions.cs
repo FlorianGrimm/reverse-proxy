@@ -2,14 +2,22 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading.Tasks;
+
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Limits;
 using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Routing;
+using Yarp.ReverseProxy.Tunnel;
+using Yarp.ReverseProxy.Tunnel.Transport;
 
 namespace Microsoft.AspNetCore.Builder;
 
@@ -17,7 +25,7 @@ namespace Microsoft.AspNetCore.Builder;
 /// Extension methods for <see cref="IEndpointRouteBuilder"/>
 /// used to add Reverse Proxy to the ASP .NET Core request pipeline.
 /// </summary>
-public static class ReverseProxyIEndpointRouteBuilderExtensions
+public static partial class ReverseProxyIEndpointRouteBuilderExtensions
 {
     /// <summary>
     /// Adds Reverse Proxy routes to the route table using the default processing pipeline.
@@ -76,4 +84,41 @@ public static class ReverseProxyIEndpointRouteBuilderExtensions
 
         return dataSource;
     }
+}
+
+public static partial class ReverseProxyIEndpointRouteBuilderExtensions
+{
+    public static IEndpointRouteBuilder MapReverseProxyTunnelFrontendToBackend(this IEndpointRouteBuilder endpoints)
+    {
+        ArgumentNullException.ThrowIfNull(endpoints);
+        var applicationServices = endpoints.ServiceProvider;
+        var proxyTunnelConfigManager = applicationServices.GetRequiredService<ProxyTunnelConfigManager>();
+        proxyTunnelConfigManager.Initialize(applicationServices);
+        var tunnelFrontendToBackends = proxyTunnelConfigManager.GetTunnelFrontendToBackends();
+        if (tunnelFrontendToBackends.Any())
+        {
+            var tunnelHandlerFactory = applicationServices.GetRequiredService<TunnelHandlerFactorySelector>();
+            foreach (var tunnelFrontendToBackend in tunnelFrontendToBackends)
+            {
+                var tunnelHandler = tunnelHandlerFactory.Create(tunnelFrontendToBackend);
+                if (tunnelHandler is not null)
+                {
+                    var endpointConventionBuilder = tunnelHandler.Map(endpoints);
+                    endpointConventionBuilder
+                        .WithMetadata(tunnelFrontendToBackend)
+                        ;
+                    proxyTunnelConfigManager.AddTunnelHandler(tunnelFrontendToBackend.TunnelId, tunnelHandler);
+                }
+            }
+            endpoints.Map("/Tunnel/{protocol}/{tunnel}/{host}", (HttpContext context) =>
+            {
+                // TODO: proper logging
+                context.RequestServices.GetRequiredService<ILogger<TunnelConnectionListenerProtocol>>().LogWarning("Tunnel is not defined {Path}", context.Request.Path);
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                return Task.CompletedTask;
+            });
+        }
+        return endpoints;
+    }
+
 }

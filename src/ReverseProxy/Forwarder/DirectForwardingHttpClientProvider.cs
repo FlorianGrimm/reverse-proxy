@@ -14,9 +14,11 @@ internal sealed class DirectForwardingHttpClientProvider
 
     public DirectForwardingHttpClientProvider(IForwarderHttpClientFactory factory)
     {
-        HttpClient = factory.CreateClient(new ForwarderHttpClientContext
-        {
-            NewConfig = HttpClientConfig.Empty
-        });
+        HttpClient = factory.CreateClient(
+            new ForwarderHttpClientContext
+            {
+                ClusterId = string.Empty,
+                NewConfig = HttpClientConfig.Empty
+            });
     }
 }
