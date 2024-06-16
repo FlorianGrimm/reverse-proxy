@@ -10,6 +10,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.DependencyInjection;
 
+using Yarp.ReverseProxy.Transport;
+using Yarp.ReverseProxy.Tunnel;
+
 try
 {
     List<WebApplication> listWebApplication = [
@@ -76,14 +79,19 @@ static WebApplication ServerA1(string[] args)
             };
         });
     builder.Services.AddAuthorization(
-        options => {
-            options.AddPolicy("RequireCertificate", policy => {
+        options =>
+        {
+            options.AddPolicy("RequireCertificate", policy =>
+            {
                 policy.AuthenticationSchemes.Add(CertificateAuthenticationDefaults.AuthenticationScheme);
                 policy.RequireAuthenticatedUser();
             });
         });
     builder.Services.AddReverseProxy()
         .LoadFromConfig(builder.Configuration.GetSection("ReverseProxyA1"));
+
+    builder.Services.AddTunnelServices();
+
     var app = builder.Build();
 
     app.UseWebSockets();
@@ -104,6 +112,14 @@ static WebApplication ServerA1(string[] args)
 
     app.MapControllers();
     app.MapReverseProxy();
+
+    // Uncomment to support websocket connections
+    // app.MapWebSocketTunnel("/connect-ws");
+
+    // Auth can be added to this endpoint and we can restrict it to certain points
+    // to avoid exteranl traffic hitting it
+    app.MapHttp2Tunnel("/connect-h2");
+
     return app;
 }
 
@@ -120,6 +136,11 @@ static WebApplication ServerB1(string[] args)
     builder.Services.AddReverseProxy()
         .LoadFromConfig(builder.Configuration.GetSection("ReverseProxyB1"));
 
+    // This is the HTTP/2 endpoint to register this app as part of the cluster endpoint
+    var url = builder.Configuration["TunnelB1:Url"]!;
+
+    builder.WebHost.UseTunnelTransport(url);
+
     var app = builder.Build();
 
     app.UseWebSockets();
@@ -132,23 +153,45 @@ static async Task Tests()
 {
     try
     {
-        System.Console.Out.WriteLine(System.Reflection.Assembly.GetExecutingAssembly().Location);
-        var testCertPfxPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!, "testCert.pfx");
-        var cert = new X509Certificate2(testCertPfxPath, "testPassword", X509KeyStorageFlags.PersistKeySet);
-        SocketsHttpHandler socketsHttpHandler = new();
-        socketsHttpHandler.SslOptions.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
-        (socketsHttpHandler.SslOptions.ClientCertificates ??= new()).Add(cert);
-        socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback
-            = (object sender, string targetHost, X509CertificateCollection localCertificates, X509Certificate? remoteCertificate, string[] acceptableIssuers) => cert;
-        HttpClient httpClient = new(socketsHttpHandler);
-        var url = "https://localhost:5001/_CheckCert";
-        System.Console.Out.WriteLine($"Sending request to {url}");
-        var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
-        response.EnsureSuccessStatusCode();
-        var result = await response.Content.ReadAsStringAsync();
-        System.Console.Out.WriteLine($"Success: {result}");
+        // to test the certificate
+        // https://localhost:5001/_CheckCert
+        {
+            var testCertPfxPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!, "testCert.pfx");
+            var cert = new X509Certificate2(testCertPfxPath, "testPassword", X509KeyStorageFlags.PersistKeySet);
+            SocketsHttpHandler socketsHttpHandler = new();
+            socketsHttpHandler.SslOptions.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+            (socketsHttpHandler.SslOptions.ClientCertificates ??= new()).Add(cert);
+            socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback
+                = (object sender, string targetHost, X509CertificateCollection localCertificates, X509Certificate? remoteCertificate, string[] acceptableIssuers) => cert;
+            HttpClient httpClient = new(socketsHttpHandler);
+            var url = "https://localhost:5001/_CheckCert";
+            System.Console.Out.WriteLine($"Sending request to {url}");
+            var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadAsStringAsync();
+            System.Console.Out.WriteLine($"Success: {result}");
+        }
+
+        // https://localhost:5001/test
+        {
+            HttpClient httpClient = new();
+            var url = "https://localhost:5001/test";
+            System.Console.Out.WriteLine($"Sending request to {url}");
+            var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadAsStringAsync();
+            if (result.Contains(" \"host\": \"backend1.app\","))
+            {
+                System.Console.Out.WriteLine($"Success: {result}");
+            }
+            else {
+                System.Console.Out.WriteLine($"Failed: {result}");
+            }
+
+        }
     }
-    catch (Exception error){
+    catch (Exception error)
+    {
         System.Console.Error.WriteLine(error.ToString());
         if (error.InnerException is not null)
         {
