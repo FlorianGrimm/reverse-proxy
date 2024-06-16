@@ -1,0 +1,13 @@
+@ServerA1 = http://localhost:5001
+@ServerB1 = http://localhost:5003
+
+GET {{ServerA1}}/
+Accept: text/html
+
+###
+GET {{ServerB}}/
+Accept: text/html
+
+###
+GET {{ServerB1}}/_Tunnel
+Accept: application/json

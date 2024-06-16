@@ -100,6 +100,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Prometheus", "Prometheus", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HttpLoadApp", "samples\Prometheus\HttpLoadApp\HttpLoadApp.csproj", "{BD73A038-8F3D-4BB2-A5C4-C8D077969DED}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tunnel", "Tunnel", "{B4AD7FEE-A9A0-4700-8C67-5BD2A8C81E7F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReverseProxy.Tunnel.AllInOne.Sample", "samples\Tunnel\ReverseProxy.Tunnel.AllInOne.Sample\ReverseProxy.Tunnel.AllInOne.Sample.csproj", "{F683E2D0-068C-4210-8D0B-60B7054B92CC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -364,6 +368,14 @@ Global
 		{BD73A038-8F3D-4BB2-A5C4-C8D077969DED}.Release|Any CPU.Build.0 = Release|Any CPU
 		{BD73A038-8F3D-4BB2-A5C4-C8D077969DED}.Release|x64.ActiveCfg = Release|Any CPU
 		{BD73A038-8F3D-4BB2-A5C4-C8D077969DED}.Release|x64.Build.0 = Release|Any CPU
+		{F683E2D0-068C-4210-8D0B-60B7054B92CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F683E2D0-068C-4210-8D0B-60B7054B92CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F683E2D0-068C-4210-8D0B-60B7054B92CC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F683E2D0-068C-4210-8D0B-60B7054B92CC}.Debug|x64.Build.0 = Debug|Any CPU
+		{F683E2D0-068C-4210-8D0B-60B7054B92CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F683E2D0-068C-4210-8D0B-60B7054B92CC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F683E2D0-068C-4210-8D0B-60B7054B92CC}.Release|x64.ActiveCfg = Release|Any CPU
+		{F683E2D0-068C-4210-8D0B-60B7054B92CC}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -407,6 +419,8 @@ Global
 		{AC0EF892-7D32-4EAF-BE99-3696181E889F} = {149C61A2-D9F8-49B9-9F9B-3C953FEF53AA}
 		{78A83196-53F3-444B-84BF-F0FDC2CD0466} = {149C61A2-D9F8-49B9-9F9B-3C953FEF53AA}
 		{BD73A038-8F3D-4BB2-A5C4-C8D077969DED} = {78A83196-53F3-444B-84BF-F0FDC2CD0466}
+		{B4AD7FEE-A9A0-4700-8C67-5BD2A8C81E7F} = {149C61A2-D9F8-49B9-9F9B-3C953FEF53AA}
+		{F683E2D0-068C-4210-8D0B-60B7054B92CC} = {B4AD7FEE-A9A0-4700-8C67-5BD2A8C81E7F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {31F6924A-E427-4830-96E9-B47CEB7BFE78}
