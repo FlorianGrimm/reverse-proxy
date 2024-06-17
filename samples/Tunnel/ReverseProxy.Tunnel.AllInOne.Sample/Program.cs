@@ -18,7 +18,8 @@ try
 {
     List<WebApplication> listWebApplication = [
         ServerA1(args),
-        ServerB1(args)
+        ServerB1(args),
+        ServerC1(args)
         ];
     var listTaskRun = listWebApplication.Select(app => app.RunAsync()).ToList();
     var taskRun = Task.WhenAll(listTaskRun);
@@ -150,6 +151,25 @@ static WebApplication ServerB1(string[] args)
             handler.SslOptions.AddClientCertificate(cert);
         };
     });
+
+    var app = builder.Build();
+
+    app.UseWebSockets();
+    app.MapControllers();
+
+    return app;
+}
+
+
+static WebApplication ServerC1(string[] args)
+{
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        { "Urls", "https://localhost:5005" }
+    });
+    builder.Services.AddControllers()
+        .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
 
     var app = builder.Build();
 
