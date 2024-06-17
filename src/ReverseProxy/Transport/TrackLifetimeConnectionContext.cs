@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Net;
@@ -15,14 +17,15 @@ namespace Yarp.ReverseProxy.Transport;
 internal class TrackLifetimeConnectionContext : ConnectionContext
 {
     private readonly ConnectionContext _connection;
-    private readonly TaskCompletionSource _executionTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TrackLifetimeConnectionContextCollection _connectionCollection;
 
-    public TrackLifetimeConnectionContext(ConnectionContext connection)
+    public TrackLifetimeConnectionContext(
+        ConnectionContext connection,
+        TrackLifetimeConnectionContextCollection connectionCollection)
     {
         _connection = connection;
+        _connectionCollection = connectionCollection;
     }
-
-    public Task ExecutionTask => _executionTcs.Task;
 
     public override string ConnectionId
     {
@@ -74,7 +77,7 @@ internal class TrackLifetimeConnectionContext : ConnectionContext
 
     public override ValueTask DisposeAsync()
     {
-        _executionTcs.TrySetResult();
+        _connectionCollection.Remove(this);
         return _connection.DisposeAsync();
     }
 }

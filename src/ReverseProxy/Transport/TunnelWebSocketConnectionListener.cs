@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -13,34 +14,30 @@ namespace Yarp.ReverseProxy.Transport;
 /// <summary>
 /// This has the core logic that creates and maintains connections to the proxy.
 /// </summary>
-internal class TunnelConnectionListener : IConnectionListener
+internal sealed class TunnelWebSocketConnectionListener : IConnectionListener
 {
     private readonly SemaphoreSlim _connectionLock;
     private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections = new();
-    private readonly TunnelOptions _options;
+    private readonly TunnelWebSocketOptions _options;
     private readonly CancellationTokenSource _closedCts = new();
-    private readonly HttpMessageInvoker _httpMessageInvoker = new(new SocketsHttpHandler
-    {
-        EnableMultipleHttp2Connections = true,
-        PooledConnectionLifetime = Timeout.InfiniteTimeSpan,
-        PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan
-    });
+    private readonly UriEndpointWebSocket _endPoint;
+    private readonly TrackLifetimeConnectionContextCollection _connectionCollection;
 
-    public TunnelConnectionListener(TunnelOptions options, EndPoint endpoint)
+    public TunnelWebSocketConnectionListener(TunnelWebSocketOptions options, UriEndpointWebSocket endpoint)
     {
-        _options = options;
-        _connectionLock = new(options.MaxConnectionCount);
-        EndPoint = endpoint;
-
-        if (endpoint is not UriEndPoint2)
+        if (endpoint.Uri is null)
         {
-            throw new NotSupportedException($"UriEndPoint is required for {options.Transport} transport");
+            throw new ArgumentException("UriEndPoint.Uri is required", nameof(endpoint));
         }
+        _options = options;
+        _endPoint = endpoint;
+        _connectionLock = new(options.MaxConnectionCount);
+        _connectionCollection = new TrackLifetimeConnectionContextCollection(_connections, _connectionLock);
     }
 
-    public EndPoint EndPoint { get; }
+    public EndPoint EndPoint => _endPoint;
 
-    private Uri Uri => ((UriEndPoint2)EndPoint).Uri!;
+    private Uri Uri => _endPoint.Uri!;
 
     public async ValueTask<ConnectionContext?> AcceptAsync(CancellationToken cancellationToken = default)
     {
@@ -55,14 +52,16 @@ internal class TunnelConnectionListener : IConnectionListener
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                int delay = 0;
+
                 try
                 {
-                    var connection = new TrackLifetimeConnectionContext(_options.Transport switch
-                    {
-                        TransportType.WebSockets => await WebSocketConnectionContext.ConnectAsync(Uri, cancellationToken),
-                        TransportType.HTTP2 => await HttpClientConnectionContext.ConnectAsync(_httpMessageInvoker, Uri, cancellationToken),
-                        _ => throw new NotSupportedException(),
-                    });
+                    var innerConnection = await WebSocketConnectionContext.ConnectAsync(
+                        Uri, _options, cancellationToken);
+                    delay = 0;
+                    return _connectionCollection.AddInnerConnection(innerConnection);
+#if WEICHEI
+                    var connection = new TrackLifetimeConnectionContext(innerConnection);
 
                     // Track this connection lifetime
                     _connections.TryAdd(connection, connection);
@@ -78,13 +77,17 @@ internal class TunnelConnectionListener : IConnectionListener
                         _connectionLock.Release();
                     },
                     cancellationToken);
-
                     return connection;
+#endif
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     // TODO: More sophisticated backoff and retry
-                    await Task.Delay(5000, cancellationToken);
+                    if (delay < 60000)
+                    {
+                        delay += 5000;
+                    }
+                    await Task.Delay(delay, cancellationToken);
                 }
             }
         }
@@ -93,29 +96,28 @@ internal class TunnelConnectionListener : IConnectionListener
             return null;
         }
     }
+
     public async ValueTask DisposeAsync()
     {
-        List<Task>? tasks = null;
-
-        foreach (var (_, connection) in _connections)
+        var listConnections = _connections.Values.ToList();
+        List<Task> tasks = new(listConnections.Count);
+        foreach (var connection in listConnections)
         {
-            tasks ??= new();
             tasks.Add(connection.DisposeAsync().AsTask());
         }
 
-        if (tasks is null)
+        if (tasks.Count > 0)
         {
-            return;
+            await Task.WhenAll(tasks);
         }
-
-        await Task.WhenAll(tasks);
     }
 
     public ValueTask UnbindAsync(CancellationToken cancellationToken = default)
     {
         _closedCts.Cancel();
 
-        foreach (var (_, connection) in _connections)
+        var listConnections = _connections.Values.ToList();
+        foreach (var connection in listConnections)
         {
             // REVIEW: Graceful?
             connection.Abort();

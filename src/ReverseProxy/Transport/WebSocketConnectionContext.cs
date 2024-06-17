@@ -8,13 +8,14 @@ using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Http.Connections.Client;
 
 namespace Yarp.ReverseProxy.Transport;
-internal class WebSocketConnectionContext : HttpConnection
+
+internal sealed class WebSocketConnectionContext : HttpConnection
 {
     private readonly CancellationTokenSource _cts = new();
     private WebSocket? _underlyingWebSocket;
 
-    private WebSocketConnectionContext(HttpConnectionOptions options) : 
-        base(options, null)
+    private WebSocketConnectionContext(HttpConnectionOptions options)
+        : base(options, null)
     {
     }
 
@@ -44,7 +45,10 @@ internal class WebSocketConnectionContext : HttpConnection
         return base.DisposeAsync();
     }
 
-    internal static async ValueTask<WebSocketConnectionContext> ConnectAsync(Uri uri, CancellationToken cancellationToken)
+    internal static async ValueTask<WebSocketConnectionContext> ConnectAsync(
+        Uri uri,
+        TunnelWebSocketOptions tunnelWebSocketOptions,
+        CancellationToken cancellationToken)
     {
         ClientWebSocket? underlyingWebSocket = null;
         var options = new HttpConnectionOptions
@@ -56,6 +60,11 @@ internal class WebSocketConnectionContext : HttpConnection
             {
                 underlyingWebSocket = new ClientWebSocket();
                 underlyingWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(5);
+                
+                if (tunnelWebSocketOptions.ConfigureClientWebSocket is { } configureClientWebSocket)
+                {
+                    configureClientWebSocket(uri, underlyingWebSocket);
+                }
                 await underlyingWebSocket.ConnectAsync(context.Uri, cancellationToken);
                 return underlyingWebSocket;
             }

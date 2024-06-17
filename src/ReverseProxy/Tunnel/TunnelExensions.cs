@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Net.WebSockets;
 using System.Threading.Tasks;
 
@@ -20,10 +21,17 @@ public static class TunnelExensions
         return services;
     }
 
+    [RequiresUnreferencedCode("i dont know how")]
     public static IEndpointConventionBuilder MapHttp2Tunnel(this IEndpointRouteBuilder routes, string path)
     {
         return routes.MapPost(path, static async (HttpContext context, string host, TunnelClientFactory tunnelFactory, IHostApplicationLifetime lifetime) =>
         {
+            if (context.Connection.ClientCertificate is null) {
+                //return Results.BadRequest();
+                System.Console.Out.WriteLine("context.Connection.ClientCertificate is null");
+            }
+
+
             // HTTP/2 duplex stream
             if (context.Request.Protocol != HttpProtocol.Http2)
             {
@@ -53,6 +61,7 @@ public static class TunnelExensions
         });
     }
 
+    [RequiresUnreferencedCode("i dont know how")]
     public static IEndpointConventionBuilder MapWebSocketTunnel(this IEndpointRouteBuilder routes, string path)
     {
         var conventionBuilder = routes.MapGet(path, static async (HttpContext context, string host, TunnelClientFactory tunnelFactory, IHostApplicationLifetime lifetime) =>

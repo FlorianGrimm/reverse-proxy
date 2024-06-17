@@ -118,7 +118,7 @@ static WebApplication ServerA1(string[] args)
 
     // Auth can be added to this endpoint and we can restrict it to certain points
     // to avoid exteranl traffic hitting it
-    app.MapHttp2Tunnel("/connect-h2");
+    app.MapHttp2Tunnel("/connect-h2"); //.RequireAuthorization("RequireCertificate");
 
     return app;
 }
@@ -139,7 +139,15 @@ static WebApplication ServerB1(string[] args)
     // This is the HTTP/2 endpoint to register this app as part of the cluster endpoint
     var url = builder.Configuration["TunnelB1:Url"]!;
 
-    builder.WebHost.UseTunnelTransport(url);
+    var testCertPfxPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!, "testCert.pfx");
+    var cert = new X509Certificate2(testCertPfxPath, "testPassword", X509KeyStorageFlags.PersistKeySet);
+
+    builder.WebHost.UseTunnelTransportHttp2(new Uri(url), options => {
+        options.ConfigureSocketsHttpHandler = (uri, handler) =>
+        {
+            handler.SslOptions.AddClientCertificate(cert);
+        };
+    });
 
     var app = builder.Build();
 
@@ -184,10 +192,36 @@ static async Task Tests()
             {
                 System.Console.Out.WriteLine($"Success: {result}");
             }
-            else {
+            else
+            {
                 System.Console.Out.WriteLine($"Failed: {result}");
             }
+        }
 
+        // call https://localhost:5001/test 100 time in parralell
+        {
+            int countSuccess = 0;
+            int countFail = 0;
+            var tasks = System.Linq.Enumerable.Range(0, 100).AsParallel().Select(async i =>
+            {
+                HttpClient httpClient = new();
+                var url = "https://localhost:5001/test";
+                System.Console.Out.WriteLine($"Sending request to {url}");
+                var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+                response.EnsureSuccessStatusCode();
+                var result = await response.Content.ReadAsStringAsync();
+                if (result.Contains(" \"host\": \"backend1.app\","))
+                {
+                    System.Threading.Interlocked.Increment(ref countSuccess);
+                }
+                else
+                {
+                    System.Threading.Interlocked.Increment(ref countFail);
+                }
+            });
+            await Task.WhenAll(tasks.ToArray());
+
+            System.Console.Out.WriteLine($"Success: {countSuccess} Failes: {countFail}");
         }
     }
     catch (Exception error)
