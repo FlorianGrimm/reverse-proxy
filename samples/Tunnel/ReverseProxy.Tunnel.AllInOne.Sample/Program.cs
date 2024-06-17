@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+using System.Diagnostics;
 using System.Net;
 using System.Net.Security;
 using System.Runtime.InteropServices;
@@ -118,7 +119,7 @@ static WebApplication ServerA1(string[] args)
 
     // Auth can be added to this endpoint and we can restrict it to certain points
     // to avoid exteranl traffic hitting it
-    app.MapHttp2Tunnel("/connect-h2"); //.RequireAuthorization("RequireCertificate");
+    app.MapHttp2Tunnel("/connect-h2").RequireAuthorization("RequireCertificate");
 
     return app;
 }
@@ -142,7 +143,8 @@ static WebApplication ServerB1(string[] args)
     var testCertPfxPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!, "testCert.pfx");
     var cert = new X509Certificate2(testCertPfxPath, "testPassword", X509KeyStorageFlags.PersistKeySet);
 
-    builder.WebHost.UseTunnelTransportHttp2(new Uri(url), options => {
+    builder.WebHost.UseTunnelTransportHttp2(new Uri(url), options =>
+    {
         options.ConfigureSocketsHttpHandler = (uri, handler) =>
         {
             handler.SslOptions.AddClientCertificate(cert);
@@ -182,10 +184,10 @@ static async Task Tests()
 
         // https://localhost:5001/test
         {
-            HttpClient httpClient = new();
+            using HttpClient httpClient = new();
             var url = "https://localhost:5001/test";
             System.Console.Out.WriteLine($"Sending request to {url}");
-            var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+            using var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
             response.EnsureSuccessStatusCode();
             var result = await response.Content.ReadAsStringAsync();
             if (result.Contains(" \"host\": \"backend1.app\","))
@@ -198,30 +200,45 @@ static async Task Tests()
             }
         }
 
-        // call https://localhost:5001/test 100 time in parralell
+        // call https://localhost:5001/test 10*10 times
         {
+            var startGlobal = Stopwatch.GetTimestamp();
+            List<long> listDuration = new(100);
             int countSuccess = 0;
             int countFail = 0;
-            var tasks = System.Linq.Enumerable.Range(0, 100).AsParallel().Select(async i =>
+            var tasks = System.Linq.Enumerable.Range(0, 10).Select(async i =>
             {
-                HttpClient httpClient = new();
-                var url = "https://localhost:5001/test";
-                System.Console.Out.WriteLine($"Sending request to {url}");
-                var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
-                response.EnsureSuccessStatusCode();
-                var result = await response.Content.ReadAsStringAsync();
-                if (result.Contains(" \"host\": \"backend1.app\","))
+                using HttpClient httpClient = new();
+                for (int iLoop = 0; iLoop < 10; iLoop++)
                 {
-                    System.Threading.Interlocked.Increment(ref countSuccess);
-                }
-                else
-                {
-                    System.Threading.Interlocked.Increment(ref countFail);
+                    var startLoop = Stopwatch.GetTimestamp();
+                    var url = "https://localhost:5001/test";
+                    using var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+                    response.EnsureSuccessStatusCode();
+                    var result = await response.Content.ReadAsStringAsync();
+                    if (result.Contains(" \"host\": \"backend1.app\","))
+                    {
+                        System.Threading.Interlocked.Increment(ref countSuccess);
+                    }
+                    else
+                    {
+                        System.Threading.Interlocked.Increment(ref countFail);
+                    }
+                    var duration = Stopwatch.GetTimestamp() - startLoop;
+                    lock (listDuration)
+                    {
+                        listDuration.Add(duration);
+                    }
                 }
             });
             await Task.WhenAll(tasks.ToArray());
-
+            
+            var allTotalMilliseconds = TimeSpan.FromTicks(Stopwatch.GetTimestamp() - startGlobal).TotalMilliseconds;
+            var minDuration = TimeSpan.FromTicks(listDuration.Min()).TotalMilliseconds;
+            var maxDuration = TimeSpan.FromTicks(listDuration.Max()).TotalMilliseconds;
+            var averageDuration = TimeSpan.FromTicks(listDuration.Sum()/listDuration.Count).TotalMilliseconds;
             System.Console.Out.WriteLine($"Success: {countSuccess} Failes: {countFail}");
+            System.Console.Out.WriteLine($"min: {minDuration}; avg: {averageDuration}; max: {maxDuration}");
         }
     }
     catch (Exception error)
