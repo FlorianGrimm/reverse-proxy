@@ -3,23 +3,13 @@ using System.Net;
 
 namespace Yarp.ReverseProxy.Transport;
 
-// This is a .NET 6 workaround for https://github.com/dotnet/aspnetcore/pull/40003 (it's fixed in .NET 7)
-public sealed class UriEndpointWebSocket : IPEndPoint
+public sealed class UriWebSocketEndPoint(
+        Uri uri,
+        string tunnelId
+    ) : IPEndPoint(0, 0)
 {
-    public Uri? Uri { get; }
+    public Uri Uri { get; } = uri;
+    public string TunnelId { get; } = tunnelId;
 
-    public UriEndpointWebSocket(Uri uri) :
-        this(0, 0)
-    {
-        Uri = uri;
-    }
-
-    public UriEndpointWebSocket(long address, int port) : base(address, port)
-    {
-    }
-
-    public static implicit operator UriEndpointWebSocket(Uri uri)
-    {
-        return new UriEndpointWebSocket(uri);
-    }
+    public override string ToString() => $"{Uri}#{TunnelId}";
 }

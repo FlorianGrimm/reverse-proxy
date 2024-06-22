@@ -73,6 +73,11 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             {
                 newSnapshot = new ConfigurationSnapshot();
 
+                foreach (var section in _configuration.GetSection("Tunnels").GetChildren())
+                {
+                    newSnapshot.Tunnels.Add(CreateTunnel(section));
+                }
+
                 foreach (var section in _configuration.GetSection("Clusters").GetChildren())
                 {
                     newSnapshot.Clusters.Add(CreateCluster(section));
@@ -112,6 +117,23 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         }
     }
 
+    private TunnelConfig CreateTunnel(IConfigurationSection section)
+    {
+        return new TunnelConfig
+        {
+            TunnelId = section.Key,
+            Url = section[nameof(TunnelConfig.Url)] ?? string.Empty,
+            RemoteTunnelId = section[nameof(TunnelConfig.RemoteTunnelId)] ?? string.Empty,
+            Transport = ConvertTransportMode(section[nameof(TunnelConfig.Transport)]),
+            Authentication = CreateTunnelAuthentication(section.GetSection(nameof(TunnelConfig.Authentication)))
+        };
+    }
+
+    private TunnelAuthenticationConfig CreateTunnelAuthentication(IConfigurationSection section)
+    {
+        return new TunnelAuthenticationConfig { };
+    }
+
     private ClusterConfig CreateCluster(IConfigurationSection section)
     {
         var destinations = new Dictionary<string, DestinationConfig>(StringComparer.OrdinalIgnoreCase);
@@ -128,9 +150,27 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             HealthCheck = CreateHealthCheckConfig(section.GetSection(nameof(ClusterConfig.HealthCheck))),
             HttpClient = CreateHttpClientConfig(section.GetSection(nameof(ClusterConfig.HttpClient))),
             HttpRequest = CreateProxyRequestConfig(section.GetSection(nameof(ClusterConfig.HttpRequest))),
+            Transport = ConvertTransportMode(section[nameof(ClusterConfig.Transport)]),
+            Authentication = CreateTransportAuthentication(section.GetSection(nameof(ClusterConfig.Authentication))),
             Metadata = section.GetSection(nameof(ClusterConfig.Metadata)).ReadStringDictionary(),
             Destinations = destinations,
         };
+    }
+
+    private TransportMode ConvertTransportMode(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) { return TransportMode.Forwarder; }
+
+        if (string.Equals(value, nameof(TransportMode.TunnelHTTP2), StringComparison.InvariantCultureIgnoreCase)) { return TransportMode.TunnelHTTP2; }
+        if (string.Equals(value, nameof(TransportMode.TunnelWebSocket), StringComparison.InvariantCultureIgnoreCase)) { return TransportMode.TunnelWebSocket; }
+        if (string.Equals(value, nameof(TransportMode.Forwarder), StringComparison.InvariantCultureIgnoreCase)) { return TransportMode.Forwarder; }
+
+        return TransportMode.Invalid;
+    }
+
+    private TransportAuthentication CreateTransportAuthentication(IConfigurationSection section)
+    {
+        return new TransportAuthentication();
     }
 
     private static RouteConfig CreateRoute(IConfigurationSection section)

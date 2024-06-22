@@ -14,18 +14,27 @@ using Microsoft.Extensions.DependencyInjection;
 using Yarp.ReverseProxy.Transport;
 using Yarp.ReverseProxy.Tunnel;
 
+
 try
 {
+    var testCertPfxPath = Path.Combine(
+        Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!,
+        "testCert.pfx");
+    var certificate = new X509Certificate2(testCertPfxPath, "testPassword", X509KeyStorageFlags.PersistKeySet);
+
     List<WebApplication> listWebApplication = [
-        ServerA1(args),
-        ServerB1(args),
-        ServerC1(args)
+        ServerFrontend(args, "appsettings.server1FE.json", certificate),
+        ServerFrontend(args, "appsettings.server2FE.json", certificate),
+        ServerBackend(args, "appsettings.server3BE.json", certificate),
+        ServerBackend(args, "appsettings.server4BE.json", certificate),
+        ServerAPI(args, "appsettings.server5API.json", certificate),
+        ServerAPI(args, "appsettings.server6API.json", certificate)
         ];
     var listTaskRun = listWebApplication.Select(app => app.RunAsync()).ToList();
     var taskRun = Task.WhenAll(listTaskRun);
     System.Console.Out.WriteLine("Servers Started.");
 
-    await Tests();
+    // await Tests();
 
     await taskRun;
 }
@@ -34,13 +43,11 @@ catch (Exception ex)
     System.Console.Error.WriteLine(ex.ToString());
 }
 
-static WebApplication ServerA1(string[] args)
+
+static WebApplication ServerFrontend(string[] args, string appsettingsPath, X509Certificate2 certificate)
 {
     var builder = WebApplication.CreateBuilder(args);
-    builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
-    {
-        { "Urls", "https://localhost:5001" }
-    });
+    builder.Configuration.AddJsonFile(appsettingsPath, false, true);
     builder.Services.AddControllers()
         .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
     builder.WebHost.UseKestrel((context, kestrelOptions) =>
@@ -51,7 +58,9 @@ static WebApplication ServerA1(string[] args)
             httpsOptions.ClientCertificateValidation =
                 (X509Certificate2 certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors) =>
                 {
-                    return true;
+                    return certificate.Equals(certificate);
+                    //return sslPolicyErrors == SslPolicyErrors.None
+                    //    || sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors;
                 };
 
         });
@@ -63,19 +72,16 @@ static WebApplication ServerA1(string[] args)
             options.RevocationMode = X509RevocationMode.NoCheck;
             options.ValidateCertificateUse = false;
             options.ValidateValidityPeriod = false;
-            var testCertPfxPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!, "testCert.pfx");
-            using var certificate = new X509Certificate2(testCertPfxPath, "testPassword", X509KeyStorageFlags.PersistKeySet);
-            var serialNumber = certificate.GetSerialNumber();
 
             options.Events = new CertificateAuthenticationEvents
             {
                 OnCertificateValidated = context =>
                 {
-                    var isEqual = serialNumber.SequenceEqual(context.ClientCertificate.GetSerialNumber());
-                    if (isEqual)
+                    if (certificate.Equals(context.ClientCertificate))
                     {
                         context.Success();
                     }
+                    // context.NoResult();
                     return Task.CompletedTask;
                 }
             };
@@ -90,9 +96,9 @@ static WebApplication ServerA1(string[] args)
             });
         });
     builder.Services.AddReverseProxy()
-        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxyA1"));
-
-    builder.Services.AddTunnelServices();
+        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+        .AddTunnelServices()
+        ;
 
     var app = builder.Build();
 
@@ -113,61 +119,67 @@ static WebApplication ServerA1(string[] args)
     }).RequireAuthorization("RequireCertificate");
 
     app.MapControllers();
-    app.MapReverseProxy();
-
-    // Uncomment to support websocket connections
-    // app.MapWebSocketTunnel("/connect-ws");
-
-    // Auth can be added to this endpoint and we can restrict it to certain points
-    // to avoid exteranl traffic hitting it
-    app.MapHttp2Tunnel("/connect-h2").RequireAuthorization("RequireCertificate");
+    app.MapReverseProxy(
+        configureTunnelHTTP2: (endpoint) => endpoint.RequireAuthorization("RequireCertificate"),
+        configureTunnelWebSocket: (endpoint) => endpoint.RequireAuthorization("RequireCertificate")
+        );
 
     return app;
 }
 
-static WebApplication ServerB1(string[] args)
+static WebApplication ServerBackend(string[] args, string appsettingsPath, X509Certificate2 certificate)
 {
     var builder = WebApplication.CreateBuilder(args);
-    builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
-    {
-        { "Urls", "https://localhost:5003" }
-    });
+    builder.Configuration.AddJsonFile(appsettingsPath, false, true);
     builder.Services.AddControllers()
         .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
 
     builder.Services.AddReverseProxy()
-        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxyB1"));
+        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+        //.AddTunnelServices()
+        .UseTunnelTransport(
+            builder,
+            configureTunnelHttp2: (options) =>
+            {
+                options.ConfigureSocketsHttpHandlerAsync = (tunelConfig, socketsHttpHandler) =>
+                {
+                    var clientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= new();
+                    clientCertificates.Add(certificate);
+                    return ValueTask.CompletedTask;
+                };
+            },
+            configureTunnelWebSocket: (options) => {
+                options.ConfigureClientWebSocket = (tunelConfig, webSocketOptions) =>
+                {
+                    var clientCertificates = webSocketOptions.Options.ClientCertificates ??= new();
+                    clientCertificates.Add(certificate);
+                };
+            });
 
-    // This is the HTTP/2 endpoint to register this app as part of the cluster endpoint
-    var url = builder.Configuration["TunnelB1:Url"]!;
+    ;
 
-    var testCertPfxPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!, "testCert.pfx");
-    var cert = new X509Certificate2(testCertPfxPath, "testPassword", X509KeyStorageFlags.PersistKeySet);
-
-    builder.WebHost.UseTunnelTransportHttp2(new Uri(url), options =>
-    {
-        options.ConfigureSocketsHttpHandler = (uri, handler) =>
-        {
-            handler.SslOptions.AddClientCertificate(cert);
-        };
-    });
+#warning CERTS
+    //builder.WebHost.UseTunnelTransportHttp2(new Uri(url), options =>
+    //{
+    //    options.ConfigureSocketsHttpHandler = (uri, handler) =>
+    //    {
+    //        handler.SslOptions.AddClientCertificate(cert);
+    //    };
+    //});
 
     var app = builder.Build();
 
     app.UseWebSockets();
     app.MapControllers();
+    app.MapReverseProxy();
 
     return app;
 }
 
-
-static WebApplication ServerC1(string[] args)
+static WebApplication ServerAPI(string[] args, string appsettingsPath, X509Certificate2 certificate)
 {
     var builder = WebApplication.CreateBuilder(args);
-    builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
-    {
-        { "Urls", "https://localhost:5005" }
-    });
+    builder.Configuration.AddJsonFile(appsettingsPath, false, true);
     builder.Services.AddControllers()
         .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
 

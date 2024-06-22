@@ -13,17 +13,21 @@ using Microsoft.AspNetCore.Http.Features;
 
 namespace Yarp.ReverseProxy.Transport;
 
-internal class HttpClientConnectionContext : ConnectionContext,
-                IConnectionLifetimeFeature,
-                IConnectionEndPointFeature,
-                IConnectionItemsFeature,
-                IConnectionIdFeature,
-                IConnectionTransportFeature,
-                IDuplexPipe
+internal sealed class TransportTunnelHttp2ConnectionContext
+    : ConnectionContext
+    , IConnectionLifetimeFeature
+    , IConnectionEndPointFeature
+    , IConnectionItemsFeature
+    , IConnectionIdFeature
+    , IConnectionTransportFeature
+    , IDuplexPipe
+    , ITrackLifetimeConnectionContext
 {
     private readonly TaskCompletionSource _executionTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private HttpClientConnectionContext()
+    private TrackLifetimeConnectionContextCollection? _trackLifetimeConnectionContextCollection;
+
+    private TransportTunnelHttp2ConnectionContext()
     {
         Transport = this;
 
@@ -55,10 +59,16 @@ internal class HttpClientConnectionContext : ConnectionContext,
 
     public HttpResponseMessage HttpResponseMessage { get; set; } = default!;
 
+    public void SetTracklifetime(TrackLifetimeConnectionContextCollection trackLifetimeConnectionContextCollection)
+    {
+        _trackLifetimeConnectionContextCollection = trackLifetimeConnectionContextCollection;
+    }
+
     public override void Abort()
     {
         HttpResponseMessage.Dispose();
 
+        _trackLifetimeConnectionContextCollection?.Remove(this);
         _executionTcs.TrySetCanceled();
 
         Input.CancelPendingRead();
@@ -77,15 +87,16 @@ internal class HttpClientConnectionContext : ConnectionContext,
         return base.DisposeAsync();
     }
 
-    public static async ValueTask<ConnectionContext> ConnectAsync(HttpMessageInvoker invoker, Uri uri, CancellationToken cancellationToken)
+    public static async ValueTask<ConnectionContext> ConnectAsync(
+        HttpRequestMessage requestMessage,
+        //Uri uri,
+        HttpMessageInvoker invoker,
+        CancellationToken cancellationToken)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, uri)
-        {
-            Version = new Version(2, 0)
-        };
-        var connection = new HttpClientConnectionContext();
-        request.Content = new HttpClientConnectionContextContent(connection);
-        var response = await invoker.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+        var connection = new TransportTunnelHttp2ConnectionContext();
+        requestMessage.Content = new HttpClientConnectionContextContent(connection);
+        var response = await invoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
         connection.HttpResponseMessage = response;
         var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
         connection.Input = PipeReader.Create(responseStream);
@@ -95,9 +106,9 @@ internal class HttpClientConnectionContext : ConnectionContext,
 
     private class HttpClientConnectionContextContent : HttpContent
     {
-        private readonly HttpClientConnectionContext _connectionContext;
+        private readonly TransportTunnelHttp2ConnectionContext _connectionContext;
 
-        public HttpClientConnectionContextContent(HttpClientConnectionContext connectionContext)
+        public HttpClientConnectionContextContent(TransportTunnelHttp2ConnectionContext connectionContext)
         {
             _connectionContext = connectionContext;
         }

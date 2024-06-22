@@ -1,5 +1,5 @@
 namespace Yarp.ReverseProxy.Tunnel;
-internal interface ICloseable
+internal interface IStreamCloseable
 {
     bool IsClosed { get; }
     void Abort();

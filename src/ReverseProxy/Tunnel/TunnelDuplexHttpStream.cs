@@ -7,14 +7,17 @@ using System.Threading.Tasks.Sources;
 using Microsoft.AspNetCore.Http;
 
 namespace Yarp.ReverseProxy.Tunnel;
-internal class DuplexHttpStream : Stream, IValueTaskSource<object?>, ICloseable
+internal sealed class TunnelDuplexHttpStream
+    : Stream,
+    IValueTaskSource<object?>,
+    IStreamCloseable
 {
     private ManualResetValueTaskSourceCore<object?> _tcs = new() { RunContinuationsAsynchronously = true };
     private readonly object _sync = new();
 
     private readonly HttpContext _context;
 
-    public DuplexHttpStream(HttpContext context)
+    public TunnelDuplexHttpStream(HttpContext context)
     {
         _context = context;
     }

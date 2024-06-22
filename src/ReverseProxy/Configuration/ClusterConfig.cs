@@ -3,6 +3,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography.X509Certificates;
+
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Utilities;
 
@@ -54,6 +56,12 @@ public sealed record ClusterConfig
     /// </summary>
     public IReadOnlyDictionary<string, string>? Metadata { get; init; }
 
+    public TransportMode Transport { get; init; }
+
+    public TransportAuthentication Authentication { get; init; } = new();
+
+    public bool IsTunnelTransport => Transport == TransportMode.TunnelHTTP2 || Transport == TransportMode.TunnelWebSocket;
+
     public bool Equals(ClusterConfig? other)
     {
         if (other is null)
@@ -79,19 +87,24 @@ public sealed record ClusterConfig
             && HealthCheck == other.HealthCheck
             && HttpClient == other.HttpClient
             && HttpRequest == other.HttpRequest
+            && Transport == other.Transport
+            && Authentication == other.Authentication
             && CaseSensitiveEqualHelper.Equals(Metadata, other.Metadata);
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(
-            ClusterId?.GetHashCode(StringComparison.OrdinalIgnoreCase),
-            LoadBalancingPolicy?.GetHashCode(StringComparison.OrdinalIgnoreCase),
-            SessionAffinity,
-            HealthCheck,
-            HttpClient,
-            HttpRequest,
-            CollectionEqualityHelper.GetHashCode(Destinations),
-            CaseSensitiveEqualHelper.GetHashCode(Metadata));
+        var hashCode = new HashCode();
+        hashCode.Add(ClusterId, StringComparer.OrdinalIgnoreCase);
+        hashCode.Add(LoadBalancingPolicy, StringComparer.OrdinalIgnoreCase);
+        hashCode.Add(SessionAffinity);
+        hashCode.Add(HealthCheck);
+        hashCode.Add(HttpClient);
+        hashCode.Add(HttpRequest);
+        hashCode.Add(Transport);
+        hashCode.Add(Authentication);
+        hashCode.Add(CollectionEqualityHelper.GetHashCode(Destinations));
+        hashCode.Add(CaseSensitiveEqualHelper.GetHashCode(Metadata));
+        return hashCode.ToHashCode();
     }
 }

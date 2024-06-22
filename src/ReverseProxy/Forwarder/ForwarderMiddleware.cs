@@ -45,49 +45,74 @@ internal sealed class ForwarderMiddleware
         activity?.AddTag("proxy.route_id", route.Config.RouteId);
         activity?.AddTag("proxy.cluster_id", cluster.ClusterId);
 
-        if (destinations.Count == 0)
+        if (cluster.Model.Config.IsTunnelTransport)
         {
-            Log.NoAvailableDestinations(_logger, cluster.ClusterId);
-            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-            context.Features.Set<IForwarderErrorFeature>(new ForwarderErrorFeature(ForwarderError.NoAvailableDestinations, ex: null));
-            activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.AddError("Proxy forwarding failed", "No available destinations to forward to");
-            return;
+            try
+            {
+                cluster.ConcurrencyCounter.Increment();
+                ForwarderTelemetry.Log.ForwarderInvoke(cluster.ClusterId, route.Config.RouteId, "Tunnel");
+
+                var clusterConfig = reverseProxyFeature.Cluster;
+                var result = await _forwarder.SendAsync(
+                    context,
+                    $"http://{cluster.ClusterId}",
+                    clusterConfig.HttpClient,
+                    clusterConfig.Config.HttpRequest ?? ForwarderRequestConfig.Empty,
+                    route.Transformer);
+
+                activity?.SetStatus((result == ForwarderError.None) ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
+            }
+            finally
+            {
+                cluster.ConcurrencyCounter.Decrement();
+            }
         }
-
-        var destination = destinations[0];
-        if (destinations.Count > 1)
+        else
         {
-            var random = _randomFactory.CreateRandomInstance();
-            Log.MultipleDestinationsAvailable(_logger, cluster.ClusterId);
-            destination = destinations[random.Next(destinations.Count)];
-        }
+            if (destinations.Count == 0)
+            {
+                Log.NoAvailableDestinations(_logger, cluster.ClusterId);
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                context.Features.Set<IForwarderErrorFeature>(new ForwarderErrorFeature(ForwarderError.NoAvailableDestinations, ex: null));
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.AddError("Proxy forwarding failed", "No available destinations to forward to");
+                return;
+            }
 
-        reverseProxyFeature.ProxiedDestination = destination;
-        activity?.AddTag("proxy.destination_id", destination.DestinationId);
+            var destination = destinations[0];
+            if (destinations.Count > 1)
+            {
+                var random = _randomFactory.CreateRandomInstance();
+                Log.MultipleDestinationsAvailable(_logger, cluster.ClusterId);
+                destination = destinations[random.Next(destinations.Count)];
+            }
 
-        var destinationModel = destination.Model;
-        if (destinationModel is null)
-        {
-            throw new InvalidOperationException($"Chosen destination has no model set: '{destination.DestinationId}'");
-        }
+            reverseProxyFeature.ProxiedDestination = destination;
+            activity?.AddTag("proxy.destination_id", destination.DestinationId);
 
-        try
-        {
-            cluster.ConcurrencyCounter.Increment();
-            destination.ConcurrencyCounter.Increment();
-            ForwarderTelemetry.Log.ForwarderInvoke(cluster.ClusterId, route.Config.RouteId, destination.DestinationId);
+            var destinationModel = destination.Model;
+            if (destinationModel is null)
+            {
+                throw new InvalidOperationException($"Chosen destination has no model set: '{destination.DestinationId}'");
+            }
 
-            var clusterConfig = reverseProxyFeature.Cluster;
-            var result = await _forwarder.SendAsync(context, destinationModel.Config.Address, clusterConfig.HttpClient,
-                clusterConfig.Config.HttpRequest ?? ForwarderRequestConfig.Empty, route.Transformer);
+            try
+            {
+                cluster.ConcurrencyCounter.Increment();
+                destination.ConcurrencyCounter.Increment();
+                ForwarderTelemetry.Log.ForwarderInvoke(cluster.ClusterId, route.Config.RouteId, destination.DestinationId);
 
-            activity?.SetStatus((result == ForwarderError.None) ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
-        }
-        finally
-        {
-            destination.ConcurrencyCounter.Decrement();
-            cluster.ConcurrencyCounter.Decrement();
+                var clusterConfig = reverseProxyFeature.Cluster;
+                var result = await _forwarder.SendAsync(context, destinationModel.Config.Address, clusterConfig.HttpClient,
+                    clusterConfig.Config.HttpRequest ?? ForwarderRequestConfig.Empty, route.Transformer);
+
+                activity?.SetStatus((result == ForwarderError.None) ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
+            }
+            finally
+            {
+                destination.ConcurrencyCounter.Decrement();
+                cluster.ConcurrencyCounter.Decrement();
+            }
         }
     }
 

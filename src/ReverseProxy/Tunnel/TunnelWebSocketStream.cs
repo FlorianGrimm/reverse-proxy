@@ -8,13 +8,16 @@ using System.Threading.Tasks.Sources;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
-internal class WebSocketStream : Stream, IValueTaskSource<object?>, ICloseable
+internal sealed class TunnelWebSocketStream
+    : Stream
+    , IValueTaskSource<object?>
+    , IStreamCloseable
 {
     private readonly WebSocket _ws;
     private ManualResetValueTaskSourceCore<object?> _tcs = new() { RunContinuationsAsynchronously = true };
     private readonly object _sync = new();
 
-    public WebSocketStream(WebSocket ws)
+    public TunnelWebSocketStream(WebSocket ws)
     {
         _ws = ws;
     }

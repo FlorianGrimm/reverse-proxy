@@ -1,120 +1,71 @@
+using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Net.WebSockets;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 using Yarp.ReverseProxy.Forwarder;
+using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Tunnel;
+
+
 public static class TunnelExensions
 {
     public static IServiceCollection AddTunnelServices(this IServiceCollection services)
     {
-        var tunnelFactory = new TunnelClientFactory();
-        services.AddSingleton(tunnelFactory);
-        services.AddSingleton<IForwarderHttpClientFactory>(tunnelFactory);
+        services.TryAddSingleton<TunnelAuthenticationConfigService>();
+        services.TryAddSingleton<TunnelConnectionChannelManager>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterChangeListener, TunnelConnectionChannelManager.ClusterChangeListener>());
+        services.TryAddSingleton<TransportHttpClientFactorySelector>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportHttpClientFactorySelector, TunnelHTTP2HttpClientFactory>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportHttpClientFactorySelector, TunnelWebSocketHttpClientFactory>());
+        services.TryAddSingleton<TunnelHTTP2Route>();
+        services.TryAddSingleton<TunnelWebSocketRoute>();
         return services;
     }
 
-    [RequiresUnreferencedCode("i dont know how")]
-    public static IEndpointConventionBuilder MapHttp2Tunnel(this IEndpointRouteBuilder routes, string path)
+    /// <summary>
+    /// Enables tunnels (listener - on the front end) configured
+    /// in the <see cref="Yarp.ReverseProxy.Configuration.ClusterConfig"/> Transport (e.g. TunnelHTTP2)
+    /// </summary>
+    /// <param name="builder">this builder</param>
+    /// <returns>fluent this</returns>
+    /// <example>
+    ///    builder.Services.AddReverseProxy()
+    ///        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+    ///        .AddTunnelServices();
+    /// </example>
+    public static IReverseProxyBuilder AddTunnelServices(
+        this IReverseProxyBuilder builder)
     {
-        return routes.MapPost(path, static async (HttpContext context, string host, TunnelClientFactory tunnelFactory, IHostApplicationLifetime lifetime) =>
-        {
-            if (context.Connection.ClientCertificate is null) {
-                //return Results.BadRequest();
-                System.Console.Out.WriteLine("context.Connection.ClientCertificate is null");
-            }
-
-
-            // HTTP/2 duplex stream
-            if (context.Request.Protocol != HttpProtocol.Http2)
-            {
-                return Results.BadRequest();
-            }
-
-            var (requests, responses) = tunnelFactory.GetConnectionChannel(host);
-
-            await requests.Reader.ReadAsync(context.RequestAborted);
-
-            var stream = new DuplexHttpStream(context);
-
-            using var reg = lifetime.ApplicationStopping.Register(() => stream.Abort());
-
-            // Keep reusing this connection while, it's still open on the backend
-            while (!context.RequestAborted.IsCancellationRequested)
-            {
-                // Make this connection available for requests
-                await responses.Writer.WriteAsync(stream, context.RequestAborted);
-
-                await stream.StreamCompleteTask;
-
-                stream.Reset();
-            }
-
-            return EmptyResult.Instance;
-        });
+        builder.Services.AddTunnelServices();
+        return builder;
     }
 
-    [RequiresUnreferencedCode("i dont know how")]
-    public static IEndpointConventionBuilder MapWebSocketTunnel(this IEndpointRouteBuilder routes, string path)
+    internal static void MapTunnels(
+        this IEndpointRouteBuilder endpoints,
+        Action<IEndpointConventionBuilder>? configureTunnelHTTP2,
+        Action<IEndpointConventionBuilder>? configureTunnelWebSocket)
     {
-        var conventionBuilder = routes.MapGet(path, static async (HttpContext context, string host, TunnelClientFactory tunnelFactory, IHostApplicationLifetime lifetime) =>
+
+        if (endpoints.ServiceProvider.GetService<TunnelHTTP2Route>() is { } tunnelHTTP2Route)
         {
-            if (!context.WebSockets.IsWebSocketRequest)
-            {
-                return Results.BadRequest();
-            }
+            tunnelHTTP2Route.Map(endpoints, configureTunnelHTTP2);
+        }
 
-            var (requests, responses) = tunnelFactory.GetConnectionChannel(host);
-
-            await requests.Reader.ReadAsync(context.RequestAborted);
-
-            var ws = await context.WebSockets.AcceptWebSocketAsync();
-
-            var stream = new WebSocketStream(ws);
-
-            // We should make this more graceful
-            using var reg = lifetime.ApplicationStopping.Register(() => stream.Abort());
-
-            // Keep reusing this connection while, it's still open on the backend
-            while (ws.State == WebSocketState.Open)
-            {
-                // Make this connection available for requests
-                await responses.Writer.WriteAsync(stream, context.RequestAborted);
-
-                await stream.StreamCompleteTask;
-
-                stream.Reset();
-            }
-
-            return EmptyResult.Instance;
-        });
-
-        // Make this endpoint do websockets automagically as middleware for this specific route
-        conventionBuilder.Add(e =>
+        if (endpoints.ServiceProvider.GetService<TunnelWebSocketRoute>() is { } tunnelWebSocketRoute)
         {
-            var sub = routes.CreateApplicationBuilder();
-            sub.UseWebSockets().Run(e.RequestDelegate!);
-            e.RequestDelegate = sub.Build();
-        });
-
-        return conventionBuilder;
-    }
-
-    // This is for .NET 6, .NET 7 has Results.Empty
-    internal sealed class EmptyResult : IResult
-    {
-        internal static readonly EmptyResult Instance = new();
-
-        public Task ExecuteAsync(HttpContext httpContext)
-        {
-            return Task.CompletedTask;
+            tunnelWebSocketRoute.Map(endpoints, configureTunnelHTTP2);
         }
     }
 }

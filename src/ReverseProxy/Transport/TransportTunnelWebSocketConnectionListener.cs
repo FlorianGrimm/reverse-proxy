@@ -4,35 +4,48 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Connections;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Transport;
 
 /// <summary>
 /// This has the core logic that creates and maintains connections to the proxy.
 /// </summary>
-internal sealed class TunnelHttp2ConnectionListener : IConnectionListener
+internal sealed class TransportTunnelWebSocketConnectionListener : IConnectionListener
 {
     private readonly SemaphoreSlim _connectionLock;
     private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections = new();
-    private readonly TunnelHttp2Options _options;
+    private readonly TransportTunnelWebSocketOptions _options;
+    private readonly ILogger _logger;
+    private readonly TunnelState _tunnel;
     private readonly CancellationTokenSource _closedCts = new();
-    private readonly UriEndPointHttp2 _endPoint;
+    private readonly UriWebSocketEndPoint _endPoint;
     private readonly TrackLifetimeConnectionContextCollection _connectionCollection;
+    private readonly IncrementalDelay _delay = new();
 
-    private HttpMessageInvoker? _httpMessageInvoker;
-
-    public TunnelHttp2ConnectionListener(TunnelHttp2Options options, UriEndPointHttp2 endpoint)
+    public TransportTunnelWebSocketConnectionListener(
+        UriWebSocketEndPoint endpoint,
+        TunnelState tunnel,
+        TransportTunnelWebSocketOptions options,
+        ILogger logger
+        )
     {
-        if (string.IsNullOrEmpty(endpoint.Uri?.ToString()))
+        if (endpoint.Uri is null)
         {
             throw new ArgumentException("UriEndPoint.Uri is required", nameof(endpoint));
         }
-        _options = options;
         _endPoint = endpoint;
+        _tunnel = tunnel;
+        _options = options;
+        _logger = logger;
         _connectionLock = new(options.MaxConnectionCount);
         _connectionCollection = new TrackLifetimeConnectionContextCollection(_connections, _connectionLock);
     }
@@ -47,24 +60,16 @@ internal sealed class TunnelHttp2ConnectionListener : IConnectionListener
 
             // Kestrel will keep an active accept call open as long as the transport is active
             await _connectionLock.WaitAsync(cancellationToken);
-            if (_httpMessageInvoker is null)
-            {
-                lock (this)
-                {
-                    _httpMessageInvoker ??= CreateHttpMessageInvoker();
-                }
-            }
 
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                int delay = 0;
                 try
                 {
-                    var innerConnection = await HttpClientConnectionContext.ConnectAsync(
-                        _httpMessageInvoker, _endPoint.Uri!, cancellationToken);
-                    delay = 0;
+                    var innerConnection = await TransportTunnelWebSocketConnectionContext.ConnectAsync(
+                        _endPoint.Uri!, onConfigureClientWebSocket, cancellationToken);
+                    _delay.Reset();
                     return _connectionCollection.AddInnerConnection(innerConnection);
 #if WEICHEI
                     var connection = new TrackLifetimeConnectionContext(innerConnection);
@@ -85,16 +90,11 @@ internal sealed class TunnelHttp2ConnectionListener : IConnectionListener
                     cancellationToken);
                     return connection;
 #endif
-
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     // TODO: More sophisticated backoff and retry
-                    if (delay < 60000)
-                    {
-                        delay += 5000;
-                    }
-                    await Task.Delay(delay, cancellationToken);
+                    await _delay.Delay(cancellationToken);
                 }
             }
         }
@@ -104,19 +104,42 @@ internal sealed class TunnelHttp2ConnectionListener : IConnectionListener
         }
     }
 
-    private HttpMessageInvoker CreateHttpMessageInvoker()
+    private void onConfigureClientWebSocket(ClientWebSocket socket)
     {
-        var socketsHttpHandler = new SocketsHttpHandler
+
+#warning TODO: add caching of the certificate
+#warning TODO: TEST
+
+        // set the socketsHttpHandler.SslOptions based on the tunnel configuration authentication
+        var config = _tunnel.Model.Config;
+#warning TODO config.Authentication.ClientCertificate
+        //if (config.Authentication.ClientCertificate is { Length: > 0 } certificateName)
+        //{
+        //    if (!(_optionalCertificateStore.GetService() is { } certificateStore))
+        //    {
+        //        throw new InvalidOperationException("No CertificateStore");
+        //    }
+
+        //    var certificate = certificateStore.GetCertificate(certificateName);
+        //    if (certificate is null)
+        //    {
+        //        throw new InvalidOperationException("No Certificate");
+        //    }
+
+        //    var clientCertificates = socket.Options.ClientCertificates ??= new();
+        //    clientCertificates.Add(certificate);
+        //}
+
+        if (config.Authentication.ClientCertifiacteCollection is { } certificates)
         {
-            EnableMultipleHttp2Connections = true,
-            PooledConnectionLifetime = Timeout.InfiniteTimeSpan,
-            PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan
-        };
-        if (_options.ConfigureSocketsHttpHandler is { } configure)
-        {
-            configure(_endPoint.Uri!, socketsHttpHandler);
+            var clientCertificates = socket.Options.ClientCertificates ??= new();
+            clientCertificates.AddRange(certificates);
         }
-        return _httpMessageInvoker = new HttpMessageInvoker(socketsHttpHandler);
+
+        if (_options.ConfigureClientWebSocket is { } configureClientWebSocket)
+        {
+            configureClientWebSocket(_tunnel.Model.Config, socket);
+        }
     }
 
     public async ValueTask DisposeAsync()

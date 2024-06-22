@@ -10,13 +10,13 @@ using Microsoft.AspNetCore.Connections;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
-internal class ConnectionContextStream : Stream, IValueTaskSource<object?>
+internal sealed class TunnelConnectionContextStream : Stream, IValueTaskSource<object?>
 {
     private readonly ConnectionContext _connectionContext;
     private ManualResetValueTaskSourceCore<object?> _tcs = new() { RunContinuationsAsynchronously = true };
     private readonly object _sync = new();
 
-    public ConnectionContextStream(ConnectionContext connectionContext)
+    public TunnelConnectionContextStream(ConnectionContext connectionContext)
     {
         _connectionContext = connectionContext;
     }
