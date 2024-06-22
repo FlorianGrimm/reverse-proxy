@@ -17,16 +17,19 @@ internal sealed class TransportTunnelHttp2ConnectionListenerFactory
 {
     private readonly TransportTunnelHttp2Options _options;
     private readonly UnShortCitcuitOnceProxyConfigManager _proxyConfigManagerOnce;
+    private readonly TransportTunnelHttp2Authentication _transportTunnelHttp2Authentication;
     private readonly ILogger _logger;
 
     public TransportTunnelHttp2ConnectionListenerFactory(
         IOptions<TransportTunnelHttp2Options> options,
         UnShortCitcuitOnceProxyConfigManager proxyConfigManagerOnce,
+        TransportTunnelHttp2Authentication transportTunnelHttp2Authentication,
         ILogger<TransportTunnelHttp2ConnectionListener> logger
         )
     {
         _options = options.Value;
         _proxyConfigManagerOnce = proxyConfigManagerOnce;
+        _transportTunnelHttp2Authentication = transportTunnelHttp2Authentication;
         _logger = logger;
     }
 
@@ -52,6 +55,7 @@ internal sealed class TransportTunnelHttp2ConnectionListenerFactory
         return new(new TransportTunnelHttp2ConnectionListener(
             uriEndPointHttp2,
             tunnel,
+            _transportTunnelHttp2Authentication,
             _options,
             _logger));
     }

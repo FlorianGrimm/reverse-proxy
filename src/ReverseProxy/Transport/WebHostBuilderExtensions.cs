@@ -37,6 +37,8 @@ public static class WebHostBuilderExtensions
     {
         builder.Services.AddSingleton<IConnectionListenerFactory, TransportTunnelHttp2ConnectionListenerFactory>();
         builder.Services.AddSingleton<IConnectionListenerFactory, TransportTunnelWebSocketConnectionListenerFactory>();
+        builder.Services.AddSingleton<TransportTunnelHttp2Authentication>();
+        builder.Services.AddSingleton<TransportTunnelWebSocketAuthentication>();
 
         if (configureTunnelHttp2 is not null)
         {
@@ -48,7 +50,8 @@ public static class WebHostBuilderExtensions
             builder.Services.Configure(configureTunnelWebSocket);
         }
 
-        webApplicationBuilder.WebHost.ConfigureKestrel(options => {
+        webApplicationBuilder.WebHost.ConfigureKestrel(options =>
+        {
             var proxyConfigManager = options.ApplicationServices.GetRequiredService<ProxyConfigManager>();
             var tunnels = proxyConfigManager.GetTransportTunnels();
             foreach (var tunnel in tunnels)

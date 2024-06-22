@@ -26,6 +26,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener : IConnectionLi
     private readonly TransportTunnelWebSocketOptions _options;
     private readonly ILogger _logger;
     private readonly TunnelState _tunnel;
+    private readonly ITransportTunnelWebSocketAuthentication _transportTunnelWebSocketAuthentication;
     private readonly CancellationTokenSource _closedCts = new();
     private readonly UriWebSocketEndPoint _endPoint;
     private readonly TrackLifetimeConnectionContextCollection _connectionCollection;
@@ -34,6 +35,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener : IConnectionLi
     public TransportTunnelWebSocketConnectionListener(
         UriWebSocketEndPoint endpoint,
         TunnelState tunnel,
+        ITransportTunnelWebSocketAuthentication transportTunnelWebSocketAuthentication,
         TransportTunnelWebSocketOptions options,
         ILogger logger
         )
@@ -44,6 +46,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener : IConnectionLi
         }
         _endPoint = endpoint;
         _tunnel = tunnel;
+        _transportTunnelWebSocketAuthentication = transportTunnelWebSocketAuthentication;
         _options = options;
         _logger = logger;
         _connectionLock = new(options.MaxConnectionCount);
@@ -104,31 +107,12 @@ internal sealed class TransportTunnelWebSocketConnectionListener : IConnectionLi
         }
     }
 
-    private void onConfigureClientWebSocket(ClientWebSocket socket)
+    private async ValueTask onConfigureClientWebSocket(ClientWebSocket socket)
     {
-
-#warning TODO: add caching of the certificate
-#warning TODO: TEST
-
         // set the socketsHttpHandler.SslOptions based on the tunnel configuration authentication
         var config = _tunnel.Model.Config;
-#warning TODO config.Authentication.ClientCertificate
-        //if (config.Authentication.ClientCertificate is { Length: > 0 } certificateName)
-        //{
-        //    if (!(_optionalCertificateStore.GetService() is { } certificateStore))
-        //    {
-        //        throw new InvalidOperationException("No CertificateStore");
-        //    }
 
-        //    var certificate = certificateStore.GetCertificate(certificateName);
-        //    if (certificate is null)
-        //    {
-        //        throw new InvalidOperationException("No Certificate");
-        //    }
-
-        //    var clientCertificates = socket.Options.ClientCertificates ??= new();
-        //    clientCertificates.Add(certificate);
-        //}
+        await _transportTunnelWebSocketAuthentication.ConfigureClientWebSocketAsync(config, socket);
 
         if (config.Authentication.ClientCertifiacteCollection is { } certificates)
         {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -10,6 +11,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 
+using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Transport;
@@ -27,6 +29,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener : IConnectionListen
     private readonly ILogger _logger;
     private readonly TransportTunnelHttp2Options _options;
     private readonly TunnelState _tunnel;
+    private readonly ITransportTunnelHttp2Authentication _transportTunnelHttp2Authentication;
     private readonly UriEndPointHttp2 _endPoint;
     private readonly IncrementalDelay _delay = new();
 
@@ -35,6 +38,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener : IConnectionListen
     public TransportTunnelHttp2ConnectionListener(
         UriEndPointHttp2 endpoint,
         TunnelState tunnel,
+        ITransportTunnelHttp2Authentication transportTunnelHttp2Authentication,
         TransportTunnelHttp2Options options,
         ILogger logger
         )
@@ -49,6 +53,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener : IConnectionListen
         _logger = logger;
         _options = options;
         _tunnel = tunnel;
+        _transportTunnelHttp2Authentication = transportTunnelHttp2Authentication;
         _endPoint = endpoint;
     }
 
@@ -74,14 +79,20 @@ internal sealed class TransportTunnelHttp2ConnectionListener : IConnectionListen
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                HttpRequestMessage requestMessage = new HttpRequestMessage(
+                var requestMessage = new HttpRequestMessage(
                     HttpMethod.Post, _endPoint.Uri!)
                 {
                     Version = new Version(2, 0)
                 };
-                if (_options.ConfigureHttpRequestMessageAsync is { } configure)
+
+                // configure the 
                 {
-                    await configure(_tunnel.Model.Config, requestMessage);
+                    var config = _tunnel.Model.Config;
+                    await _transportTunnelHttp2Authentication.ConfigureHttpRequestMessageAsync(config, requestMessage);
+                    if (_options.ConfigureHttpRequestMessageAsync is { } configure)
+                    {
+                        await configure(config, requestMessage);
+                    }
                 }
 
                 try
@@ -114,31 +125,16 @@ internal sealed class TransportTunnelHttp2ConnectionListener : IConnectionListen
             PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
         };
 
-#warning TODO: TEST
-
         // set the socketsHttpHandler.SslOptions based on the tunnel configuration authentication
         var config = _tunnel.Model.Config;
-#warning TODO config.Authentication.ClientCertificate
-        //if (config.Authentication.ClientCertificate is { Length: > 0 } certificateName)
-        //{
-        //    if (!(_optionalCertificateStore.GetService() is { } certificateStore))
-        //    {
-        //        throw new InvalidOperationException("No CertificateStore");
-        //    }
-        //    var certificate = certificateStore.GetCertificate(certificateName);
-        //    if (certificate is null)
-        //    {
-        //        throw new InvalidOperationException("No Certificate");
-        //    }
-        //    var clientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= new();
-        //    clientCertificates.Add(certificate);
-        //}
 
         if (config.Authentication.ClientCertifiacteCollection is { } certificates)
         {
             var clientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= new();
             clientCertificates.AddRange(certificates);
         }
+
+        await _transportTunnelHttp2Authentication.ConfigureSocketsHttpHandlerAsync(config, socketsHttpHandler);
 
         // allow the user to configure the handler
         if (_options.ConfigureSocketsHttpHandlerAsync is { } configure)

@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Security;
@@ -34,8 +35,30 @@ try
     var taskRun = Task.WhenAll(listTaskRun);
     System.Console.Out.WriteLine("Servers Started.");
 
-    // await Tests();
+    System.Console.Out.WriteLine("Starting Tests.");
+    await RunTests();
+    /*
+        https://localhost:5001/Frontend - 181,0748 / 247,8223 / 314,5699
+        40 - Frontend https://localhost:5001/ - localhost:5001 - ::1:5001
+        https://localhost:5002/Frontend - 160,4714 / 181,975 / 203,4786
+        40 - Frontend https://localhost:5002/ - localhost:5002 - ::1:5002
+        https://localhost:5001/Backend - 519,7178 / 611,0843 / 702,4509
+        20 - Backend https://localhost:5003/ - alpha - :0
+        20 - Backend https://localhost:5004/ - alpha - :0
+        https://localhost:5002/Backend - 538,9789 / 547,916 / 556,8532
+        20 - Backend https://localhost:5003/ - alpha - :0
+        20 - Backend https://localhost:5004/ - alpha - :0
+        https://localhost:5001/API - 743,405 / 833,0081 / 922,6112
+        40 - API https://localhost:5005/ - localhost:5005 - ::1:5005
+        https://localhost:5002/API - 739,6996 / 1008,1259 / 1276,5522
+        40 - API https://localhost:5005/ - localhost:5005 - ::1:5005
+        https://localhost:5001/alpha/API - 714,1733 / 892,9486 / 1071,7239
+        40 - API https://localhost:5005/ - localhost:5005 - ::1:5005
+        https://localhost:5002/beta/API - 780,9526 / 928,0831 / 1075,2136
+        40 - API https://localhost:5006/ - localhost:5006 - ::1:5006
+     */
 
+    System.Console.Out.WriteLine("Done Tests.");
     await taskRun;
 }
 catch (Exception ex)
@@ -123,6 +146,10 @@ static WebApplication ServerFrontend(string[] args, string appsettingsPath, X509
         configureTunnelHTTP2: (endpoint) => endpoint.RequireAuthorization("RequireCertificate"),
         configureTunnelWebSocket: (endpoint) => endpoint.RequireAuthorization("RequireCertificate")
         );
+    app.MapGet("/Frontend", (HttpContext context) => {
+        var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
+        return $"Frontend {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
+    });
 
     return app;
 }
@@ -156,23 +183,15 @@ static WebApplication ServerBackend(string[] args, string appsettingsPath, X509C
                 };
             });
 
-    ;
-
-#warning CERTS
-    //builder.WebHost.UseTunnelTransportHttp2(new Uri(url), options =>
-    //{
-    //    options.ConfigureSocketsHttpHandler = (uri, handler) =>
-    //    {
-    //        handler.SslOptions.AddClientCertificate(cert);
-    //    };
-    //});
-
     var app = builder.Build();
 
     app.UseWebSockets();
     app.MapControllers();
     app.MapReverseProxy();
-
+    app.MapGet("/Backend", (HttpContext context) => {
+        var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
+        return $"Backend {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
+    });
     return app;
 }
 
@@ -187,11 +206,23 @@ static WebApplication ServerAPI(string[] args, string appsettingsPath, X509Certi
 
     app.UseWebSockets();
     app.MapControllers();
+    app.MapGet("/API", (HttpContext context) => {
+        var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
+        return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
+    });
+    app.MapGet("/alpha/API", (HttpContext context) => {
+        var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
+        return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
+    });
+    app.MapGet("/beta/API", (HttpContext context) => {
+        var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
+        return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
+    });
 
     return app;
 }
 
-static async Task Tests()
+static async Task RunTests()
 {
     try
     {
@@ -222,7 +253,7 @@ static async Task Tests()
             using var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
             response.EnsureSuccessStatusCode();
             var result = await response.Content.ReadAsStringAsync();
-            if (result.Contains(" \"host\": \"backend1.app\","))
+            if (result.Contains(" \"host\": \"localhost:5005\",") || result.Contains(" \"host\": \"localhost:5006\","))
             {
                 System.Console.Out.WriteLine($"Success: {result}");
             }
@@ -232,45 +263,68 @@ static async Task Tests()
             }
         }
 
-        // call https://localhost:5001/test 10*10 times
         {
+            TestSettings[] listTestSettings = [
+                new ("https://localhost:5001/Frontend"),
+                new ("https://localhost:5002/Frontend"),
+                new ("https://localhost:5001/Backend"),
+                new ("https://localhost:5002/Backend"),
+                new ("https://localhost:5001/API"),
+                new ("https://localhost:5002/API"),
+                new ("https://localhost:5001/alpha/API"),
+                new ("https://localhost:5002/beta/API"),
+                ];
             var startGlobal = Stopwatch.GetTimestamp();
-            List<long> listDuration = new(100);
-            int countSuccess = 0;
-            int countFail = 0;
-            var tasks = System.Linq.Enumerable.Range(0, 10).Select(async i =>
+            var cntloop = 2;
+            for (var loop = 1; loop <= cntloop; loop++)
             {
-                using HttpClient httpClient = new();
-                for (int iLoop = 0; iLoop < 10; iLoop++)
+                System.Console.Out.WriteLine($"{loop} / {cntloop}");
+
+                for (var index = 0; index < listTestSettings.Length; index++)
                 {
-                    var startLoop = Stopwatch.GetTimestamp();
-                    var url = "https://localhost:5001/test";
-                    using var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
-                    response.EnsureSuccessStatusCode();
-                    var result = await response.Content.ReadAsStringAsync();
-                    if (result.Contains(" \"host\": \"backend1.app\","))
+                    var testSettings = listTestSettings[index];
+                    var sw = Stopwatch.StartNew();
+                    List<(HttpClient httpClient, Task<string> taskGetString)> listTask = new();
+
+                    for (var innerloop = 0; innerloop < 20; innerloop++)
                     {
-                        System.Threading.Interlocked.Increment(ref countSuccess);
+                        var client = new HttpClient(new SocketsHttpHandler());
+                        var taskGetString = client.GetStringAsync(testSettings.Url);
+                        listTask.Add((client, taskGetString));
                     }
-                    else
+
+                    foreach (var (client, taskGetString) in listTask)
                     {
-                        System.Threading.Interlocked.Increment(ref countFail);
+                        var text = await taskGetString;
+                        if (testSettings.Count.TryGetValue(text, out var count))
+                        {
+                            testSettings.Count[text] = count + 1;
+                        }
+                        else
+                        {
+                            testSettings.Count[text] = 1;
+                        }
+                        client.Dispose();
                     }
-                    var duration = Stopwatch.GetTimestamp() - startLoop;
-                    lock (listDuration)
-                    {
-                        listDuration.Add(duration);
-                    }
+                    testSettings.Duration.Add(sw.ElapsedTicks);
                 }
-            });
-            await Task.WhenAll(tasks.ToArray());
-            
+            }
+
             var allTotalMilliseconds = TimeSpan.FromTicks(Stopwatch.GetTimestamp() - startGlobal).TotalMilliseconds;
-            var minDuration = TimeSpan.FromTicks(listDuration.Min()).TotalMilliseconds;
-            var maxDuration = TimeSpan.FromTicks(listDuration.Max()).TotalMilliseconds;
-            var averageDuration = TimeSpan.FromTicks(listDuration.Sum()/listDuration.Count).TotalMilliseconds;
-            System.Console.Out.WriteLine($"Success: {countSuccess} Failes: {countFail}");
-            System.Console.Out.WriteLine($"min: {minDuration}; avg: {averageDuration}; max: {maxDuration}");
+
+            for (var index = 0; index < listTestSettings.Length; index++)
+            {
+                var testSettings = listTestSettings[index];
+                var minDuration = TimeSpan.FromTicks(testSettings.Duration.Min()).TotalMilliseconds;
+                var maxDuration = TimeSpan.FromTicks(testSettings.Duration.Max()).TotalMilliseconds;
+                var averageDuration = TimeSpan.FromTicks(testSettings.Duration.Sum() / testSettings.Duration.Count).TotalMilliseconds;
+
+                System.Console.WriteLine($"{testSettings.Url} - {minDuration} / {averageDuration} / {maxDuration}");
+                foreach (var (content, count) in testSettings.Count.ToList().OrderBy(c => c.Key)) {
+                    System.Console.WriteLine($"{count} - {content}");
+                }
+                
+            }
         }
     }
     catch (Exception error)
@@ -283,32 +337,7 @@ static async Task Tests()
     }
 }
 
-
-/*
-var builder = WebApplication.CreateBuilder(args);
-
-// Add services to the container.
-
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
+internal record TestSettings (string Url){
+    public readonly ConcurrentDictionary<string, int> Count=new();
+    public readonly List<long> Duration = new List<long>(1000);
 }
-
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-
-app.MapControllers();
-
-app.Run();
-*/

@@ -14,16 +14,19 @@ internal sealed class TransportTunnelWebSocketConnectionListenerFactory : IConne
 {
     private readonly TransportTunnelWebSocketOptions _options;
     private readonly UnShortCitcuitOnceProxyConfigManager _proxyConfigManagerOnce;
+    private readonly TransportTunnelWebSocketAuthentication _transportTunnelWebSocketAuthentication;
     private readonly ILogger<TransportTunnelWebSocketConnectionListener> _logger;
 
     public TransportTunnelWebSocketConnectionListenerFactory(
         IOptions<TransportTunnelWebSocketOptions> options,
         UnShortCitcuitOnceProxyConfigManager proxyConfigManagerOnce,
+        TransportTunnelWebSocketAuthentication transportTunnelWebSocketAuthentication,
         ILogger<TransportTunnelWebSocketConnectionListener> logger
         )
     {
         _options = options.Value;
         _proxyConfigManagerOnce = proxyConfigManagerOnce;
+        _transportTunnelWebSocketAuthentication = transportTunnelWebSocketAuthentication;
         _logger = logger;
     }
 
@@ -49,6 +52,7 @@ internal sealed class TransportTunnelWebSocketConnectionListenerFactory : IConne
         return new(new TransportTunnelWebSocketConnectionListener(
             uriEndpointWebSocket,
             tunnel,
+            _transportTunnelWebSocketAuthentication,
             _options,
             _logger
             ));

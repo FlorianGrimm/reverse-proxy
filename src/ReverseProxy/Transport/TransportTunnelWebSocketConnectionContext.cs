@@ -58,7 +58,7 @@ internal sealed class TransportTunnelWebSocketConnectionContext
 
     internal static async ValueTask<TransportTunnelWebSocketConnectionContext> ConnectAsync(
         Uri uri,
-        Action<ClientWebSocket> configureClientWebSocket,
+        Func<ClientWebSocket, ValueTask > configureClientWebSocket,
         CancellationToken cancellationToken)
     {
         ClientWebSocket? underlyingWebSocket = null;
@@ -75,7 +75,7 @@ internal sealed class TransportTunnelWebSocketConnectionContext
 
                 if (configureClientWebSocket is not null)
                 {
-                    configureClientWebSocket(underlyingWebSocket);
+                    await configureClientWebSocket(underlyingWebSocket);
                 }
                 await underlyingWebSocket.ConnectAsync(context.Uri, cancellationToken);
                 return underlyingWebSocket;

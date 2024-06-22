@@ -69,12 +69,6 @@ internal sealed class TunnelWebSocketRoute
 
     private async Task<IResult> TunnelWebSocketRouteGet(HttpContext context, string clusterId)
     {
-        //if (context.GetRouteValue("clusterId") is not string clusterId)
-        //{
-        //    // TODO: log
-        //    return Results.BadRequest();
-        //}
-
         if (!context.WebSockets.IsWebSocketRequest)
         {
             return Results.BadRequest();
@@ -83,15 +77,13 @@ internal sealed class TunnelWebSocketRoute
         var proxyConfigManager = _unShortCitcuitOnceProxyConfigManager.GetService();
         if (!proxyConfigManager.TryGetCluster(clusterId, out var cluster))
         {
-            // TODO: log
-#warning TODO
+            Log.ClusterNotFound(_logger, clusterId);
             return Results.BadRequest();
         }
 
         if (!_tunnelConnectionChannelManager.TryGetConnectionChannel(clusterId, out var tunnelConnectionChannels))
         {
-            // TODO: log
-#warning TODO
+            Log.TunnelConnectionChannelNotFound(_logger, clusterId);
             return Results.BadRequest();
         }
 
