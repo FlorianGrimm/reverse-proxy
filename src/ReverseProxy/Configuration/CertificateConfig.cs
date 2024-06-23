@@ -10,33 +10,6 @@ namespace Yarp.ReverseProxy.Configuration;
 
 public sealed record CertificateConfig : IEquatable<CertificateConfig>
 {
-#warning HERE
-#if false
-    public CertificateConfig(IConfigurationSection configSection)
-    {
-        ConfigSection = configSection;
-
-        // Bind explictly to preserve linkability
-        Path = configSection[nameof(Path)];
-        KeyPath = configSection[nameof(KeyPath)];
-        Password = configSection[nameof(Password)];
-        Subject = configSection[nameof(Subject)];
-        Store = configSection[nameof(Store)];
-        Location = configSection[nameof(Location)];
-
-        if (bool.TryParse(configSection[nameof(AllowInvalid)], out var value))
-        {
-            AllowInvalid = value;
-        }
-    }
-
-    // For testing
-    internal CertificateConfig()
-    {
-    }
-
-    public IConfigurationSection? ConfigSection { get; }
-#endif
     // File
 
     [MemberNotNullWhen(true, nameof(Path))]
@@ -79,9 +52,4 @@ public sealed record CertificateConfig : IEquatable<CertificateConfig>
         (AllowInvalid ?? false) == (other.AllowInvalid ?? false);
 
     public override int GetHashCode() => HashCode.Combine(Path, KeyPath, Password, FileHasChanged, Subject, Store, Location, AllowInvalid ?? false);
-
-#warning HERE
-    //public static bool operator ==(CertificateConfig? lhs, CertificateConfig? rhs) => lhs is null ? rhs is null : lhs.Equals(rhs);
-    //public static bool operator !=(CertificateConfig? lhs, CertificateConfig? rhs) => !(lhs == rhs);
 }
-

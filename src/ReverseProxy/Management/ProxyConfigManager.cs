@@ -708,7 +708,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                 currentTunnel.Model = new TunnelModel(incomingTunnel);
                 _tunnels.TryAdd(currentTunnel.TunnelId, currentTunnel);
 
-                // how to create a new endpoint?
+                // TODO how to create a new endpoint in kestrel?
             }
         }
 

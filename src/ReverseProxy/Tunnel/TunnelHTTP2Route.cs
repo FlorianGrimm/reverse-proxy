@@ -42,10 +42,7 @@ internal sealed class TunnelHTTP2Route
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
     {
-        // TODO: EnableRequestDelegateGenerator does not work
-#pragma warning disable IL2026
-        //var conventionBuilder = endpoints.MapPost("_Tunnel/{clusterId}", TunnelHTTP2RoutePost);
-#pragma warning restore IL2026
+        // TODO: EnableRequestDelegateGenerator does not work how to do this right for AOT
 #pragma warning disable ASP0018
         var conventionBuilder = endpoints.MapPost("_Tunnel/{clusterId}", TunnelHTTP2RoutePostRequestDelegate);
 #pragma warning restore ASP0018
@@ -60,7 +57,7 @@ internal sealed class TunnelHTTP2Route
         var result = await TunnelHTTP2RoutePost(context, context.GetRouteValue("clusterId") as string);
         await result.ExecuteAsync(context);
     }
-    //[RequiresUnreferencedCode]
+
     private async Task<IResult> TunnelHTTP2RoutePost(HttpContext context, string? clusterId)
     {
         if (string.IsNullOrEmpty(clusterId)) {

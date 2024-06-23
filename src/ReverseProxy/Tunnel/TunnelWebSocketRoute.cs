@@ -46,10 +46,10 @@ internal sealed class TunnelWebSocketRoute
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
     {
-        // TODO: EnableRequestDelegateGenerator does not work
-#pragma warning disable IL2026
-        var conventionBuilder = endpoints.MapGet("_Tunnel/{clusterId}", TunnelWebSocketRouteGet);
-#pragma warning restore IL2026
+        // TODO: EnableRequestDelegateGenerator does not work how to do this right for AOT
+#pragma warning disable ASP0018
+        var conventionBuilder = endpoints.MapGet("_Tunnel/{clusterId}", TunnelWebSocketRouteGetRequestDelegate);
+#pragma warning restore ASP0018
 
         // Make this endpoint do websockets automagically as middleware for this specific route
         conventionBuilder.Add(e =>
@@ -67,8 +67,17 @@ internal sealed class TunnelWebSocketRoute
         return conventionBuilder;
     }
 
-    private async Task<IResult> TunnelWebSocketRouteGet(HttpContext context, string clusterId)
+    private async Task TunnelWebSocketRouteGetRequestDelegate(HttpContext context) {
+        var result = await TunnelWebSocketRouteGet(context, context.GetRouteValue("clusterId") as string);
+        await result.ExecuteAsync(context);
+    }
+
+    private async Task<IResult> TunnelWebSocketRouteGet(HttpContext context, string? clusterId)
     {
+        if (string.IsNullOrEmpty(clusterId))
+        {
+            return Results.BadRequest();
+        }
         if (!context.WebSockets.IsWebSocketRequest)
         {
             return Results.BadRequest();

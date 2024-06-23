@@ -4,15 +4,20 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Security.Authentication;
 using System.Threading;
+using System.Xml.Linq;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Yarp.ReverseProxy.Forwarder;
+
+using static System.Formats.Asn1.AsnWriter;
 
 namespace Yarp.ReverseProxy.Configuration.ConfigProvider;
 
@@ -131,7 +136,14 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
 
     private TunnelAuthenticationConfig CreateTunnelAuthentication(IConfigurationSection section)
     {
-        return new TunnelAuthenticationConfig { };
+        return new TunnelAuthenticationConfig {
+            Mode = section[nameof(TunnelAuthenticationConfig.Mode)],
+            ClientCertificates = section.GetSection(nameof(TunnelAuthenticationConfig.ClientCertificates))
+                        .GetChildren()
+                        .Select(c => CreateCertificateConfig(c))
+                        .OfType<CertificateConfig>()
+                        .ToList()
+        };
     }
 
     private ClusterConfig CreateCluster(IConfigurationSection section)
@@ -168,9 +180,27 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         return TransportMode.Invalid;
     }
 
-    private TransportAuthentication CreateTransportAuthentication(IConfigurationSection section)
+    private TransportAuthenticationConfig CreateTransportAuthentication(IConfigurationSection section)
     {
-        return new TransportAuthentication();
+        return new TransportAuthenticationConfig() {
+            Mode = section[nameof(TransportAuthenticationConfig.Mode)],
+            ClientCertificate = CreateCertificateConfig(section.GetSection(nameof(TransportAuthenticationConfig.ClientCertificate)))
+        };
+    }
+
+    private CertificateConfig? CreateCertificateConfig(IConfigurationSection configSection)
+    {
+        if (!configSection.Exists()) { return null; }
+        return new CertificateConfig()
+        {
+            Path = configSection[nameof(CertificateConfig.Path)],
+            KeyPath = configSection[nameof(CertificateConfig.KeyPath)],
+            Password = configSection[nameof(CertificateConfig.Password)],
+            Subject = configSection[nameof(CertificateConfig.Subject)],
+            Store = configSection[nameof(CertificateConfig.Store)],
+            Location = configSection[nameof(CertificateConfig.Location)],
+            AllowInvalid = bool.TryParse(configSection[nameof(CertificateConfig.AllowInvalid)], out var value) && value
+        };
     }
 
     private static RouteConfig CreateRoute(IConfigurationSection section)

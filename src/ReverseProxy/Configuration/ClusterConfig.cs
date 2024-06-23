@@ -58,7 +58,7 @@ public sealed record ClusterConfig
 
     public TransportMode Transport { get; init; }
 
-    public TransportAuthentication Authentication { get; init; } = new();
+    public TransportAuthenticationConfig Authentication { get; init; } = new();
 
     public bool IsTunnelTransport => Transport == TransportMode.TunnelHTTP2 || Transport == TransportMode.TunnelWebSocket;
 

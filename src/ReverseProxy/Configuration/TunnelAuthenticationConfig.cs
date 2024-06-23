@@ -8,9 +8,10 @@ namespace Yarp.ReverseProxy.Configuration;
 
 public sealed record TunnelAuthenticationConfig
 {
-    public List<CertificateConfig> ClientCertificates { get; init; } = new List<CertificateConfig>();
-    // TODO
     public string? Mode { get; init; }
+
+    // TODO
+    public List<CertificateConfig> ClientCertificates { get; init; } = new List<CertificateConfig>();
 
     // TODO: specify X509Certificate: borrow form kestrel??
 
