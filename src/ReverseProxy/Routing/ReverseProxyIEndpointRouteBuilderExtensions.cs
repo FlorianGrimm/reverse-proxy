@@ -28,8 +28,8 @@ public static class ReverseProxyIEndpointRouteBuilderExtensions
     /// </summary>
     public static ReverseProxyConventionBuilder MapReverseProxy(
         this IEndpointRouteBuilder endpoints,
-        Action<IEndpointConventionBuilder>? configureTunnelHTTP2 = null,
-        Action<IEndpointConventionBuilder>? configureTunnelWebSocket = null)
+        Action<IEndpointConventionBuilder>? configureTunnelHTTP2 = default,
+        Action<IEndpointConventionBuilder>? configureTunnelWebSocket = default)
     {
         return endpoints.MapReverseProxy(app =>
         {
@@ -46,8 +46,8 @@ public static class ReverseProxyIEndpointRouteBuilderExtensions
     public static ReverseProxyConventionBuilder MapReverseProxy(
         this IEndpointRouteBuilder endpoints,
         Action<IReverseProxyApplicationBuilder> configureApp,
-        Action<IEndpointConventionBuilder>? configureTunnelHTTP2,
-        Action<IEndpointConventionBuilder>? configureTunnelWebSocket
+        Action<IEndpointConventionBuilder>? configureTunnelHTTP2 = default,
+        Action<IEndpointConventionBuilder>? configureTunnelWebSocket = default
         )
     {
         if (endpoints is null)

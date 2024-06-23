@@ -7,6 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\..\..\test\TestCertificates\localhostclient1.cer" Link="localhostclient1.cer">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\..\test\TestCertificates\localhostclient1.pfx" Link="localhostclient1.pfx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\..\test\TestCertificates\localhostclient2.cer" Link="localhostclient2.cer">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\..\test\TestCertificates\localhostclient2.pfx" Link="localhostclient2.pfx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="..\..\..\test\TestCertificates\testCert.pfx" Link="testCert.pfx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
