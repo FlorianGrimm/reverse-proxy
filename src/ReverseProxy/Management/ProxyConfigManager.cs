@@ -37,6 +37,7 @@ namespace Yarp.ReverseProxy.Management;
 internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup, IDisposable
 {
     private static readonly IReadOnlyDictionary<string, ClusterConfig> _emptyClusterDictionary = new ReadOnlyDictionary<string, ClusterConfig>(new Dictionary<string, ClusterConfig>());
+    private static readonly IReadOnlyDictionary<string, TunnelConfig> _emptyTunnelDictionary = new ReadOnlyDictionary<string, TunnelConfig>(new Dictionary<string, TunnelConfig>());
 
     private readonly object _syncRoot = new();
     private readonly ILogger<ProxyConfigManager> _logger;
@@ -665,22 +666,58 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         return (configuredClusters, errors);
     }
 
-
-    private async Task<(IList<TunnelConfig>, IList<Exception>)> VerifyTunnelsAsync(IReadOnlyList<TunnelConfig> tunnels, CancellationToken cancellation)
+    private async Task<(IReadOnlyDictionary<string, TunnelConfig>, IList<Exception>)> VerifyTunnelsAsync(IReadOnlyList<TunnelConfig> tunnels, CancellationToken cancellation)
     {
         if (tunnels is null)
         {
-            return (Array.Empty<TunnelConfig>(), Array.Empty<Exception>());
+            return (_emptyTunnelDictionary, Array.Empty<Exception>());
         }
-        await Task.CompletedTask;
-        return ([.. tunnels], Array.Empty<Exception>());
+
+        var configuredTunnels = new Dictionary<string, TunnelConfig>(tunnels.Count, StringComparer.OrdinalIgnoreCase);
+        var errors = new List<Exception>();
+        // The IProxyConfigProvider provides a fresh snapshot that we need to reconfigure each time.
+        foreach (var t in tunnels)
+        {
+            try
+            {
+                if (configuredTunnels.ContainsKey(t.TunnelId))
+                {
+                    errors.Add(new ArgumentException($"Duplicate tunnel '{t.TunnelId}'."));
+                    continue;
+                }
+
+                // Don't modify the original
+                // TODO: what?? var tunnel = t with { };??
+                var tunnel = t;
+
+                var tunnelErrors = await _configValidator.ValidateTunnelAsync(tunnel);
+                if (tunnelErrors.Count > 0)
+                {
+                    errors.AddRange(tunnelErrors);
+                    continue;
+                }
+
+                configuredTunnels.Add(tunnel.TunnelId, tunnel);
+            }
+            catch (Exception ex)
+            {
+                errors.Add(new ArgumentException($"An exception was thrown from the configuration callbacks for tunnel '{t.TunnelId}'.", ex));
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            return (_emptyTunnelDictionary, errors);
+        }
+
+        return (configuredTunnels, errors);
     }
 
-    private void UpdateRuntimeTunnels(IEnumerable<TunnelConfig> incomingTunnels)
+    private void UpdateRuntimeTunnels(IReadOnlyDictionary<string, TunnelConfig> incomingTunnels)
     {
         var desiredTunnels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var incomingTunnel in incomingTunnels)
+        foreach (var (_, incomingTunnel) in incomingTunnels)
         {
             var added = desiredTunnels.Add(incomingTunnel.TunnelId);
             Debug.Assert(added);
@@ -708,7 +745,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                 currentTunnel.Model = new TunnelModel(incomingTunnel);
                 _tunnels.TryAdd(currentTunnel.TunnelId, currentTunnel);
 
-                // TODO how to create a new endpoint in kestrel?
+                // TODO: how to create a new endpoint in kestrel?
             }
         }
 

@@ -42,7 +42,7 @@ internal sealed class TunnelHTTP2Route
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
     {
-        // TODO: EnableRequestDelegateGenerator does not work how to do this right for AOT
+        // TODO: EnableRequestDelegateGenerator does not work - how to do this right for AOT?
 #pragma warning disable ASP0018
         var conventionBuilder = endpoints.MapPost("_Tunnel/{clusterId}", TunnelHTTP2RoutePostRequestDelegate);
 #pragma warning restore ASP0018

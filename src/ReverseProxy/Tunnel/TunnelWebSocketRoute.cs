@@ -1,9 +1,5 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Net.WebSockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -46,7 +42,7 @@ internal sealed class TunnelWebSocketRoute
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
     {
-        // TODO: EnableRequestDelegateGenerator does not work how to do this right for AOT
+        // TODO: EnableRequestDelegateGenerator does not work - how to do this right for AOT?
 #pragma warning disable ASP0018
         var conventionBuilder = endpoints.MapGet("_Tunnel/{clusterId}", TunnelWebSocketRouteGetRequestDelegate);
 #pragma warning restore ASP0018
@@ -157,16 +153,5 @@ internal sealed class TunnelWebSocketRoute
         {
             _tunnelConnectionChannelNotFound(logger, parameterName, null);
         }
-
-        /*
-        private static readonly Action<ILogger, string, Exception?> _hugo = LoggerMessage.Define<string>(
-            LogLevel.Warning,
-            EventIds.ParameterNotValid,
-            " {name} is not valid.");
-
-        public static void Hugo(ILogger logger, string parameterName) {
-            _hugo(logger, parameterName, null);
-        }
-        */
     }
 }

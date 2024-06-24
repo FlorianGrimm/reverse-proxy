@@ -24,7 +24,7 @@ public sealed record TunnelConfig
             && string.Equals(Url, other.Url, StringComparison.OrdinalIgnoreCase)
             && string.Equals(RemoteTunnelId, other.RemoteTunnelId, StringComparison.OrdinalIgnoreCase)
             && Transport == other.Transport
-            //Authentication
+            && Authentication == other.Authentication
             ;
     }
     public override int GetHashCode()
@@ -34,7 +34,7 @@ public sealed record TunnelConfig
         hash.Add(Url?.GetHashCode(StringComparison.OrdinalIgnoreCase));
         hash.Add(RemoteTunnelId?.GetHashCode(StringComparison.OrdinalIgnoreCase));
         hash.Add(Transport);
-        //Authentication
+        hash.Add(Authentication);
         return hash.ToHashCode();
     }
 }

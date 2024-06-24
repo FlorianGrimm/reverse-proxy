@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Configuration.ClusterValidators;
 using Yarp.ReverseProxy.Configuration.RouteValidators;
+using Yarp.ReverseProxy.Configuration.TunnelValidators;
 using Yarp.ReverseProxy.Delegation;
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Health;
@@ -46,6 +47,8 @@ internal static class IReverseProxyBuilderExtensions
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterValidator, SessionAffinityValidator>());
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterValidator, ProxyHttpClientValidator>());
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterValidator, ProxyHttpRequestValidator>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterValidator, TransportValidator>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelValidator, TunnelUrlValidator>());
         builder.Services.TryAddSingleton<IRandomFactory, RandomFactory>();
         builder.AddTransformFactory<ForwardedTransformFactory>();
         builder.AddTransformFactory<HttpMethodTransformFactory>();
