@@ -6,17 +6,23 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Transport;
 
+/// <summary>
+/// Options for the transport HTTP/2 tunnel.
+/// </summary>
 public sealed class TransportTunnelHttp2Options
 {
+    /// <summary>
+    /// Maximum number of connections to the (frontend) proxy.
+    /// </summary>
     public int MaxConnectionCount { get; set; } = 10;
 
     /// <summary>
-    /// Authentification for the tunnel
+    /// Allows Authentification for the tunnel.
     /// </summary>
     public Func<TunnelConfig, SocketsHttpHandler, ValueTask>? ConfigureSocketsHttpHandlerAsync { get; set; }
 
     /// <summary>
-    /// Authentification for the tunnel
+    /// Allows Authentification for the tunnel.
     /// </summary>
     public Func<TunnelConfig, HttpRequestMessage, ValueTask>? ConfigureHttpRequestMessageAsync { get; set; }
 }

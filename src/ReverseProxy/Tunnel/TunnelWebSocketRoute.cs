@@ -37,7 +37,7 @@ internal sealed class TunnelWebSocketRoute
         _lifetime.ApplicationStopping.Register(() => _cancellationTokenSource.Cancel());
     }
 
-    
+
     internal IEndpointConventionBuilder Map(
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
@@ -63,7 +63,8 @@ internal sealed class TunnelWebSocketRoute
         return conventionBuilder;
     }
 
-    private async Task TunnelWebSocketRouteGetRequestDelegate(HttpContext context) {
+    private async Task TunnelWebSocketRouteGetRequestDelegate(HttpContext context)
+    {
         var result = await TunnelWebSocketRouteGet(context, context.GetRouteValue("clusterId") as string);
         await result.ExecuteAsync(context);
     }
@@ -92,12 +93,12 @@ internal sealed class TunnelWebSocketRoute
             return Results.BadRequest();
         }
 
-
+#if OriginalTunnelConnectionChannels
         var (requests, responses) = tunnelConnectionChannels;
         using (var ctsRequestAborted = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _cancellationTokenSource.Token))
         {
-            var responsesWriter = responses.Writer;
             await requests.Reader.ReadAsync(ctsRequestAborted.Token);
+            var responsesWriter = responses.Writer;
 
             using (var ws = await context.WebSockets.AcceptWebSocketAsync())
             {
@@ -118,6 +119,46 @@ internal sealed class TunnelWebSocketRoute
                 }
             }
         }
+#else
+        using (var ctsRequestAborted = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _cancellationTokenSource.Token))
+        {
+            var channelTCRReader = tunnelConnectionChannels.Reader;
+            System.Threading.Interlocked.Increment(ref tunnelConnectionChannels.CountSource);
+            try
+            {
+                var tunnelConnectionRequest = await channelTCRReader.ReadAsync(ctsRequestAborted.Token);
+                using (var ws = await context.WebSockets.AcceptWebSocketAsync())
+                {
+                    using (var stream = new TunnelWebSocketStream(ws))
+                    {
+                        // We should make this more graceful
+                        using (var reg = _lifetime.ApplicationStopping.Register(() => stream.Abort()))
+                        {
+                            // Keep reusing this connection while, it's still open on the backend
+                            while (ws.State == WebSocketState.Open)
+                            {
+                                // Make this connection available for requests
+                                //await responsesWriter.WriteAsync(stream, ctsRequestAborted.Token);
+                                if (tunnelConnectionRequest.Write(stream))
+                                {
+                                    await stream.StreamCompleteTask;
+                                    stream.Reset();
+                                }
+
+                                tunnelConnectionRequest = await channelTCRReader.ReadAsync(ctsRequestAborted.Token);
+                            }
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSource);
+            }
+        }
+
+
+#endif
 
         return EmptyResult.Instance;
     }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -19,13 +20,15 @@ namespace Yarp.ReverseProxy.Transport;
 /// <summary>
 /// This has the core logic that creates and maintains connections to the proxy.
 /// </summary>
-internal sealed class TransportTunnelHttp2ConnectionListener : IConnectionListener
+internal sealed class TransportTunnelHttp2ConnectionListener
+    : IConnectionListener
+    , IDisposable
 {
-    private readonly SemaphoreSlim _createHttpMessageInvokerLock;
-    private readonly SemaphoreSlim _connectionLock;
+    private SemaphoreSlim _createHttpMessageInvokerLock;
+    private SemaphoreSlim _connectionLock;
     private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections = new();
     private readonly TrackLifetimeConnectionContextCollection _connectionCollection;
-    private readonly CancellationTokenSource _closedCts = new();
+    private CancellationTokenSource _closedCts = new();
     private readonly ILogger _logger;
     private readonly TransportTunnelHttp2Options _options;
     private readonly TunnelState _tunnel;
@@ -34,6 +37,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener : IConnectionListen
     private readonly IncrementalDelay _delay = new();
 
     private HttpMessageInvoker? _httpMessageInvoker;
+    private bool _isDisposed;
 
     public TransportTunnelHttp2ConnectionListener(
         UriEndPointHttp2 endpoint,
@@ -61,18 +65,28 @@ internal sealed class TransportTunnelHttp2ConnectionListener : IConnectionListen
 
     public async ValueTask<ConnectionContext?> AcceptAsync(CancellationToken cancellationToken = default)
     {
+        if (_isDisposed)
+        {
+            throw new ObjectDisposedException(nameof(TransportTunnelHttp2ConnectionListener));
+        }
+
+        cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(_closedCts.Token, cancellationToken).Token;
+
+        // Kestrel will keep an active accept call open as long as the transport is active
+        await _connectionLock.WaitAsync(cancellationToken);
         try
         {
-            cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(_closedCts.Token, cancellationToken).Token;
-
-            // Kestrel will keep an active accept call open as long as the transport is active
-            await _connectionLock.WaitAsync(cancellationToken);
-
             if (_httpMessageInvoker is null)
             {
                 await _createHttpMessageInvokerLock.WaitAsync(cancellationToken);
-                _httpMessageInvoker ??= await CreateHttpMessageInvoker();
-                _createHttpMessageInvokerLock.Release();
+                try
+                {
+                    _httpMessageInvoker ??= await CreateHttpMessageInvoker();
+                }
+                finally
+                {
+                    _createHttpMessageInvokerLock.Release();
+                }
             }
 
             while (true)
@@ -97,22 +111,57 @@ internal sealed class TransportTunnelHttp2ConnectionListener : IConnectionListen
 
                 try
                 {
-                    var innerConnection = await TransportTunnelHttp2ConnectionContext.ConnectAsync(
-                        requestMessage, _httpMessageInvoker, cancellationToken);
+                    var (innerConnection, httpContent) = TransportTunnelHttp2ConnectionContext.Create();
+                    requestMessage.Content = httpContent;
+
+                    HttpResponseMessage response;
+                    try
+                    {
+                        response = await _httpMessageInvoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception error)
+                    {
+                        _logger.LogError(error, "");
+                        await innerConnection.DisposeAsync();
+                        httpContent.Dispose();
+                        requestMessage.Dispose();
+                        continue;
+                    }
+                    innerConnection.HttpResponseMessage = response;
+                    var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                    innerConnection.Input = PipeReader.Create(responseStream);
+
                     _delay.Reset();
                     return _connectionCollection.AddInnerConnection(innerConnection);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     requestMessage?.Dispose();
+                    _logger.LogWarning(ex, "Connect Async {endpoint}", _endPoint.Uri);
                     // TODO: More sophisticated backoff and retry
+                    // Which error needed to be checked? Which error is better or worse?
+                    /*
+                     * ex.GetType().FullName
+                    "System.Net.Http.HttpRequestException"
+                    ex.InnerException.GetType().FullName
+                    "System.Net.Sockets.SocketException"
+                     */
+
                     await _delay.Delay(cancellationToken);
                 }
             }
+
         }
         catch (OperationCanceledException)
         {
+            _connectionLock.Release();
             return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AcceptAsync {endpoint}", _endPoint.Uri);
+            _connectionLock.Release();
+            throw;
         }
     }
 
@@ -142,7 +191,9 @@ internal sealed class TransportTunnelHttp2ConnectionListener : IConnectionListen
             await configure(config, socketsHttpHandler);
         }
 
-        return new HttpMessageInvoker(socketsHttpHandler);
+        var result = new HttpMessageInvoker(socketsHttpHandler);
+        _logger.LogDebug("CreateHttpMessageInvoker {Url}", config.Url);
+        return result;
     }
 
     public async ValueTask DisposeAsync()
@@ -172,5 +223,37 @@ internal sealed class TransportTunnelHttp2ConnectionListener : IConnectionListen
         }
 
         return ValueTask.CompletedTask;
+    }
+
+    private void Dispose(bool disposing)
+    {
+        using (var createHttpMessageInvokerLock = _createHttpMessageInvokerLock)
+        {
+            using (var connectionLock = _connectionLock)
+            {
+                using (var closedCts = _closedCts)
+                {
+                    _isDisposed = true;
+                    if (disposing)
+                    {
+                        _createHttpMessageInvokerLock = null!;
+                        _connectionLock = null!;
+                        _closedCts = null!;
+                        _httpMessageInvoker = null;
+                    }
+                }
+            }
+        }
+    }
+
+    ~TransportTunnelHttp2ConnectionListener()
+    {
+        Dispose(disposing: false);
+    }
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 }

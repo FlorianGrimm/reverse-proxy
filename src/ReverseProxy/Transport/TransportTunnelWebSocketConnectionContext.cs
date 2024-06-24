@@ -14,10 +14,10 @@ internal sealed class TransportTunnelWebSocketConnectionContext
     , ITrackLifetimeConnectionContext
 {
     private readonly CancellationTokenSource _cts = new();
-    private WebSocket? _underlyingWebSocket;
+    internal WebSocket? underlyingWebSocket;
     private TrackLifetimeConnectionContextCollection? _trackLifetimeConnectionContextCollection;
 
-    private TransportTunnelWebSocketConnectionContext(HttpConnectionOptions options)
+    internal TransportTunnelWebSocketConnectionContext(HttpConnectionOptions options)
         : base(options, null)
     {
     }
@@ -37,14 +37,14 @@ internal sealed class TransportTunnelWebSocketConnectionContext
     public override void Abort()
     {
         _cts.Cancel();
-        _underlyingWebSocket?.Abort();
+        underlyingWebSocket?.Abort();
         _trackLifetimeConnectionContextCollection?.Remove(this);
     }
 
     public override void Abort(ConnectionAbortedException abortReason)
     {
         _cts.Cancel();
-        _underlyingWebSocket?.Abort();
+        underlyingWebSocket?.Abort();
         _trackLifetimeConnectionContextCollection?.Remove(this);
     }
 
@@ -55,37 +55,4 @@ internal sealed class TransportTunnelWebSocketConnectionContext
 
         return base.DisposeAsync();
     }
-
-    internal static async ValueTask<TransportTunnelWebSocketConnectionContext> ConnectAsync(
-        Uri uri,
-        Func<ClientWebSocket, ValueTask > configureClientWebSocket,
-        CancellationToken cancellationToken)
-    {
-        ClientWebSocket? underlyingWebSocket = null;
-        var options = new HttpConnectionOptions
-        {
-            Url = uri,
-            Transports = HttpTransportType.WebSockets,
-            SkipNegotiation = true,
-            WebSocketFactory = async (context, cancellationToken) => {
-                underlyingWebSocket = new ClientWebSocket();
-                underlyingWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(5);
-
-                // underlyingWebSocket.Options.ClientCertificates
-
-                if (configureClientWebSocket is not null)
-                {
-                    await configureClientWebSocket(underlyingWebSocket);
-                }
-                await underlyingWebSocket.ConnectAsync(context.Uri, cancellationToken);
-                return underlyingWebSocket;
-            }
-        };
-
-        var connection = new TransportTunnelWebSocketConnectionContext(options);
-        await connection.StartAsync(TransferFormat.Binary, cancellationToken);
-        connection._underlyingWebSocket = underlyingWebSocket;
-        return connection;
-    }
-
 }

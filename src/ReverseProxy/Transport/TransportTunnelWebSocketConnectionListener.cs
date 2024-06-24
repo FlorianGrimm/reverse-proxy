@@ -3,14 +3,14 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.Http.Connections.Client;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 using Yarp.ReverseProxy.Model;
 
@@ -19,18 +19,21 @@ namespace Yarp.ReverseProxy.Transport;
 /// <summary>
 /// This has the core logic that creates and maintains connections to the proxy.
 /// </summary>
-internal sealed class TransportTunnelWebSocketConnectionListener : IConnectionListener
+internal sealed class TransportTunnelWebSocketConnectionListener
+    : IConnectionListener
+    , IDisposable
 {
-    private readonly SemaphoreSlim _connectionLock;
+    private CancellationTokenSource _closedCts = new();
+    private SemaphoreSlim _connectionLock;
     private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections = new();
     private readonly TransportTunnelWebSocketOptions _options;
     private readonly ILogger _logger;
     private readonly TunnelState _tunnel;
     private readonly ITransportTunnelWebSocketAuthentication _transportTunnelWebSocketAuthentication;
-    private readonly CancellationTokenSource _closedCts = new();
     private readonly UriWebSocketEndPoint _endPoint;
     private readonly TrackLifetimeConnectionContextCollection _connectionCollection;
     private readonly IncrementalDelay _delay = new();
+    private bool _isDisposed;
 
     public TransportTunnelWebSocketConnectionListener(
         UriWebSocketEndPoint endpoint,
@@ -57,45 +60,58 @@ internal sealed class TransportTunnelWebSocketConnectionListener : IConnectionLi
 
     public async ValueTask<ConnectionContext?> AcceptAsync(CancellationToken cancellationToken = default)
     {
+        cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(_closedCts.Token, cancellationToken).Token;
+
+        // Kestrel will keep an active accept call open as long as the transport is active
+        await _connectionLock.WaitAsync(cancellationToken);
+
         try
         {
-            cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(_closedCts.Token, cancellationToken).Token;
-
-            // Kestrel will keep an active accept call open as long as the transport is active
-            await _connectionLock.WaitAsync(cancellationToken);
-
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
                 try
                 {
-                    var innerConnection = await TransportTunnelWebSocketConnectionContext.ConnectAsync(
-                        _endPoint.Uri!, onConfigureClientWebSocket, cancellationToken);
-                    _delay.Reset();
-                    return _connectionCollection.AddInnerConnection(innerConnection);
-#if WEICHEI
-                    var connection = new TrackLifetimeConnectionContext(innerConnection);
-
-                    // Track this connection lifetime
-                    _connections.TryAdd(connection, connection);
-
-                    _ = Task.Run(async () =>
+                    var uri = _endPoint.Uri!;
+                    ClientWebSocket? underlyingWebSocket = null;
+                    var options = new HttpConnectionOptions
                     {
-                        // When the connection is disposed, release it
-                        await connection.ExecutionTask;
+                        Url = uri,
+                        Transports = HttpTransportType.WebSockets,
+                        SkipNegotiation = true,
+                        WebSocketFactory = async (context, cancellationToken) =>
+                        {
+                            underlyingWebSocket = new ClientWebSocket();
+                            underlyingWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(5);
 
-                        _connections.TryRemove(connection, out _);
+                            await onConfigureClientWebSocket(underlyingWebSocket);
+                            try
+                            {
+                                await underlyingWebSocket.ConnectAsync(context.Uri, cancellationToken);
+                            }
+                            catch (Exception error)
+                            {
+                                _logger.LogError(error, "ConnectAsync {uri}", context.Uri);
+                                throw;
+                            }
+                            _logger.LogDebug("Created WebSocket {uri}", context.Uri);
+                            return underlyingWebSocket;
+                        }
+                    };
 
-                        // Allow more connections in
-                        _connectionLock.Release();
-                    },
-                    cancellationToken);
-                    return connection;
-#endif
+                    var innerConnection = new TransportTunnelWebSocketConnectionContext(options);
+                    await innerConnection.StartAsync(TransferFormat.Binary, cancellationToken);
+                    innerConnection.underlyingWebSocket = underlyingWebSocket;
+
+                    _delay.Reset();
+
+                    // _connectionLock.Release() is done in the TrackLifetimeConnectionContextCollection
+                    return _connectionCollection.AddInnerConnection(innerConnection);
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                catch (Exception error) when (error is not OperationCanceledException)
                 {
+                    _logger.LogError(error, "Connect Async {endpoint}", _endPoint.Uri);
                     // TODO: More sophisticated backoff and retry
                     await _delay.Delay(cancellationToken);
                 }
@@ -103,8 +119,50 @@ internal sealed class TransportTunnelWebSocketConnectionListener : IConnectionLi
         }
         catch (OperationCanceledException)
         {
+            _connectionLock.Release();
             return null;
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "AcceptAsync {endpoint}", _endPoint.Uri);
+            _connectionLock.Release();
+            throw;
+        }
+    }
+
+    private async ValueTask<TransportTunnelWebSocketConnectionContext> ConnectAsync(CancellationToken cancellationToken)
+    {
+        var uri = _endPoint.Uri!;
+        ClientWebSocket? underlyingWebSocket = null;
+        var options = new HttpConnectionOptions
+        {
+            Url = uri,
+            Transports = HttpTransportType.WebSockets,
+            SkipNegotiation = true,
+            WebSocketFactory = async (context, cancellationToken) =>
+            {
+                underlyingWebSocket = new ClientWebSocket();
+                underlyingWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(5);
+
+                await onConfigureClientWebSocket(underlyingWebSocket);
+                try
+                {
+                    await underlyingWebSocket.ConnectAsync(context.Uri, cancellationToken);
+                }
+                catch (Exception error)
+                {
+                    _logger.LogError(error, "ConnectAsync {uri}", context.Uri);
+                    throw;
+                }
+                _logger.LogDebug("Created WebSocket {uri}", context.Uri);
+                return underlyingWebSocket;
+            }
+        };
+
+        var connection = new TransportTunnelWebSocketConnectionContext(options);
+        await connection.StartAsync(TransferFormat.Binary, cancellationToken);
+        connection.underlyingWebSocket = underlyingWebSocket;
+        return connection;
     }
 
     private async ValueTask onConfigureClientWebSocket(ClientWebSocket socket)
@@ -153,5 +211,40 @@ internal sealed class TransportTunnelWebSocketConnectionListener : IConnectionLi
         }
 
         return ValueTask.CompletedTask;
+    }
+
+    private void Dispose(bool disposing)
+    {
+        using (var closedCts = _closedCts) {
+            using (var connectionLock = _connectionLock) {
+            _isDisposed = true;
+            if (disposing) {
+                _closedCts = null!;
+                    _connectionLock = null!;
+            }
+            }
+        }
+            if (!_isDisposed)
+            {
+                if (disposing)
+                {
+                    // TODO: dispose managed state (managed objects)
+                }
+
+                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
+                // TODO: set large fields to null
+                _isDisposed = true;
+            }
+    }
+
+    ~TransportTunnelWebSocketConnectionListener()
+    {
+        Dispose(disposing: false);
+    }
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 }

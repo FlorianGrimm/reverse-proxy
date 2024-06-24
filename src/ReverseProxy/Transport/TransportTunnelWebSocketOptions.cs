@@ -4,9 +4,18 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Transport;
 
+/// <summary>
+/// Options for the transport WebSocket tunnel.
+/// </summary>
 public class TransportTunnelWebSocketOptions
 {
+    /// <summary>
+    /// Maximum number of connections to the (frontend) proxy.
+    /// </summary>
     public int MaxConnectionCount { get; set; } = 10;
 
+    /// <summary>
+    /// Allows Authentification for the tunnel.
+    /// </summary>
     public Action<TunnelConfig, ClientWebSocket>? ConfigureClientWebSocket { get; set; }
 }

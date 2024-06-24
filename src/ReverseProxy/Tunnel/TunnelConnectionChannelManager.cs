@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Threading;
 using System.Threading.Channels;
+using System.Threading.Tasks;
 
 using Yarp.ReverseProxy.Model;
 
@@ -38,16 +39,151 @@ public sealed class TunnelConnectionChannelManager
     {
         if (_clusterConnections.ContainsKey(clusterId)) { return; }
 
-        var result = new TunnelConnectionChannels(Channel.CreateUnbounded<int>(), Channel.CreateUnbounded<Stream>());
+        var result = new TunnelConnectionChannels();
         _clusterConnections.TryAdd(clusterId, result);
     }
 }
 
+#if OriginalTunnelConnectionChannels
 public sealed record TunnelConnectionChannels(
     Channel<int> Trigger,
     Channel<Stream> Streams
     )
 {
+    public TunnelConnectionChannels()
+        :this(
+             Channel.CreateUnbounded<int>(),
+             Channel.CreateUnbounded<Stream>())
+    {
+    }
+
     public int CountSource;
     public int CountSink;
 }
+#else
+public sealed class TunnelConnectionChannels:IDisposable
+{
+    private readonly Channel<TunnelConnectionRequest> _channelTCR;
+    private bool _isDisposed;
+
+    internal TunnelConnectionChannels()
+    {
+        _channelTCR = System.Threading.Channels.Channel.CreateUnbounded<TunnelConnectionRequest>();
+    }
+
+    internal ChannelWriter<TunnelConnectionRequest> Writer
+    {
+        get
+        {
+            if (_isDisposed) {
+                throw new ObjectDisposedException(nameof(TunnelConnectionChannels));
+            }
+            return _channelTCR.Writer;
+        }
+    }
+
+    internal ChannelReader<TunnelConnectionRequest> Reader
+    {
+        get
+        {
+            if (_isDisposed)
+            {
+                throw new ObjectDisposedException(nameof(TunnelConnectionChannels));
+            }
+            return _channelTCR.Reader;
+        }
+    }
+
+    public int CountSource;
+    public int CountSink;
+
+    public void Dispose()
+    {
+        _isDisposed = true;
+    }
+}
+
+internal sealed class TunnelConnectionRequest()
+    : IDisposable
+{
+    private SemaphoreSlim _lock = new(0, 1);
+    private Stream? _stream;
+    private bool _isDisposed;
+
+    internal bool Write(Stream stream)
+    {
+        if (_isDisposed)
+        {
+            return false;
+        }
+        else
+        {
+            _stream = stream;
+            _lock.Release();
+            return true;
+        }
+    }
+
+    internal async Task<Stream?> ReadAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _lock.WaitAsync(cancellationToken);
+            return System.Threading.Interlocked.Exchange(ref _stream, null);
+        }
+        catch
+        {
+            _isDisposed = true;
+            return null;
+        }
+    }
+
+    internal TunnelConnectionRequest? GetReseted()
+    {
+        if (_isDisposed || _stream is not null || _lock.CurrentCount != 0)
+        {
+            Dispose();
+            return null;
+        }
+        else
+        {
+            return this;
+        }
+    }
+
+    internal void Failed()
+    {
+        Dispose();
+    }
+
+    private void Dispose(bool disposing)
+    {
+        using (var l = _lock)
+        {
+            // TODO: thinkof should the stream be disposed here? It's not mine. better Abort it?
+            //using (var s = _stream)
+            //{
+            _isDisposed = true;
+            if (disposing)
+            {
+                _lock = null!;
+                //_stream = null;
+            }
+            //}
+        }
+    }
+
+    ~TunnelConnectionRequest()
+    {
+        Dispose(disposing: false);
+    }
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    
+}
+#endif

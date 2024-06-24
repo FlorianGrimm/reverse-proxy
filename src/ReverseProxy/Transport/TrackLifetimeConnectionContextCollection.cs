@@ -23,8 +23,6 @@ internal sealed class TrackLifetimeConnectionContextCollection
     }
     internal ConnectionContext AddInnerConnection(ConnectionContext connectionContext)
     {
-        //var connection = new TrackLifetimeConnectionContext(innerConnection, this);
-
         // Track this connection lifetime
         var trackLifetimeConnectionContext = (ITrackLifetimeConnectionContext)connectionContext;
         if (_connections.TryAdd(connectionContext, connectionContext))

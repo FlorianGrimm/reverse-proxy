@@ -23,6 +23,14 @@ internal sealed class TransportTunnelHttp2ConnectionContext
     , IDuplexPipe
     , ITrackLifetimeConnectionContext
 {
+
+    internal static (TransportTunnelHttp2ConnectionContext innerConnection, HttpContent httpContent) Create()
+    {
+        var innerConnection = new TransportTunnelHttp2ConnectionContext();
+        var httpContent = new TransportTunnelHttp2ConnectionContext.HttpClientConnectionContextContent(innerConnection);
+        return (innerConnection, httpContent);
+    }
+
     private readonly TaskCompletionSource _executionTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private TrackLifetimeConnectionContextCollection? _trackLifetimeConnectionContextCollection;
@@ -87,23 +95,6 @@ internal sealed class TransportTunnelHttp2ConnectionContext
         return base.DisposeAsync();
     }
 
-    public static async ValueTask<ConnectionContext> ConnectAsync(
-        HttpRequestMessage requestMessage,
-        //Uri uri,
-        HttpMessageInvoker invoker,
-        CancellationToken cancellationToken)
-    {
-
-        var connection = new TransportTunnelHttp2ConnectionContext();
-        requestMessage.Content = new HttpClientConnectionContextContent(connection);
-        var response = await invoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
-        connection.HttpResponseMessage = response;
-        var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-        connection.Input = PipeReader.Create(responseStream);
-
-        return connection;
-    }
-
     private class HttpClientConnectionContextContent : HttpContent
     {
         private readonly TransportTunnelHttp2ConnectionContext _connectionContext;
@@ -139,6 +130,11 @@ internal sealed class TransportTunnelHttp2ConnectionContext
         {
             length = -1;
             return false;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
         }
     }
 }

@@ -46,7 +46,8 @@ internal sealed class TunnelHTTP2Route
 #pragma warning disable ASP0018
         var conventionBuilder = endpoints.MapPost("_Tunnel/{clusterId}", TunnelHTTP2RoutePostRequestDelegate);
 #pragma warning restore ASP0018
-        if (configure is not null) {
+        if (configure is not null)
+        {
             configure(conventionBuilder);
         }
         return conventionBuilder;
@@ -60,7 +61,8 @@ internal sealed class TunnelHTTP2Route
 
     private async Task<IResult> TunnelHTTP2RoutePost(HttpContext context, string? clusterId)
     {
-        if (string.IsNullOrEmpty(clusterId)) {
+        if (string.IsNullOrEmpty(clusterId))
+        {
             return Results.BadRequest();
         }
         // HTTP/2 duplex stream
@@ -82,14 +84,15 @@ internal sealed class TunnelHTTP2Route
             return Results.BadRequest();
         }
 
+#if OriginalTunnelConnectionChannels
         using (var ctsRequestAborted = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _cancellationTokenSource.Token))
         {
 
             var (requests, responses) = tunnelConnectionChannels;
 
-            System.Threading.Interlocked.Increment(ref tunnelConnectionChannels.CountSource);
             var requestsReader = requests.Reader;
             var responsesWriter = responses.Writer;
+            System.Threading.Interlocked.Increment(ref tunnelConnectionChannels.CountSource);
             try
             {
                 await requestsReader.ReadAsync(ctsRequestAborted.Token);
@@ -102,8 +105,8 @@ internal sealed class TunnelHTTP2Route
                         while (!ctsRequestAborted.IsCancellationRequested)
                         {
                             // Make this connection available for requests
-                            await responsesWriter.WriteAsync(stream, ctsRequestAborted.Token);
-                            await stream.StreamCompleteTask;
+                            await responsesWriter.WriteAsync(stream, ctsRequestAborted.Token).ConfigureAwait(false);
+                            await stream.StreamCompleteTask.ConfigureAwait(false);
                             stream.Reset();
 
                             break;
@@ -116,7 +119,48 @@ internal sealed class TunnelHTTP2Route
                 System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSource);
             }
         }
+#else
+        using (var ctsRequestAborted = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _cancellationTokenSource.Token))
+        {
+            var channelTCRReader = tunnelConnectionChannels.Reader;
 
+            System.Threading.Interlocked.Increment(ref tunnelConnectionChannels.CountSource);
+            TunnelConnectionRequest? tunnelConnectionRequest = null;
+            try
+            {
+                tunnelConnectionRequest = await channelTCRReader.ReadAsync(ctsRequestAborted.Token);
+                if (ctsRequestAborted.IsCancellationRequested)
+                {
+                    return Results.StatusCode(504);
+                }
+                using (var stream = new TunnelDuplexHttpStream(context))
+                {
+                    using (var reg = ctsRequestAborted.Token.Register(() => stream.Abort()))
+                    {
+                        // Keep reusing this connection while, it's still open on the backend
+                        while (!ctsRequestAborted.IsCancellationRequested)
+                        {
+                            // Make this connection available for requests
+                            if (tunnelConnectionRequest.Write(stream)) {
+                                await stream.StreamCompleteTask.ConfigureAwait(false);
+                                stream.Reset();
+                            }
+
+                            tunnelConnectionRequest = await channelTCRReader.ReadAsync(ctsRequestAborted.Token);
+                        }
+                    }
+                }
+            }
+            catch (Exception error){
+                _logger.LogError(error, "Error in TunnelHTTP2RoutePost");
+                return Results.StatusCode(504);
+            }
+            finally
+            {
+                System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSource);
+            }
+        }
+#endif
         return EmptyResult.Instance;
     }
 

@@ -2,17 +2,12 @@
 // Licensed under the MIT License.
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Net;
 using System.Net.Security;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 
 using Microsoft.AspNetCore.Authentication.Certificate;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
-using Microsoft.Extensions.DependencyInjection;
 
-using Yarp.ReverseProxy.Transport;
 using Yarp.ReverseProxy.Tunnel;
 
 
@@ -24,8 +19,8 @@ try
     var certificate = new X509Certificate2(testCertPfxPath, "testPassword", X509KeyStorageFlags.PersistKeySet);
 
     List<WebApplication> listWebApplication = [
-        ServerFrontend(args, "appsettings.server1FE.json", certificate),
-        ServerFrontend(args, "appsettings.server2FE.json", certificate),
+        //ServerFrontend(args, "appsettings.server1FE.json", certificate),
+        //ServerFrontend(args, "appsettings.server2FE.json", certificate),
         ServerBackend(args, "appsettings.server3BE.json", certificate),
         ServerBackend(args, "appsettings.server4BE.json", certificate),
         ServerAPI(args, "appsettings.server5API.json", certificate),
@@ -38,23 +33,23 @@ try
     System.Console.Out.WriteLine("Starting Tests.");
     await RunTests();
     /*
-        https://localhost:5001/Frontend - 181,0748 / 247,8223 / 314,5699
+        https://localhost:5001/Frontend - 123,0958 / 155,9419 / 188,788
         40 - Frontend https://localhost:5001/ - localhost:5001 - ::1:5001
-        https://localhost:5002/Frontend - 160,4714 / 181,975 / 203,4786
+        https://localhost:5002/Frontend - 125,9412 / 142,6365 / 159,3318
         40 - Frontend https://localhost:5002/ - localhost:5002 - ::1:5002
-        https://localhost:5001/Backend - 519,7178 / 611,0843 / 702,4509
-        20 - Backend https://localhost:5003/ - alpha - :0
-        20 - Backend https://localhost:5004/ - alpha - :0
-        https://localhost:5002/Backend - 538,9789 / 547,916 / 556,8532
-        20 - Backend https://localhost:5003/ - alpha - :0
-        20 - Backend https://localhost:5004/ - alpha - :0
-        https://localhost:5001/API - 743,405 / 833,0081 / 922,6112
+        https://localhost:5001/Backend - 545,5465 / 580,3917 / 615,2369
+        22 - Backend https://localhost:5003/ - alpha - :0
+        18 - Backend https://localhost:5004/ - alpha - :0
+        https://localhost:5002/Backend - 470,1448 / 513,7139 / 557,283
+        16 - Backend https://localhost:5003/ - alpha - :0
+        24 - Backend https://localhost:5004/ - alpha - :0
+        https://localhost:5001/API - 660,2646 / 669,409 / 678,5535
         40 - API https://localhost:5005/ - localhost:5005 - ::1:5005
-        https://localhost:5002/API - 739,6996 / 1008,1259 / 1276,5522
+        https://localhost:5002/API - 670,812 / 672,0263 / 673,2406
         40 - API https://localhost:5005/ - localhost:5005 - ::1:5005
-        https://localhost:5001/alpha/API - 714,1733 / 892,9486 / 1071,7239
+        https://localhost:5001/alpha/API - 716,4079 / 1066,0876 / 1415,7674
         40 - API https://localhost:5005/ - localhost:5005 - ::1:5005
-        https://localhost:5002/beta/API - 780,9526 / 928,0831 / 1075,2136
+        https://localhost:5002/beta/API - 681,7757 / 848,2273 / 1014,679
         40 - API https://localhost:5006/ - localhost:5006 - ::1:5006
      */
 
