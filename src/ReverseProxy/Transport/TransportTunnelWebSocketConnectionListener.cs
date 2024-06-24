@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http.Connections.Client;
 using Microsoft.Extensions.Logging;
 
 using Yarp.ReverseProxy.Model;
+using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
 
@@ -24,9 +25,10 @@ internal sealed class TransportTunnelWebSocketConnectionListener
     , IDisposable
 {
     private CancellationTokenSource _closedCts = new();
-    private SemaphoreSlim _connectionLock;
+    private AsyncLockWithOwner _connectionLock;
     private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections = new();
     private readonly TransportTunnelWebSocketOptions _options;
+    private readonly ILoggerFactory? _loggerFactory;
     private readonly ILogger _logger;
     private readonly TunnelState _tunnel;
     private readonly ITransportTunnelWebSocketAuthentication _transportTunnelWebSocketAuthentication;
@@ -40,6 +42,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
         TunnelState tunnel,
         ITransportTunnelWebSocketAuthentication transportTunnelWebSocketAuthentication,
         TransportTunnelWebSocketOptions options,
+        ILoggerFactory? loggerFactory,
         ILogger logger
         )
     {
@@ -51,6 +54,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
         _tunnel = tunnel;
         _transportTunnelWebSocketAuthentication = transportTunnelWebSocketAuthentication;
         _options = options;
+        _loggerFactory = loggerFactory;
         _logger = logger;
         _connectionLock = new(options.MaxConnectionCount);
         _connectionCollection = new TrackLifetimeConnectionContextCollection(_connections, _connectionLock);
@@ -63,70 +67,71 @@ internal sealed class TransportTunnelWebSocketConnectionListener
         cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(_closedCts.Token, cancellationToken).Token;
 
         // Kestrel will keep an active accept call open as long as the transport is active
-        await _connectionLock.WaitAsync(cancellationToken);
-
-        try
+        using (var connectionLock = await _connectionLock.LockAsync(this, cancellationToken))
         {
-            while (true)
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                try
+                while (true)
                 {
-                    var uri = _endPoint.Uri!;
-                    ClientWebSocket? underlyingWebSocket = null;
-                    var options = new HttpConnectionOptions
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    try
                     {
-                        Url = uri,
-                        Transports = HttpTransportType.WebSockets,
-                        SkipNegotiation = true,
-                        WebSocketFactory = async (context, cancellationToken) =>
+                        var uri = _endPoint.Uri!;
+                        ClientWebSocket? underlyingWebSocket = null;
+                        var options = new HttpConnectionOptions
                         {
-                            underlyingWebSocket = new ClientWebSocket();
-                            underlyingWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(5);
-
-                            await onConfigureClientWebSocket(underlyingWebSocket);
-                            try
+                            Url = uri,
+                            Transports = HttpTransportType.WebSockets,
+                            SkipNegotiation = true,
+                            WebSocketFactory = async (context, cancellationToken) =>
                             {
-                                await underlyingWebSocket.ConnectAsync(context.Uri, cancellationToken);
+                                underlyingWebSocket = new ClientWebSocket();
+                                underlyingWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(5);
+
+                                await onConfigureClientWebSocket(underlyingWebSocket);
+                                try
+                                {
+                                    await underlyingWebSocket.ConnectAsync(context.Uri, cancellationToken);
+                                }
+                                catch (Exception error)
+                                {
+                                    _logger.LogError(error, "ConnectAsync {uri}", context.Uri);
+                                    throw;
+                                }
+                                _logger.LogDebug("Created WebSocket {uri}", context.Uri);
+                                return underlyingWebSocket;
                             }
-                            catch (Exception error)
-                            {
-                                _logger.LogError(error, "ConnectAsync {uri}", context.Uri);
-                                throw;
-                            }
-                            _logger.LogDebug("Created WebSocket {uri}", context.Uri);
-                            return underlyingWebSocket;
-                        }
-                    };
+                        };
 
-                    var innerConnection = new TransportTunnelWebSocketConnectionContext(options);
-                    await innerConnection.StartAsync(TransferFormat.Binary, cancellationToken);
-                    innerConnection.underlyingWebSocket = underlyingWebSocket;
+                        var innerConnection = new TransportTunnelWebSocketConnectionContext(options, _logger, _loggerFactory);
+                        await innerConnection.StartAsync(TransferFormat.Binary, cancellationToken);
+                        innerConnection.underlyingWebSocket = underlyingWebSocket;
 
-                    _delay.Reset();
+                        _delay.Reset();
 
-                    // _connectionLock.Release() is done in the TrackLifetimeConnectionContextCollection
-                    return _connectionCollection.AddInnerConnection(innerConnection);
-                }
-                catch (Exception error) when (error is not OperationCanceledException)
-                {
-                    _logger.LogError(error, "Connect Async {endpoint}", _endPoint.Uri);
-                    // TODO: More sophisticated backoff and retry
-                    await _delay.Delay(cancellationToken);
+                        // _connectionLock.Release() is done in the TrackLifetimeConnectionContextCollection
+                        return _connectionCollection.AddInnerConnection(innerConnection, connectionLock);
+                    }
+                    catch (Exception error) when (error is not OperationCanceledException)
+                    {
+                        _logger.LogError(error, "Connect Async {endpoint}", _endPoint.Uri);
+                        // TODO: More sophisticated backoff and retry
+                        await _delay.Delay(cancellationToken);
+                    }
                 }
             }
-        }
-        catch (OperationCanceledException)
-        {
-            _connectionLock.Release();
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "AcceptAsync {endpoint}", _endPoint.Uri);
-            _connectionLock.Release();
-            throw;
+            catch (OperationCanceledException)
+            {
+                _connectionLock.Release();
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "AcceptAsync {endpoint}", _endPoint.Uri);
+                _connectionLock.Release();
+                throw;
+            }
         }
     }
 
@@ -159,7 +164,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
             }
         };
 
-        var connection = new TransportTunnelWebSocketConnectionContext(options);
+        var connection = new TransportTunnelWebSocketConnectionContext(options, _logger, _loggerFactory);
         await connection.StartAsync(TransferFormat.Binary, cancellationToken);
         connection.underlyingWebSocket = underlyingWebSocket;
         return connection;

@@ -17,7 +17,7 @@ Export-Certificate -FilePath "localhostclient1.cer" -Cert $cert1 -Type CERT
 
 # 2
 
-$cert2 = New-SelfSignedCertificate -Type Custom -DnsName "localhost" -KeySpec Signature `
+$cert2 = New-SelfSignedCertificate -Type Custom -DnsName "localhost2" -KeySpec Signature `
     -Subject "CN=localhost client 2" -KeyExportPolicy Exportable `
     -HashAlgorithm sha256 -KeyLength 2048 `
     -CertStoreLocation "Cert:\CurrentUser\My" `
@@ -28,7 +28,6 @@ $sspassword2 = ConvertTo-SecureString "testPassword2" -AsPlainText -Force
 
 Export-PfxCertificate -Cert $cert2 -FilePath localhostclient2.pfx -Password $sspassword2
 
-Export-Certificate -FilePath "localhostclient2.cer" -Cert $cert1 -Type CERT
-
+Export-Certificate -FilePath "localhostclient2.cer" -Cert $cert2 -Type CERT
 
 #

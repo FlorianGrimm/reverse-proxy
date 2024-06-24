@@ -10,6 +10,9 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.Logging;
+
+using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
 
@@ -24,18 +27,19 @@ internal sealed class TransportTunnelHttp2ConnectionContext
     , ITrackLifetimeConnectionContext
 {
 
-    internal static (TransportTunnelHttp2ConnectionContext innerConnection, HttpContent httpContent) Create()
+    internal static (TransportTunnelHttp2ConnectionContext innerConnection, HttpContent httpContent) Create(ILogger logger)
     {
-        var innerConnection = new TransportTunnelHttp2ConnectionContext();
+        var innerConnection = new TransportTunnelHttp2ConnectionContext(logger);
         var httpContent = new TransportTunnelHttp2ConnectionContext.HttpClientConnectionContextContent(innerConnection);
         return (innerConnection, httpContent);
     }
 
     private readonly TaskCompletionSource _executionTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
+    private readonly ILogger _logger;
     private TrackLifetimeConnectionContextCollection? _trackLifetimeConnectionContextCollection;
+    private AsyncLockOwner _asyncLockOwner;
 
-    private TransportTunnelHttp2ConnectionContext()
+    private TransportTunnelHttp2ConnectionContext(ILogger logger)
     {
         Transport = this;
 
@@ -44,6 +48,7 @@ internal sealed class TransportTunnelHttp2ConnectionContext
         Features.Set<IConnectionItemsFeature>(this);
         Features.Set<IConnectionEndPointFeature>(this);
         Features.Set<IConnectionLifetimeFeature>(this);
+        _logger = logger;
     }
 
     public Task ExecutionTask => _executionTcs.Task;
@@ -67,20 +72,30 @@ internal sealed class TransportTunnelHttp2ConnectionContext
 
     public HttpResponseMessage HttpResponseMessage { get; set; } = default!;
 
-    public void SetTracklifetime(TrackLifetimeConnectionContextCollection trackLifetimeConnectionContextCollection)
+    public void SetTracklifetime(
+        TrackLifetimeConnectionContextCollection trackLifetimeConnectionContextCollection,
+        AsyncLockOwner asyncLockOwner)
     {
         _trackLifetimeConnectionContextCollection = trackLifetimeConnectionContextCollection;
+        _asyncLockOwner = asyncLockOwner;
     }
 
     public override void Abort()
     {
-        HttpResponseMessage.Dispose();
-
-        _trackLifetimeConnectionContextCollection?.Remove(this);
-        _executionTcs.TrySetCanceled();
-
-        Input.CancelPendingRead();
-        Output.CancelPendingFlush();
+        var removedFromCollection=_trackLifetimeConnectionContextCollection?.TryRemove(this) ?? false;
+        var releasedLock = _asyncLockOwner.Release();
+        _executionTcs?.TrySetCanceled();
+        HttpResponseMessage?.Dispose();
+        Input?.CancelPendingRead();
+        Output?.CancelPendingFlush();
+        if (releasedLock != removedFromCollection)
+        {
+            _logger.LogInformation("Mismatched lock release and collection removal releasedLock:{releasedLock} removedFromCollection:{removedFromCollection}", releasedLock , removedFromCollection);
+        }
+        else
+        {
+            _logger.LogInformation("Matched lock release and collection removal releasedLock:{releasedLock} removedFromCollection:{removedFromCollection}", releasedLock , removedFromCollection);
+        }
     }
 
     public override void Abort(ConnectionAbortedException abortReason)

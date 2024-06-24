@@ -13,14 +13,17 @@ using Yarp.ReverseProxy.Tunnel;
 
 try
 {
+    System.Threading.Thread.CurrentThread.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(1033);
+    System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(1033);
+
     var testCertPfxPath = Path.Combine(
         Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!,
         "testCert.pfx");
     var certificate = new X509Certificate2(testCertPfxPath, "testPassword", X509KeyStorageFlags.PersistKeySet);
 
     List<WebApplication> listWebApplication = [
-        //ServerFrontend(args, "appsettings.server1FE.json", certificate),
-        //ServerFrontend(args, "appsettings.server2FE.json", certificate),
+        ServerFrontend(args, "appsettings.server1FE.json", certificate),
+        ServerFrontend(args, "appsettings.server2FE.json", certificate),
         ServerBackend(args, "appsettings.server3BE.json", certificate),
         ServerBackend(args, "appsettings.server4BE.json", certificate),
         ServerAPI(args, "appsettings.server5API.json", certificate),
@@ -318,7 +321,7 @@ static async Task RunTests()
                 foreach (var (content, count) in testSettings.Count.ToList().OrderBy(c => c.Key)) {
                     System.Console.WriteLine($"{count} - {content}");
                 }
-                
+
             }
         }
     }

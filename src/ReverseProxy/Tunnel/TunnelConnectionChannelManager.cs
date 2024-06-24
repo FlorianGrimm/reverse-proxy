@@ -44,23 +44,6 @@ public sealed class TunnelConnectionChannelManager
     }
 }
 
-#if OriginalTunnelConnectionChannels
-public sealed record TunnelConnectionChannels(
-    Channel<int> Trigger,
-    Channel<Stream> Streams
-    )
-{
-    public TunnelConnectionChannels()
-        :this(
-             Channel.CreateUnbounded<int>(),
-             Channel.CreateUnbounded<Stream>())
-    {
-    }
-
-    public int CountSource;
-    public int CountSink;
-}
-#else
 public sealed class TunnelConnectionChannels:IDisposable
 {
     private readonly Channel<TunnelConnectionRequest> _channelTCR;
@@ -183,7 +166,4 @@ internal sealed class TunnelConnectionRequest()
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
-
-    
 }
-#endif

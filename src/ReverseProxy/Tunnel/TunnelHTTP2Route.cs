@@ -44,19 +44,13 @@ internal sealed class TunnelHTTP2Route
     {
         // TODO: EnableRequestDelegateGenerator does not work - how to do this right for AOT?
 #pragma warning disable ASP0018
-        var conventionBuilder = endpoints.MapPost("_Tunnel/{clusterId}", TunnelHTTP2RoutePostRequestDelegate);
+        var conventionBuilder = endpoints.MapPost("_Tunnel/{clusterId}", TunnelHTTP2RoutePost);
 #pragma warning restore ASP0018
         if (configure is not null)
         {
             configure(conventionBuilder);
         }
         return conventionBuilder;
-    }
-
-    private async Task TunnelHTTP2RoutePostRequestDelegate(HttpContext context)
-    {
-        var result = await TunnelHTTP2RoutePost(context, context.GetRouteValue("clusterId") as string);
-        await result.ExecuteAsync(context);
     }
 
     private async Task<IResult> TunnelHTTP2RoutePost(HttpContext context, string? clusterId)
@@ -75,51 +69,15 @@ internal sealed class TunnelHTTP2Route
         if (!proxyConfigManager.TryGetCluster(clusterId, out var cluster))
         {
             Log.ClusterNotFound(_logger, clusterId);
-            return Results.BadRequest();
+            return Results.StatusCode(504);
         }
 
         if (!_tunnelConnectionChannelManager.TryGetConnectionChannel(clusterId, out var tunnelConnectionChannels))
         {
             Log.TunnelConnectionChannelNotFound(_logger, clusterId);
-            return Results.BadRequest();
+            return Results.StatusCode(504);
         }
 
-#if OriginalTunnelConnectionChannels
-        using (var ctsRequestAborted = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _cancellationTokenSource.Token))
-        {
-
-            var (requests, responses) = tunnelConnectionChannels;
-
-            var requestsReader = requests.Reader;
-            var responsesWriter = responses.Writer;
-            System.Threading.Interlocked.Increment(ref tunnelConnectionChannels.CountSource);
-            try
-            {
-                await requestsReader.ReadAsync(ctsRequestAborted.Token);
-
-                using (var stream = new TunnelDuplexHttpStream(context))
-                {
-                    using (var reg = ctsRequestAborted.Token.Register(() => stream.Abort()))
-                    {
-                        // Keep reusing this connection while, it's still open on the backend
-                        while (!ctsRequestAborted.IsCancellationRequested)
-                        {
-                            // Make this connection available for requests
-                            await responsesWriter.WriteAsync(stream, ctsRequestAborted.Token).ConfigureAwait(false);
-                            await stream.StreamCompleteTask.ConfigureAwait(false);
-                            stream.Reset();
-
-                            break;
-                        }
-                    }
-                }
-            }
-            finally
-            {
-                System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSource);
-            }
-        }
-#else
         using (var ctsRequestAborted = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _cancellationTokenSource.Token))
         {
             var channelTCRReader = tunnelConnectionChannels.Reader;
@@ -128,11 +86,16 @@ internal sealed class TunnelHTTP2Route
             TunnelConnectionRequest? tunnelConnectionRequest = null;
             try
             {
-                tunnelConnectionRequest = await channelTCRReader.ReadAsync(ctsRequestAborted.Token);
+                try{
+                    tunnelConnectionRequest = await channelTCRReader.ReadAsync(ctsRequestAborted.Token);
+                } catch (System.Threading.Tasks.TaskCanceledException){
+                    return EmptyResult.Instance;
+                }
                 if (ctsRequestAborted.IsCancellationRequested)
                 {
-                    return Results.StatusCode(504);
+                    return EmptyResult.Instance;
                 }
+
                 using (var stream = new TunnelDuplexHttpStream(context))
                 {
                     using (var reg = ctsRequestAborted.Token.Register(() => stream.Abort()))
@@ -146,7 +109,17 @@ internal sealed class TunnelHTTP2Route
                                 stream.Reset();
                             }
 
-                            tunnelConnectionRequest = await channelTCRReader.ReadAsync(ctsRequestAborted.Token);
+                            tunnelConnectionRequest = null;
+                            try{
+                                tunnelConnectionRequest = await channelTCRReader.ReadAsync(ctsRequestAborted.Token);
+                            } catch (System.Threading.Tasks.TaskCanceledException){
+                                return EmptyResult.Instance;
+                            }
+                            if (ctsRequestAborted.IsCancellationRequested)
+                            {
+                                return EmptyResult.Instance;
+                            }
+
                         }
                     }
                 }
@@ -160,7 +133,7 @@ internal sealed class TunnelHTTP2Route
                 System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSource);
             }
         }
-#endif
+
         return EmptyResult.Instance;
     }
 

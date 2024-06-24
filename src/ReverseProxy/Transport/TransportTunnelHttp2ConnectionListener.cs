@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Model;
+using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
 
@@ -25,7 +26,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
     , IDisposable
 {
     private SemaphoreSlim _createHttpMessageInvokerLock;
-    private SemaphoreSlim _connectionLock;
+    private AsyncLockWithOwner _connectionLock;
     private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections = new();
     private readonly TrackLifetimeConnectionContextCollection _connectionCollection;
     private CancellationTokenSource _closedCts = new();
@@ -73,95 +74,97 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(_closedCts.Token, cancellationToken).Token;
 
         // Kestrel will keep an active accept call open as long as the transport is active
-        await _connectionLock.WaitAsync(cancellationToken);
-        try
+        using (var connectionLock = await _connectionLock.LockAsync(this, cancellationToken))
         {
-            if (_httpMessageInvoker is null)
+            try
             {
-                await _createHttpMessageInvokerLock.WaitAsync(cancellationToken);
-                try
+                if (_httpMessageInvoker is null)
                 {
-                    _httpMessageInvoker ??= await CreateHttpMessageInvoker();
-                }
-                finally
-                {
-                    _createHttpMessageInvokerLock.Release();
-                }
-            }
-
-            while (true)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var requestMessage = new HttpRequestMessage(
-                    HttpMethod.Post, _endPoint.Uri!)
-                {
-                    Version = new Version(2, 0)
-                };
-
-                // configure the 
-                {
-                    var config = _tunnel.Model.Config;
-                    await _transportTunnelHttp2Authentication.ConfigureHttpRequestMessageAsync(config, requestMessage);
-                    if (_options.ConfigureHttpRequestMessageAsync is { } configure)
-                    {
-                        await configure(config, requestMessage);
-                    }
-                }
-
-                try
-                {
-                    var (innerConnection, httpContent) = TransportTunnelHttp2ConnectionContext.Create();
-                    requestMessage.Content = httpContent;
-
-                    HttpResponseMessage response;
+                    await _createHttpMessageInvokerLock.WaitAsync(cancellationToken);
                     try
                     {
-                        response = await _httpMessageInvoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
+                        _httpMessageInvoker ??= await CreateHttpMessageInvoker();
                     }
-                    catch (Exception error)
+                    finally
                     {
-                        _logger.LogError(error, "");
-                        await innerConnection.DisposeAsync();
-                        httpContent.Dispose();
-                        requestMessage.Dispose();
-                        continue;
+                        _createHttpMessageInvokerLock.Release();
                     }
-                    innerConnection.HttpResponseMessage = response;
-                    var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-                    innerConnection.Input = PipeReader.Create(responseStream);
-
-                    _delay.Reset();
-                    return _connectionCollection.AddInnerConnection(innerConnection);
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+
+                while (true)
                 {
-                    requestMessage?.Dispose();
-                    _logger.LogWarning(ex, "Connect Async {endpoint}", _endPoint.Uri);
-                    // TODO: More sophisticated backoff and retry
-                    // Which error needed to be checked? Which error is better or worse?
-                    /*
-                     * ex.GetType().FullName
-                    "System.Net.Http.HttpRequestException"
-                    ex.InnerException.GetType().FullName
-                    "System.Net.Sockets.SocketException"
-                     */
+                    cancellationToken.ThrowIfCancellationRequested();
 
-                    await _delay.Delay(cancellationToken);
+                    var requestMessage = new HttpRequestMessage(
+                        HttpMethod.Post, _endPoint.Uri!)
+                    {
+                        Version = new Version(2, 0)
+                    };
+
+                    // configure the
+                    {
+                        var config = _tunnel.Model.Config;
+                        await _transportTunnelHttp2Authentication.ConfigureHttpRequestMessageAsync(config, requestMessage);
+                        if (_options.ConfigureHttpRequestMessageAsync is { } configure)
+                        {
+                            await configure(config, requestMessage);
+                        }
+                    }
+
+                    try
+                    {
+                        var (innerConnection, httpContent) = TransportTunnelHttp2ConnectionContext.Create(_logger);
+                        requestMessage.Content = httpContent;
+
+                        HttpResponseMessage response;
+                        try
+                        {
+                            response = await _httpMessageInvoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (Exception error)
+                        {
+                            _logger.LogError(error, "httpMessageInvoker.SendAsync {uri}", _endPoint.Uri!);
+                            await innerConnection.DisposeAsync();
+                            httpContent.Dispose();
+                            requestMessage.Dispose();
+                            continue;
+                        }
+                        innerConnection.HttpResponseMessage = response;
+                        var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                        innerConnection.Input = PipeReader.Create(responseStream);
+
+                        _delay.Reset();
+                        return _connectionCollection.AddInnerConnection(innerConnection, connectionLock);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        requestMessage?.Dispose();
+                        _logger.LogWarning(ex, "Connect Async {endpoint}", _endPoint.Uri);
+                        // TODO: More sophisticated backoff and retry
+                        // Which error needed to be checked? Which error is better or worse?
+                        /*
+                         * ex.GetType().FullName
+                        "System.Net.Http.HttpRequestException"
+                        ex.InnerException.GetType().FullName
+                        "System.Net.Sockets.SocketException"
+                         */
+
+                        await _delay.Delay(cancellationToken);
+                    }
                 }
-            }
 
-        }
-        catch (OperationCanceledException)
-        {
-            _connectionLock.Release();
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "AcceptAsync {endpoint}", _endPoint.Uri);
-            _connectionLock.Release();
-            throw;
+            }
+            catch (OperationCanceledException)
+            {
+                _connectionLock.Release();
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "AcceptAsync {endpoint}", _endPoint.Uri);
+                _connectionLock.Release();
+                throw;
+            }
         }
     }
 

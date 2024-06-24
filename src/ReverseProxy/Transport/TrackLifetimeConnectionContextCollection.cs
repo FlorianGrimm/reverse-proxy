@@ -3,41 +3,45 @@ using System.Threading;
 
 using Microsoft.AspNetCore.Connections;
 
+using Yarp.ReverseProxy.Utilities;
+
 namespace Yarp.ReverseProxy.Transport;
 
 internal interface ITrackLifetimeConnectionContext
 {
-    void SetTracklifetime(TrackLifetimeConnectionContextCollection trackLifetimeConnectionContextCollection);
+    void SetTracklifetime(
+        TrackLifetimeConnectionContextCollection trackLifetimeConnectionContextCollection,
+        AsyncLockOwner asyncLockOwner);
 }
 
 internal sealed class TrackLifetimeConnectionContextCollection
 {
     // is owned by the owner TunnelXyzConnectionListener
-    private readonly SemaphoreSlim _connectionLock;
+    private readonly AsyncLockWithOwner _connectionLock;
     private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections;
 
-    public TrackLifetimeConnectionContextCollection(ConcurrentDictionary<ConnectionContext, ConnectionContext> connections, SemaphoreSlim connectionLock)
+    public TrackLifetimeConnectionContextCollection(ConcurrentDictionary<ConnectionContext, ConnectionContext> connections, AsyncLockWithOwner connectionLock)
     {
         _connections = connections;
         _connectionLock = connectionLock;
     }
-    internal ConnectionContext AddInnerConnection(ConnectionContext connectionContext)
+
+    internal ConnectionContext AddInnerConnection(ConnectionContext connectionContext, AsyncLockOwner connectionLock)
     {
         // Track this connection lifetime
         var trackLifetimeConnectionContext = (ITrackLifetimeConnectionContext)connectionContext;
         if (_connections.TryAdd(connectionContext, connectionContext))
         {
-            trackLifetimeConnectionContext.SetTracklifetime(this);
+            trackLifetimeConnectionContext.SetTracklifetime(
+                this,
+                connectionLock.Transfer(connectionContext));
         }
 
         return connectionContext;
     }
 
-    internal void Remove(ConnectionContext connection)
+    internal bool TryRemove(ConnectionContext connection)
     {
-        if (_connections.TryRemove(connection, out _))
-        {
-            _connectionLock.Release();
-        }
+        return _connections.TryRemove(connection, out _);
     }
 }

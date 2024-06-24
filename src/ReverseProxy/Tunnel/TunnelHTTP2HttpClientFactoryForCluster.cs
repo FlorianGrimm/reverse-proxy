@@ -68,45 +68,6 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
 
             ConfigureHandler(context, handler);
 
-#if OriginalTunnelConnectionChannels
-            handler.ConnectCallback = async (context, cancellationToken) => {
-                //var channelId = context.DnsEndPoint.Host;
-                if (!_tunnelConnectionChannelManager.TryGetConnectionChannel(clusterId, out var tunnelConnectionChannels))
-                {
-                    throw new InvalidOperationException("tunnelConnectionChannels not found");
-                }
-                var (requests, responses) = tunnelConnectionChannels;
-
-                System.Threading.Interlocked.Increment(ref tunnelConnectionChannels.CountSink);
-                var requestsWriter = requests.Writer;
-                var responsesReader = responses.Reader;
-                try
-                {
-
-                    // Ask for a connection
-                    var retry = 0;
-                    await requestsWriter.WriteAsync(retry++, cancellationToken);
-
-                    while (true)
-                    {
-                        var stream = await responsesReader.ReadAsync(cancellationToken);
-
-                        if (stream is IStreamCloseable c && c.IsClosed)
-                        {
-                            // Ask for another connection
-                            await requestsWriter.WriteAsync(retry++, cancellationToken);
-                            continue;
-                        }
-
-                        return stream;
-                    }
-                }
-                finally
-                {
-                    System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSink);
-                }
-            };
-#else
             handler.ConnectCallback = async (context, cancellationToken) =>
             {
                 if (_isDisposed)
@@ -126,7 +87,10 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
                 {
                     while (true)
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
+                        if (cancellationToken.IsCancellationRequested){
+
+                        }
+
                         // Ask for a/another connection
                         await channelTCRWriter.WriteAsync(tunnelConnectionRequest, cancellationToken);
                         var stream = await tunnelConnectionRequest.ReadAsync(cancellationToken);
@@ -147,7 +111,7 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
                 catch (OperationCanceledException error)
                 {
                     tunnelConnectionRequest.Failed();
-                    _logger.LogInformation(error, "ConnectCallback request canceled {clusterId}", this._clusterId);
+                    _logger.LogDebug(error, "ConnectCallback request canceled {clusterId}", _clusterId);
                     throw;
                 }
                 catch (Exception error)
@@ -166,7 +130,6 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
                     }
                 }
             };
-#endif
 
             Log.ClientCreated(_logger, context.ClusterId);
 
