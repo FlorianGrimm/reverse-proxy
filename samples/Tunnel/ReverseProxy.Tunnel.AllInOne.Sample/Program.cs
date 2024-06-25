@@ -13,9 +13,18 @@ using Yarp.ReverseProxy.Tunnel;
 
 try
 {
+    /*
+        The perfomance depend on the console logger (and the logging settings on the appsettings).
+        You get better results if you are redirect the output to a file.
+
+        ".\artifacts\bin\ReverseProxy.Tunnel.AllInOne.Sample\Debug\net8.0\ReverseProxy.Tunnel.AllInOne.Sample.exe" >log.txt
+
+     */
+    System.Console.Out.WriteLine("Starting Servers");
     System.Threading.Thread.CurrentThread.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(1033);
     System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(1033);
 
+    // TODO: replace this cert with the config
     var testCertPfxPath = Path.Combine(
         Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!,
         "testCert.pfx");
@@ -31,12 +40,10 @@ try
         ];
     var listTaskRun = listWebApplication.Select(app => app.RunAsync()).ToList();
     var taskRun = Task.WhenAll(listTaskRun);
-    System.Console.Out.WriteLine("Servers Started.");
 
     System.Console.Out.WriteLine("Starting Tests.");
     await RunTests();
     /*
-        * ".\artifacts\bin\ReverseProxy.Tunnel.AllInOne.Sample\Debug\net8.0\ReverseProxy.Tunnel.AllInOne.Sample.exe" >log.txt
         https://localhost:5001/Frontend - 9.7654 / 13.8606 / 17.9559
         40 - Frontend https://localhost:5001/ - localhost:5001 - ::1:5001
         https://localhost:5002/Frontend - 8.1592 / 9.9624 / 11.7656
@@ -58,6 +65,8 @@ try
      */
 
     System.Console.Out.WriteLine("Done Tests.");
+
+    System.Console.Out.WriteLine("Hit CTRL-C to exit.");
     await taskRun;
 }
 catch (Exception ex)

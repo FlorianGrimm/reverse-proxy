@@ -1,20 +1,13 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Net.WebSockets;
-using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Connections;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
 
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Model;
+using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
@@ -31,6 +24,7 @@ public static class TunnelExensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportHttpClientFactorySelector, TunnelWebSocketHttpClientFactory>());
         services.TryAddSingleton<TunnelHTTP2Route>();
         services.TryAddSingleton<TunnelWebSocketRoute>();
+        services.TryAddSingleton<CertificatePathWatcher>();
         return services;
     }
 
@@ -54,8 +48,8 @@ public static class TunnelExensions
 
     internal static void MapTunnels(
         this IEndpointRouteBuilder endpoints,
-        Action<IEndpointConventionBuilder>? configureTunnelHTTP2,
-        Action<IEndpointConventionBuilder>? configureTunnelWebSocket)
+        Action<IEndpointConventionBuilder>? configureTunnelHTTP2 = default,
+        Action<IEndpointConventionBuilder>? configureTunnelWebSocket = default)
     {
 
         if (endpoints.ServiceProvider.GetService<TunnelHTTP2Route>() is { } tunnelHTTP2Route)
@@ -65,7 +59,7 @@ public static class TunnelExensions
 
         if (endpoints.ServiceProvider.GetService<TunnelWebSocketRoute>() is { } tunnelWebSocketRoute)
         {
-            tunnelWebSocketRoute.Map(endpoints, configureTunnelHTTP2);
+            tunnelWebSocketRoute.Map(endpoints, configureTunnelWebSocket);
         }
     }
 }
