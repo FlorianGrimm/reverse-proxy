@@ -36,23 +36,24 @@ try
     System.Console.Out.WriteLine("Starting Tests.");
     await RunTests();
     /*
-        https://localhost:5001/Frontend - 123,0958 / 155,9419 / 188,788
+        * ".\artifacts\bin\ReverseProxy.Tunnel.AllInOne.Sample\Debug\net8.0\ReverseProxy.Tunnel.AllInOne.Sample.exe" >log.txt
+        https://localhost:5001/Frontend - 9.7654 / 13.8606 / 17.9559
         40 - Frontend https://localhost:5001/ - localhost:5001 - ::1:5001
-        https://localhost:5002/Frontend - 125,9412 / 142,6365 / 159,3318
+        https://localhost:5002/Frontend - 8.1592 / 9.9624 / 11.7656
         40 - Frontend https://localhost:5002/ - localhost:5002 - ::1:5002
-        https://localhost:5001/Backend - 545,5465 / 580,3917 / 615,2369
+        https://localhost:5001/Backend - 13.7075 / 15.1062 / 16.505
+        17 - Backend https://localhost:5003/ - alpha - :0
+        23 - Backend https://localhost:5004/ - alpha - :0
+        https://localhost:5002/Backend - 12.8154 / 32.6246 / 52.4339
         22 - Backend https://localhost:5003/ - alpha - :0
         18 - Backend https://localhost:5004/ - alpha - :0
-        https://localhost:5002/Backend - 470,1448 / 513,7139 / 557,283
-        16 - Backend https://localhost:5003/ - alpha - :0
-        24 - Backend https://localhost:5004/ - alpha - :0
-        https://localhost:5001/API - 660,2646 / 669,409 / 678,5535
+        https://localhost:5001/API - 13.9565 / 14.4115 / 14.8666
         40 - API https://localhost:5005/ - localhost:5005 - ::1:5005
-        https://localhost:5002/API - 670,812 / 672,0263 / 673,2406
+        https://localhost:5002/API - 15.855 / 17.4957 / 19.1365
         40 - API https://localhost:5005/ - localhost:5005 - ::1:5005
-        https://localhost:5001/alpha/API - 716,4079 / 1066,0876 / 1415,7674
+        https://localhost:5001/alpha/API - 15.8263 / 16.3247 / 16.8232
         40 - API https://localhost:5005/ - localhost:5005 - ::1:5005
-        https://localhost:5002/beta/API - 681,7757 / 848,2273 / 1014,679
+        https://localhost:5002/beta/API - 18.8477 / 19.2851 / 19.7225
         40 - API https://localhost:5006/ - localhost:5006 - ::1:5006
      */
 
@@ -144,7 +145,8 @@ static WebApplication ServerFrontend(string[] args, string appsettingsPath, X509
         configureTunnelHTTP2: (endpoint) => endpoint.RequireAuthorization("RequireCertificate"),
         configureTunnelWebSocket: (endpoint) => endpoint.RequireAuthorization("RequireCertificate")
         );
-    app.MapGet("/Frontend", (HttpContext context) => {
+    app.MapGet("/Frontend", (HttpContext context) =>
+    {
         var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
         return $"Frontend {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
     });
@@ -173,7 +175,8 @@ static WebApplication ServerBackend(string[] args, string appsettingsPath, X509C
                     return ValueTask.CompletedTask;
                 };
             },
-            configureTunnelWebSocket: (options) => {
+            configureTunnelWebSocket: (options) =>
+            {
                 options.ConfigureClientWebSocket = (tunelConfig, webSocketOptions) =>
                 {
                     var clientCertificates = webSocketOptions.Options.ClientCertificates ??= new();
@@ -186,7 +189,8 @@ static WebApplication ServerBackend(string[] args, string appsettingsPath, X509C
     app.UseWebSockets();
     app.MapControllers();
     app.MapReverseProxy();
-    app.MapGet("/Backend", (HttpContext context) => {
+    app.MapGet("/Backend", (HttpContext context) =>
+    {
         var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
         return $"Backend {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
     });
@@ -204,15 +208,18 @@ static WebApplication ServerAPI(string[] args, string appsettingsPath, X509Certi
 
     app.UseWebSockets();
     app.MapControllers();
-    app.MapGet("/API", (HttpContext context) => {
+    app.MapGet("/API", (HttpContext context) =>
+    {
         var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
         return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
     });
-    app.MapGet("/alpha/API", (HttpContext context) => {
+    app.MapGet("/alpha/API", (HttpContext context) =>
+    {
         var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
         return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
     });
-    app.MapGet("/beta/API", (HttpContext context) => {
+    app.MapGet("/beta/API", (HttpContext context) =>
+    {
         var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
         return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
     });
@@ -318,7 +325,8 @@ static async Task RunTests()
                 var averageDuration = TimeSpan.FromTicks(testSettings.Duration.Sum() / testSettings.Duration.Count).TotalMilliseconds;
 
                 System.Console.WriteLine($"{testSettings.Url} - {minDuration} / {averageDuration} / {maxDuration}");
-                foreach (var (content, count) in testSettings.Count.ToList().OrderBy(c => c.Key)) {
+                foreach (var (content, count) in testSettings.Count.ToList().OrderBy(c => c.Key))
+                {
                     System.Console.WriteLine($"{count} - {content}");
                 }
 
@@ -335,7 +343,8 @@ static async Task RunTests()
     }
 }
 
-internal record TestSettings (string Url){
-    public readonly ConcurrentDictionary<string, int> Count=new();
+internal record TestSettings(string Url)
+{
+    public readonly ConcurrentDictionary<string, int> Count = new();
     public readonly List<long> Duration = new List<long>(1000);
 }

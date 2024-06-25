@@ -43,9 +43,11 @@ internal sealed class TunnelWebSocketRoute
         Action<IEndpointConventionBuilder>? configure)
     {
         // TODO: EnableRequestDelegateGenerator does not work - how to do this right for AOT?
-#pragma warning disable ASP0018
+#pragma warning disable IL3050
+#pragma warning disable IL2026
         var conventionBuilder = endpoints.MapGet("_Tunnel/{clusterId}", TunnelWebSocketRouteGet);
-#pragma warning restore ASP0018
+#pragma warning restore IL3050
+#pragma warning restore IL2026
 
         // Make this endpoint do websockets automagically as middleware for this specific route
         conventionBuilder.Add(e =>

@@ -1,8 +1,11 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ObjectPool;
@@ -68,72 +71,82 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
 
             ConfigureHandler(context, handler);
 
-            handler.ConnectCallback = async (context, cancellationToken) =>
+            handler.ConnectCallback = async (_, cancellationToken) =>
             {
-                if (_isDisposed)
-                {
-                    throw new ObjectDisposedException(nameof(TunnelHTTP2HttpClientFactoryForCluster));
-                }
-                if (!_tunnelConnectionChannelManager.TryGetConnectionChannel(clusterId, out var tunnelConnectionChannels))
-                {
-                    throw new InvalidOperationException("tunnelConnectionChannels not found");
-                }
-                var channelTCRWriter = tunnelConnectionChannels.Writer;
-
-                System.Threading.Interlocked.Increment(ref tunnelConnectionChannels.CountSink);
-
-                var tunnelConnectionRequest = _poolTunnelConnectionRequest.Get();
-                try
-                {
-                    while (true)
-                    {
-                        if (cancellationToken.IsCancellationRequested){
-
-                        }
-
-                        // Ask for a/another connection
-                        await channelTCRWriter.WriteAsync(tunnelConnectionRequest, cancellationToken);
-                        var stream = await tunnelConnectionRequest.ReadAsync(cancellationToken);
-                        if ((stream is null)
-                            || (stream is IStreamCloseable c && c.IsClosed))
-                        {
-                            if (_isDisposed)
-                            {
-                                throw new ObjectDisposedException(nameof(TunnelHTTP2HttpClientFactoryForCluster));
-                            }
-                            tunnelConnectionRequest = tunnelConnectionRequest.GetReseted() ?? new();
-                            continue;
-                        }
-
-                        return stream;
-                    }
-                }
-                catch (OperationCanceledException error)
-                {
-                    tunnelConnectionRequest.Failed();
-                    _logger.LogDebug(error, "ConnectCallback request canceled {clusterId}", _clusterId);
-                    throw;
-                }
-                catch (Exception error)
-                {
-                    tunnelConnectionRequest.Failed();
-                    _logger.LogError(error, "ConnectCallback error {clusterId}", this._clusterId);
-                    throw;
-                }
-                finally
-                {
-                    System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSink);
-                    var backToPool = tunnelConnectionRequest.GetReseted();
-                    if (backToPool is not null)
-                    {
-                        _poolTunnelConnectionRequest.Return(backToPool);
-                    }
-                }
+                var result = await OnConnectCallback(clusterId, cancellationToken);
+                return result ?? Stream.Null;
             };
 
-            Log.ClientCreated(_logger, context.ClusterId);
-
             return new HttpMessageInvoker(handler, disposeHandler: true);
+        }
+    }
+
+    private async ValueTask<Stream?> OnConnectCallback(
+        string clusterId,
+        CancellationToken cancellationToken)
+    {
+        if (_isDisposed)
+        {
+            throw new ObjectDisposedException(nameof(TunnelHTTP2HttpClientFactoryForCluster));
+        }
+        if (!_tunnelConnectionChannelManager.TryGetConnectionChannel(clusterId, out var tunnelConnectionChannels))
+        {
+            throw new InvalidOperationException("tunnelConnectionChannels not found");
+        }
+        var channelTCRWriter = tunnelConnectionChannels.Writer;
+
+        System.Threading.Interlocked.Increment(ref tunnelConnectionChannels.CountSink);
+
+        var tunnelConnectionRequest = _poolTunnelConnectionRequest.Get();
+        try
+        {
+            while (true)
+            {
+                if (_isDisposed || cancellationToken.IsCancellationRequested) { return null; }
+
+                // Ask for a/another connection
+                Stream? stream;
+                try
+                {
+                    await channelTCRWriter.WriteAsync(tunnelConnectionRequest, cancellationToken);
+                    stream = await tunnelConnectionRequest.ReadAsync(cancellationToken);
+                }
+                catch (TaskCanceledException)
+                {
+                    return null;
+                }
+                if ((stream is null)
+                    || (stream is IStreamCloseable c && c.IsClosed))
+                {
+                    if (_isDisposed) { return null; }
+
+                    tunnelConnectionRequest = tunnelConnectionRequest.GetReseted() ?? new();
+                    continue;
+                }
+
+                return stream;
+            }
+        }
+        catch (OperationCanceledException error)
+        {
+            tunnelConnectionRequest.Failed();
+            _logger.LogDebug(error, "ConnectCallback request canceled {clusterId}", _clusterId);
+            throw;
+        }
+        catch (Exception error)
+        {
+            tunnelConnectionRequest.Failed();
+            _logger.LogError(error, "ConnectCallback error {clusterId}", _clusterId);
+            throw;
+        }
+        finally
+        {
+            System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSink);
+            var backToPool = tunnelConnectionRequest.GetReseted();
+            if (backToPool is not null)
+            {
+                _poolTunnelConnectionRequest.Return(backToPool);
+            }
         }
     }
 

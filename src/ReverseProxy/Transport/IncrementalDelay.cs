@@ -3,17 +3,26 @@ using System.Threading.Tasks;
 
 namespace Yarp.ReverseProxy.Transport;
 
-internal sealed class IncrementalDelay(int increment = 500, int maximum = 15 * 60 * 1000)
+internal sealed class IncrementalDelay(
+    int increment = 500,
+    int maximum = 15 * 60 * 1000,
+    int limitWarning = 60 * 1000)
 {
     internal int Increment = increment;
     internal int Maximum = maximum;
     internal int Current = 0;
+    internal int LimitWarning = limitWarning;
     private int _CountWait = 0;
 
     public bool Reset()
     {
         if (0 == Current)
         {
+            return false;
+        }
+        else if (Current < LimitWarning)
+        {
+            Current = 0;
             return false;
         }
         else
@@ -23,13 +32,13 @@ internal sealed class IncrementalDelay(int increment = 500, int maximum = 15 * 6
         }
     }
 
-    public async Task Delay(CancellationToken cancellationToken)
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async ValueTask Delay(CancellationToken cancellationToken)
     {
-        if (Current < Maximum)
-        {
-            Current += (Increment / (_CountWait + 1));
-            if (Maximum < Current) { Current = Maximum; }
-        }
         System.Threading.Interlocked.Increment(ref _CountWait);
         try
         {
@@ -39,5 +48,23 @@ internal sealed class IncrementalDelay(int increment = 500, int maximum = 15 * 6
         {
             System.Threading.Interlocked.Decrement(ref _CountWait);
         }
+    }
+
+    public bool IncrementDelay()
+    {
+        bool raiseWarning;
+        if (Current < Maximum)
+        {
+            var belowLimit = Current < LimitWarning;
+            Current += (Increment / (_CountWait + 1));
+            if (Maximum < Current) { Current = Maximum; }
+            raiseWarning = belowLimit && (LimitWarning <= Current);
+        }
+        else
+        {
+            raiseWarning = false;
+        }
+
+        return raiseWarning;
     }
 }

@@ -4,7 +4,19 @@ using System.Threading.Tasks;
 
 namespace Yarp.ReverseProxy.Utilities;
 
-public class AsyncLockWithOwner : IDisposable
+internal interface IAsyncLockWithOwner
+{
+    void Release();
+}
+
+/// <summary>
+/// Async Semaphore the WaitAsync is only allowed for a maximum times.
+/// Also the WaitAsync need an owner, that can be transfered to another owner.
+/// Only if latest owner release it's acutal released.
+/// </summary>
+public sealed class AsyncLockWithOwner
+    : IDisposable
+    , IAsyncLockWithOwner
 {
     private SemaphoreSlim _semaphore;
 
@@ -12,6 +24,8 @@ public class AsyncLockWithOwner : IDisposable
     {
         _semaphore = new SemaphoreSlim(maximum);
     }
+
+    internal int CurrentCount => _semaphore.CurrentCount;
 
     public bool IsDisposed { get; private set; }
 
@@ -21,12 +35,12 @@ public class AsyncLockWithOwner : IDisposable
         return AsyncLockOwnership.Create(owner, this);
     }
 
-    internal void Release()
+    void IAsyncLockWithOwner.Release()
     {
         _semaphore.Release();
     }
 
-    protected virtual void Dispose(bool disposing)
+    private void Dispose(bool disposing)
     {
         IsDisposed = true;
         using (var semaphore = _semaphore)
@@ -50,9 +64,21 @@ public class AsyncLockWithOwner : IDisposable
     }
 }
 
-public sealed class AsyncLockOwnership
+internal interface IAsyncLockOwnership
+{
+    AsyncLockOwner Transfer<T>(object? oldOwner, T? owner) where T : class;
+
+    bool Release<T>(T? owner) where T : class;
+}
+
+/// <summary>
+/// One semiphore count/step with an owner.
+/// </summary>
+internal sealed class AsyncLockOwnership
+    : IAsyncLockOwnership
 {
     private static readonly object _notAOwner = new();
+
     public static AsyncLockOwner Create<T>(T? owner, AsyncLockWithOwner asyncLockWithOwner)
         where T : class
     {
@@ -69,14 +95,14 @@ public sealed class AsyncLockOwnership
         _asyncLockWithOwner = asyncLockWithOwner;
     }
 
-    internal bool Release<T>(T? owner)
+    bool IAsyncLockOwnership.Release<T>(T? owner)
         where T : class
     {
         if (ReferenceEquals(
-            owner,
-            System.Threading.Interlocked.CompareExchange(ref _owner, _notAOwner, owner)))
+            System.Threading.Interlocked.CompareExchange(ref _owner, _notAOwner, owner),
+            owner))
         {
-            _asyncLockWithOwner.Release();
+            ((IAsyncLockWithOwner)_asyncLockWithOwner).Release();
             return true;
         }
         else
@@ -85,14 +111,17 @@ public sealed class AsyncLockOwnership
         }
     }
 
-    internal AsyncLockOwner Transfer<T>(T? owner)
+    AsyncLockOwner IAsyncLockOwnership.Transfer<T>(object? oldOwner, T? owner)
         where T : class
     {
-        System.Threading.Interlocked.Exchange(ref _owner, _notAOwner);
+        System.Threading.Interlocked.CompareExchange(ref _owner, owner, oldOwner);
         return new AsyncLockOwner(this, owner);
     }
 }
 
+/// <summary>
+/// 
+/// </summary>
 public struct AsyncLockOwner : IDisposable
 {
     private readonly AsyncLockOwnership _asyncLockOwnership;
@@ -104,18 +133,19 @@ public struct AsyncLockOwner : IDisposable
         _owner = owner;
     }
 
-    public AsyncLockOwner Transfer(object owner)
+    public AsyncLockOwner Transfer<T>(T? owner)
+        where T : class
     {
-        return _asyncLockOwnership.Transfer(owner);
+        return ((IAsyncLockOwnership)_asyncLockOwnership).Transfer(_owner, owner);
     }
 
-    public bool Release()
+    public readonly bool Release()
     {
-        return _asyncLockOwnership?.Release(_owner) ?? false;
+        return ((IAsyncLockOwnership?)_asyncLockOwnership)?.Release(_owner) ?? false;
     }
 
-    public void Dispose()
+    public readonly void Dispose()
     {
-        _asyncLockOwnership?.Release(_owner);
+        _ = ((IAsyncLockOwnership?)_asyncLockOwnership)?.Release(_owner);
     }
 }

@@ -82,19 +82,16 @@ internal sealed class TransportTunnelHttp2ConnectionContext
 
     public override void Abort()
     {
-        var removedFromCollection=_trackLifetimeConnectionContextCollection?.TryRemove(this) ?? false;
         var releasedLock = _asyncLockOwner.Release();
+        var removedFromCollection = _trackLifetimeConnectionContextCollection?.TryRemove(this) ?? false;
         _executionTcs?.TrySetCanceled();
         HttpResponseMessage?.Dispose();
         Input?.CancelPendingRead();
         Output?.CancelPendingFlush();
         if (releasedLock != removedFromCollection)
         {
-            _logger.LogInformation("Mismatched lock release and collection removal releasedLock:{releasedLock} removedFromCollection:{removedFromCollection}", releasedLock , removedFromCollection);
-        }
-        else
-        {
-            _logger.LogInformation("Matched lock release and collection removal releasedLock:{releasedLock} removedFromCollection:{removedFromCollection}", releasedLock , removedFromCollection);
+            // time for investigation??
+            _logger.LogInformation("Mismatched lock release and collection removal releasedLock:{releasedLock} removedFromCollection:{removedFromCollection}", releasedLock, removedFromCollection);
         }
     }
 

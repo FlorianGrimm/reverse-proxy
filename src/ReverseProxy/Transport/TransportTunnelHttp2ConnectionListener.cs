@@ -74,7 +74,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(_closedCts.Token, cancellationToken).Token;
 
         // Kestrel will keep an active accept call open as long as the transport is active
-        using (var connectionLock = await _connectionLock.LockAsync(this, cancellationToken))
+        using (var currentConnectionlock = await _connectionLock.LockAsync(this, cancellationToken))
         {
             try
             {
@@ -95,15 +95,15 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    var config = _tunnel.Model.Config;
+
                     var requestMessage = new HttpRequestMessage(
                         HttpMethod.Post, _endPoint.Uri!)
                     {
                         Version = new Version(2, 0)
                     };
 
-                    // configure the
                     {
-                        var config = _tunnel.Model.Config;
                         await _transportTunnelHttp2Authentication.ConfigureHttpRequestMessageAsync(config, requestMessage);
                         if (_options.ConfigureHttpRequestMessageAsync is { } configure)
                         {
@@ -111,59 +111,48 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                         }
                     }
 
+                    TransportTunnelHttp2ConnectionContext? innerConnection = null;
+                    HttpContent? httpContent = null;
+                    HttpResponseMessage? response = null;
                     try
                     {
-                        var (innerConnection, httpContent) = TransportTunnelHttp2ConnectionContext.Create(_logger);
+                        (innerConnection, httpContent) = TransportTunnelHttp2ConnectionContext.Create(_logger);
                         requestMessage.Content = httpContent;
-
-                        HttpResponseMessage response;
-                        try
-                        {
-                            response = await _httpMessageInvoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
-                        }
-                        catch (Exception error)
-                        {
-                            _logger.LogError(error, "httpMessageInvoker.SendAsync {uri}", _endPoint.Uri!);
-                            await innerConnection.DisposeAsync();
-                            httpContent.Dispose();
-                            requestMessage.Dispose();
-                            continue;
-                        }
+                        response = await _httpMessageInvoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
                         innerConnection.HttpResponseMessage = response;
                         var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
                         innerConnection.Input = PipeReader.Create(responseStream);
+                        var result = _connectionCollection.AddInnerConnection(innerConnection, currentConnectionlock);
 
-                        _delay.Reset();
-                        return _connectionCollection.AddInnerConnection(innerConnection, connectionLock);
+                        if (_delay.Reset())
+                        {
+                            Log.TunnelResumeConnectTunnel(_logger, config.TunnelId, config.Url, config.Transport, null);
+                        }
+
+                        return result;
                     }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    catch (Exception error)
                     {
-                        requestMessage?.Dispose();
-                        _logger.LogWarning(ex, "Connect Async {endpoint}", _endPoint.Uri);
+                        if (requestMessage is not null) { requestMessage.Dispose(); }
+                        if (innerConnection is not null) { await innerConnection.DisposeAsync(); }
+                        if (httpContent is not null) { httpContent.Dispose(); }
+
+                        if (error is OperationCanceledException) { return null; }
+
                         // TODO: More sophisticated backoff and retry
                         // Which error needed to be checked? Which error is better or worse?
-                        /*
-                         * ex.GetType().FullName
-                        "System.Net.Http.HttpRequestException"
-                        ex.InnerException.GetType().FullName
-                        "System.Net.Sockets.SocketException"
-                         */
-
+                        var raiseWarning = _delay.IncrementDelay();
+                        if (raiseWarning)
+                        {
+                            Log.TunnelCannotConnectTunnel(_logger, config.TunnelId, config.Url, config.Transport, error);
+                        }
                         await _delay.Delay(cancellationToken);
                     }
                 }
-
             }
             catch (OperationCanceledException)
             {
-                _connectionLock.Release();
                 return null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "AcceptAsync {endpoint}", _endPoint.Uri);
-                _connectionLock.Release();
-                throw;
             }
         }
     }
@@ -195,7 +184,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         }
 
         var result = new HttpMessageInvoker(socketsHttpHandler);
-        _logger.LogDebug("CreateHttpMessageInvoker {Url}", config.Url);
+        Log.TunnelCreateHttpMessageInvoker(_logger, config.TunnelId, config.Url);
         return result;
     }
 
@@ -258,5 +247,50 @@ internal sealed class TransportTunnelHttp2ConnectionListener
     {
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
+    }
+
+    private static class Log
+    {
+        private static readonly Action<ILogger, string, string, Exception?> _tunnelCreateHttpMessageInvoker = LoggerMessage.Define<string, string>(
+            LogLevel.Debug,
+            EventIds.TunnelCreateHttpMessageInvoker,
+            "Tunnel '{TunnelId}' create HttpMessageInvoker for '{RemoteUrl}'.");
+
+        public static void TunnelCreateHttpMessageInvoker(ILogger logger, string tunnelId, string url)
+        {
+            _tunnelCreateHttpMessageInvoker(logger, tunnelId, url, null);
+        }
+
+        private static readonly Action<ILogger, string, string, TransportMode, Exception?> _tunnelCannotConnectTunnel = LoggerMessage.Define<string, string, TransportMode>(
+            LogLevel.Warning,
+            EventIds.TunnelCannotConnectTunnel,
+            "Tunnel '{TunnelId}' cannot connect to '{RemoteUrl}' {Transport}.");
+
+        internal static void TunnelCannotConnectTunnel(ILogger logger, string tunnelId, string url, TransportMode transport, Exception? error)
+        {
+            _tunnelCannotConnectTunnel(logger, tunnelId, url, transport, error);
+        }
+
+        private static readonly Action<ILogger, string, string, TransportMode, Exception?> _tunnelResumeConnectTunnel = LoggerMessage.Define<string, string, TransportMode>(
+            LogLevel.Warning,
+            EventIds.TunnelResumeConnectTunnel,
+            "Tunnel '{TunnelId}' cannot connect to '{RemoteUrl}' {Transport}.");
+
+        internal static void TunnelResumeConnectTunnel(ILogger logger, string tunnelId, string url, TransportMode transport, Exception? error)
+        {
+            _tunnelResumeConnectTunnel(logger, tunnelId, url, transport, error);
+        }
+
+        /*
+        private static readonly Action<ILogger, string, string, Exception?> _x = LoggerMessage.Define<string, string>(
+            LogLevel.Debug,
+            EventIds.TunnelCreateHttpMessageInvoker,
+            "Tunnel '{TunnelId}' create HttpMessageInvoker for '{RemoteUrl}'.");
+
+        public static void X(ILogger logger, string tunnelId, string url)
+        {
+            _x(logger, tunnelId, url, null);
+        }
+        */
     }
 }

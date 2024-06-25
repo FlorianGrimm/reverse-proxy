@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Http.Connections.Client;
 using Microsoft.Extensions.Logging;
 
+using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
 
@@ -75,6 +76,8 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    var config = _tunnel.Model.Config;
+
                     try
                     {
                         var uri = _endPoint.Uri!;
@@ -108,28 +111,32 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                         await innerConnection.StartAsync(TransferFormat.Binary, cancellationToken);
                         innerConnection.underlyingWebSocket = underlyingWebSocket;
 
-                        _delay.Reset();
+                        if (_delay.Reset())
+                        {
+                            Log.TunnelResumeConnectTunnel(_logger, config.TunnelId, config.Url, config.Transport, null);
+                        }
 
-                        // _connectionLock.Release() is done in the TrackLifetimeConnectionContextCollection
                         return _connectionCollection.AddInnerConnection(innerConnection, connectionLock);
                     }
                     catch (Exception error) when (error is not OperationCanceledException)
                     {
-                        _logger.LogError(error, "Connect Async {endpoint}", _endPoint.Uri);
                         // TODO: More sophisticated backoff and retry
+                        var raiseWarning = _delay.IncrementDelay();
+                        if (raiseWarning)
+                        {
+                            Log.TunnelCannotConnectTunnel(_logger, config.TunnelId, config.Url, config.Transport, error);
+                        }
                         await _delay.Delay(cancellationToken);
                     }
                 }
             }
             catch (OperationCanceledException)
             {
-                _connectionLock.Release();
                 return null;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "AcceptAsync {endpoint}", _endPoint.Uri);
-                _connectionLock.Release();
                 throw;
             }
         }
@@ -220,26 +227,18 @@ internal sealed class TransportTunnelWebSocketConnectionListener
 
     private void Dispose(bool disposing)
     {
-        using (var closedCts = _closedCts) {
-            using (var connectionLock = _connectionLock) {
-            _isDisposed = true;
-            if (disposing) {
-                _closedCts = null!;
-                    _connectionLock = null!;
-            }
-            }
-        }
-            if (!_isDisposed)
+        using (var closedCts = _closedCts)
+        {
+            using (var connectionLock = _connectionLock)
             {
+                _isDisposed = true;
                 if (disposing)
                 {
-                    // TODO: dispose managed state (managed objects)
+                    _closedCts = null!;
+                    _connectionLock = null!;
                 }
-
-                // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-                // TODO: set large fields to null
-                _isDisposed = true;
             }
+        }
     }
 
     ~TransportTunnelWebSocketConnectionListener()
@@ -251,5 +250,50 @@ internal sealed class TransportTunnelWebSocketConnectionListener
     {
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
+    }
+
+    private static class Log
+    {
+        private static readonly Action<ILogger, string, string, Exception?> _tunnelCreateHttpMessageInvoker = LoggerMessage.Define<string, string>(
+            LogLevel.Debug,
+            EventIds.TunnelCreateHttpMessageInvoker,
+            "Tunnel '{TunnelId}' create HttpMessageInvoker for '{RemoteUrl}'.");
+
+        public static void TunnelCreateHttpMessageInvoker(ILogger logger, string tunnelId, string url)
+        {
+            _tunnelCreateHttpMessageInvoker(logger, tunnelId, url, null);
+        }
+
+        private static readonly Action<ILogger, string, string, TransportMode, Exception?> _tunnelCannotConnectTunnel = LoggerMessage.Define<string, string, TransportMode>(
+            LogLevel.Error,
+            EventIds.TunnelCannotConnectTunnel,
+            "Tunnel '{TunnelId}' cannot connect to '{RemoteUrl}' {Transport}.");
+
+        internal static void TunnelCannotConnectTunnel(ILogger logger, string tunnelId, string url, TransportMode transport, Exception? error)
+        {
+            _tunnelCannotConnectTunnel(logger, tunnelId, url, transport, error);
+        }
+
+        private static readonly Action<ILogger, string, string, TransportMode, Exception?> _tunnelResumeConnectTunnel = LoggerMessage.Define<string, string, TransportMode>(
+            LogLevel.Warning,
+            EventIds.TunnelResumeConnectTunnel,
+            "Tunnel '{TunnelId}' (resumed) connect to '{RemoteUrl}' {Transport}.");
+
+        internal static void TunnelResumeConnectTunnel(ILogger logger, string tunnelId, string url, TransportMode transport, Exception? error)
+        {
+            _tunnelResumeConnectTunnel(logger, tunnelId, url, transport, error);
+        }
+
+        /*
+        private static readonly Action<ILogger, string, string, Exception?> _x = LoggerMessage.Define<string, string>(
+            LogLevel.Debug,
+            EventIds.TunnelCreateHttpMessageInvoker,
+            "Tunnel '{TunnelId}' create HttpMessageInvoker for '{RemoteUrl}'.");
+
+        public static void X(ILogger logger, string tunnelId, string url)
+        {
+            _x(logger, tunnelId, url, null);
+        }
+        */
     }
 }

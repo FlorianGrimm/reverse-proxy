@@ -43,9 +43,11 @@ internal sealed class TunnelHTTP2Route
         Action<IEndpointConventionBuilder>? configure)
     {
         // TODO: EnableRequestDelegateGenerator does not work - how to do this right for AOT?
-#pragma warning disable ASP0018
+#pragma warning disable IL3050
+#pragma warning disable IL2026
         var conventionBuilder = endpoints.MapPost("_Tunnel/{clusterId}", TunnelHTTP2RoutePost);
-#pragma warning restore ASP0018
+#pragma warning restore IL3050
+#pragma warning restore IL2026
         if (configure is not null)
         {
             configure(conventionBuilder);
@@ -86,11 +88,15 @@ internal sealed class TunnelHTTP2Route
             TunnelConnectionRequest? tunnelConnectionRequest = null;
             try
             {
-                try{
+                try
+                {
                     tunnelConnectionRequest = await channelTCRReader.ReadAsync(ctsRequestAborted.Token);
-                } catch (System.Threading.Tasks.TaskCanceledException){
+                }
+                catch (System.OperationCanceledException)
+                {
                     return EmptyResult.Instance;
                 }
+
                 if (ctsRequestAborted.IsCancellationRequested)
                 {
                     return EmptyResult.Instance;
@@ -104,15 +110,19 @@ internal sealed class TunnelHTTP2Route
                         while (!ctsRequestAborted.IsCancellationRequested)
                         {
                             // Make this connection available for requests
-                            if (tunnelConnectionRequest.Write(stream)) {
+                            if (tunnelConnectionRequest.Write(stream))
+                            {
                                 await stream.StreamCompleteTask.ConfigureAwait(false);
                                 stream.Reset();
                             }
 
                             tunnelConnectionRequest = null;
-                            try{
+                            try
+                            {
                                 tunnelConnectionRequest = await channelTCRReader.ReadAsync(ctsRequestAborted.Token);
-                            } catch (System.Threading.Tasks.TaskCanceledException){
+                            }
+                            catch (System.OperationCanceledException)
+                            {
                                 return EmptyResult.Instance;
                             }
                             if (ctsRequestAborted.IsCancellationRequested)
@@ -124,7 +134,8 @@ internal sealed class TunnelHTTP2Route
                     }
                 }
             }
-            catch (Exception error){
+            catch (Exception error)
+            {
                 _logger.LogError(error, "Error in TunnelHTTP2RoutePost");
                 return Results.StatusCode(504);
             }

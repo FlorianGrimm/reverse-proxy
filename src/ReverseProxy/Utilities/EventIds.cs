@@ -56,7 +56,7 @@ internal static class EventIds
     public static readonly EventId ActiveDestinationHealthStateIsSet = new EventId(50, "ActiveDestinationHealthStateIsSet");
     public static readonly EventId DelegationQueueInitializationFailed = new EventId(51, "DelegationQueueInitializationFailed");
     public static readonly EventId DelegationQueueNotFound = new EventId(52, "DelegationQueueNotFound");
-    public static readonly EventId DelegationQueueNotInitialized  = new EventId(53, "DelegationQueueNotInitialized");
+    public static readonly EventId DelegationQueueNotInitialized = new EventId(53, "DelegationQueueNotInitialized");
     public static readonly EventId DelegatingRequest = new EventId(54, "DelegatingRequest");
     public static readonly EventId DelegationFailed = new EventId(55, "DelegationFailed");
     public static readonly EventId ResponseReceived = new EventId(56, "ResponseReceived");
@@ -76,4 +76,17 @@ internal static class EventIds
     public static readonly EventId ParameterNotValid = new EventId(70, "ParameterNotValid");
     public static readonly EventId ClusterNotFound = new EventId(71, "ClusterNotFound");
     public static readonly EventId TunnelConnectionChannelNotFound = new EventId(72, "TunnelConnectionChannelNotFound");
+    public static readonly EventId TunnelCreateHttpMessageInvoker = new EventId(73, "TunnelCreateHttpMessageInvoker");
+    public static readonly EventId TunnelCannotConnectTunnel = new EventId(74, "TunnelCannotConnectTunnel");
+    public static readonly EventId TunnelResumeConnectTunnel = new EventId(75, "TunnelResumeConnectTunnel");
+
+    // public static readonly EventId Z = new EventId(76, "Z");
+    // public static readonly EventId Z = new EventId(77, "Z");
+    // public static readonly EventId Z = new EventId(78, "Z");
+    // public static readonly EventId Z = new EventId(79, "Z");
+    // public static readonly EventId Z = new EventId(80, "Z");
+    // public static readonly EventId Z = new EventId(81, "Z");
+    // public static readonly EventId Z = new EventId(82, "Z");
+
+
 }
