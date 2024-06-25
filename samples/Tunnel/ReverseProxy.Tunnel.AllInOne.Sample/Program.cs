@@ -7,6 +7,7 @@ using System.Security.Cryptography.X509Certificates;
 
 using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
+using Microsoft.Extensions.Primitives;
 
 using Yarp.ReverseProxy.Tunnel;
 
@@ -24,7 +25,7 @@ try
     System.Threading.Thread.CurrentThread.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(1033);
     System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(1033);
 
-    // TODO: replace this cert with the config
+    // TODO: remove this after with the configuration works
     var testCertPfxPath = Path.Combine(
         Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!,
         "testCert.pfx");
@@ -42,7 +43,7 @@ try
     var taskRun = Task.WhenAll(listTaskRun);
 
     System.Console.Out.WriteLine("Starting Tests.");
-    await RunTests();
+    // await RunTests();
     /*
         https://localhost:5001/Frontend - 9.7654 / 13.8606 / 17.9559
         40 - Frontend https://localhost:5001/ - localhost:5001 - ::1:5001
@@ -89,6 +90,7 @@ static WebApplication ServerFrontend(string[] args, string appsettingsPath, X509
             httpsOptions.ClientCertificateValidation =
                 (X509Certificate2 certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors) =>
                 {
+#warning HELP pretty please I have no experiences with clientcertificates
                     return certificate.Equals(certificate);
                     //return sslPolicyErrors == SslPolicyErrors.None
                     //    || sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors;
@@ -99,6 +101,7 @@ static WebApplication ServerFrontend(string[] args, string appsettingsPath, X509
     builder.Services.AddAuthentication()
         .AddCertificate(options =>
         {
+#warning HELP pretty please I have no experiences with clientcertificates
             options.AllowedCertificateTypes = CertificateTypes.All;
             options.RevocationMode = X509RevocationMode.NoCheck;
             options.ValidateCertificateUse = false;
@@ -174,11 +177,11 @@ static WebApplication ServerBackend(string[] args, string appsettingsPath, X509C
         .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
         //.AddTunnelServices()
         .UseTunnelTransport(
-            builder,
             configureTunnelHttp2: (options) =>
             {
                 options.ConfigureSocketsHttpHandlerAsync = (tunelConfig, socketsHttpHandler) =>
                 {
+#warning HELP pretty please I have no experiences with clientcertificates
                     var clientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= new();
                     clientCertificates.Add(certificate);
                     return ValueTask.CompletedTask;
@@ -188,13 +191,13 @@ static WebApplication ServerBackend(string[] args, string appsettingsPath, X509C
             {
                 options.ConfigureClientWebSocket = (tunelConfig, webSocketOptions) =>
                 {
+#warning HELP pretty please I have no experiences with clientcertificates
                     var clientCertificates = webSocketOptions.Options.ClientCertificates ??= new();
                     clientCertificates.Add(certificate);
                 };
             });
 
     var app = builder.Build();
-
     app.UseWebSockets();
     app.MapControllers();
     app.MapReverseProxy();
@@ -289,7 +292,7 @@ static async Task RunTests()
                 new ("https://localhost:5002/beta/API"),
                 ];
             var startGlobal = Stopwatch.GetTimestamp();
-            var cntloop = 2;
+            var cntloop = 1;
             for (var loop = 1; loop <= cntloop; loop++)
             {
                 System.Console.Out.WriteLine($"{loop} / {cntloop}");

@@ -44,7 +44,7 @@ public sealed class TunnelConnectionChannelManager
     }
 }
 
-public sealed class TunnelConnectionChannels:IDisposable
+public sealed class TunnelConnectionChannels : IDisposable
 {
     private readonly Channel<TunnelConnectionRequest> _channelTCR;
     private bool _isDisposed;
@@ -58,7 +58,8 @@ public sealed class TunnelConnectionChannels:IDisposable
     {
         get
         {
-            if (_isDisposed) {
+            if (_isDisposed)
+            {
                 throw new ObjectDisposedException(nameof(TunnelConnectionChannels));
             }
             return _channelTCR.Writer;
@@ -77,6 +78,7 @@ public sealed class TunnelConnectionChannels:IDisposable
         }
     }
 
+    // TODO: replace it with propper monitoring
     public int CountSource;
     public int CountSink;
 

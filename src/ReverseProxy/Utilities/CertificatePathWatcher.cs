@@ -20,7 +20,7 @@ namespace Yarp.ReverseProxy.Utilities;
 
 // copy from https://github.com/dotnet/aspnetcore.git src\Servers\Kestrel\Core\src\Internal\CertificatePathWatcher.cs
 
-internal sealed partial class CertificatePathWatcher : IDisposable
+public sealed partial class CertificatePathWatcher : IDisposable
 {
     private readonly Func<string, IFileProvider?> _fileProviderFactory;
     private readonly string _contentRootDir;
@@ -316,23 +316,187 @@ internal sealed partial class CertificatePathWatcher : IDisposable
 
     private static class Log
     {
-#warning HERE
-        internal static void AddedObserver(ILogger<CertificatePathWatcher> logger, string path) { }
-        internal static void CreatedDirectoryWatcher(ILogger<CertificatePathWatcher> logger, string dir) { }
-        internal static void CreatedFileWatcher(ILogger<CertificatePathWatcher> logger, string path) { }
-        internal static void DirectoryDoesNotExist(ILogger<CertificatePathWatcher> logger, string dir, string path) { }
-        internal static void EventWithoutFile(ILogger<CertificatePathWatcher> logger, string path) { }
-        internal static void FileCount(ILogger<CertificatePathWatcher> logger, string dir, int fileWatchCount) { }
-        internal static void FlaggedObservers(ILogger<CertificatePathWatcher> logger, string path, int count) { }
-        internal static void ObserverCount(ILogger<CertificatePathWatcher> logger, string path, int count) { }
-        internal static void RemovedDirectoryWatcher(ILogger<CertificatePathWatcher> logger, string dir) { }
+        private static readonly Action<ILogger, string, string, Exception?> _directoryDoesNotExistCallback =
+               LoggerMessage.Define<string, string>(
+                   LogLevel.Warning,
+                   EventIds.DirectoryDoesNotExist,
+                   "Directory '{Directory}' does not exist so changes to the certificate '{Path}' will not be tracked.");
 
-        internal static void RemovedFileWatcher(ILogger<CertificatePathWatcher> logger, string path) { }
 
-        internal static void RemovedObserver(ILogger<CertificatePathWatcher> logger, string path) { }
-        internal static void ReusedObserver(ILogger<CertificatePathWatcher> logger, string path) { }
-        internal static void UnknownFile(ILogger<CertificatePathWatcher> logger, string path) { }
-        internal static void UnknownObserver(ILogger<CertificatePathWatcher> logger, string path) { }
-        internal static void UntrackedFileEvent(ILogger<CertificatePathWatcher> logger, string path) { }
+        public static void DirectoryDoesNotExist(ILogger<CertificatePathWatcher> logger, string directory, string path)
+        {
+            _directoryDoesNotExistCallback(logger, directory, path, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _unknownFileCallback =
+            LoggerMessage.Define<string>(
+                LogLevel.Warning,
+                EventIds.UnknownFile,
+                "Attempted to remove watch from unwatched path '{Path}'.");
+
+
+        public static void UnknownFile(ILogger<CertificatePathWatcher> logger, string path)
+        {
+            _unknownFileCallback(logger, path, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _unknownObserverCallback =
+            LoggerMessage.Define<string>(
+                LogLevel.Warning,
+                EventIds.UnknownObserver,
+                "Attempted to remove unknown observer from path '{Path}'.");
+
+
+        public static void UnknownObserver(ILogger<CertificatePathWatcher> logger, string path)
+        {
+            _unknownObserverCallback(logger, path, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _createdDirectoryWatcherCallback =
+            LoggerMessage.Define<string>(
+                LogLevel.Debug,
+                EventIds.CreatedDirectoryWatcher,
+                "Created directory watcher for '{Directory}'.");
+
+
+        public static void CreatedDirectoryWatcher(ILogger<CertificatePathWatcher> logger, string directory)
+        {
+            _createdDirectoryWatcherCallback(logger, directory, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _createdFileWatcherCallback =
+            LoggerMessage.Define<string>(
+                LogLevel.Debug,
+                EventIds.CreatedFileWatcher,
+                "Created file watcher for '{Path}'.");
+
+
+        public static void CreatedFileWatcher(ILogger<CertificatePathWatcher> logger, string path)
+        {
+            _createdFileWatcherCallback(logger, path, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _removedDirectoryWatcherCallback =
+            LoggerMessage.Define<string>(
+                LogLevel.Debug,
+                EventIds.RemovedDirectoryWatcher,
+                "Removed directory watcher for '{Directory}'.");
+
+        public static void RemovedDirectoryWatcher(ILogger<CertificatePathWatcher> logger, string directory)
+        {
+            _removedDirectoryWatcherCallback(logger, directory, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _removedFileWatcherCallback =
+            LoggerMessage.Define<string>(
+                LogLevel.Debug,
+                EventIds.RemovedFileWatcher,
+                "Removed file watcher for '{Path}'.");
+
+
+        public static void RemovedFileWatcher(ILogger<CertificatePathWatcher> logger, string path)
+        {
+            _removedFileWatcherCallback(logger, path, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _lastModifiedTimeErrorCallback =
+            LoggerMessage.Define<string>(
+                LogLevel.Debug,
+                EventIds.LastModifiedTimeError,
+                "Error retrieving last modified time for '{Path}'.");
+
+
+        public static void LastModifiedTimeError(ILogger<CertificatePathWatcher> logger, string path, Exception e)
+        {
+            _lastModifiedTimeErrorCallback(logger, path, e);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _untrackedFileEventCallback =
+            LoggerMessage.Define<string>(
+                LogLevel.Debug,
+                EventIds.UntrackedFileEvent,
+                "Ignored event for presently untracked file '{Path}'.");
+
+
+        public static void UntrackedFileEvent(ILogger<CertificatePathWatcher> logger, string path)
+        {
+            _untrackedFileEventCallback(logger, path, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _reusedObserverCallback =
+            LoggerMessage.Define<string>(
+                LogLevel.Trace,
+                EventIds.ReusedObserver,
+                "Reused existing observer on file watcher for '{Path}'.");
+
+
+        public static void ReusedObserver(ILogger<CertificatePathWatcher> logger, string path)
+        {
+            _reusedObserverCallback(logger, path, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _addedObserverCallback =
+            LoggerMessage.Define<string>(
+                LogLevel.Trace,
+                EventIds.AddedObserver,
+                "Added observer to file watcher for '{Path}'.");
+
+        public static void AddedObserver(ILogger<CertificatePathWatcher> logger, string path)
+        {
+            _addedObserverCallback(logger, path, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _removedObserverCallback =
+            LoggerMessage.Define<string>(
+                LogLevel.Trace,
+                EventIds.RemovedObserver,
+                "Removed observer from file watcher for '{Path}'.");
+
+        public static void RemovedObserver(ILogger<CertificatePathWatcher> logger, string path)
+        {
+            _removedObserverCallback(logger, path, null);
+        }
+
+        private static readonly Action<ILogger, string, int, Exception?> _observerCountCallback =
+            LoggerMessage.Define<string, int>(
+                LogLevel.Trace,
+                EventIds.ObserverCount, "File '{Path}' now has {Count} observers.");
+
+        public static void ObserverCount(ILogger<CertificatePathWatcher> logger, string path, int count)
+        {
+            _observerCountCallback(logger, path, count, null);
+        }
+
+        private static readonly Action<ILogger, string, int, Exception?> _fileCountCallback =
+            LoggerMessage.Define<string, int>(
+                LogLevel.Trace,
+                EventIds.FileCount,
+                "Directory '{Directory}' now has watchers on {Count} files.");
+
+        public static void FileCount(ILogger<CertificatePathWatcher> logger, string directory, int count)
+        {
+            _fileCountCallback(logger, directory, count, null);
+        }
+
+        private static readonly Action<ILogger, int, string, Exception?> _flaggedObservers =
+            LoggerMessage.Define<int, string>(
+                LogLevel.Trace,
+                EventIds.EventWithoutFile,
+                "Flagged {Count} observers of '{Path}' as changed.");
+        public static void FlaggedObservers(ILogger<CertificatePathWatcher> logger, string path, int count)
+        {
+            _flaggedObservers(logger, count, path, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _eventWithoutFileCallback =
+            LoggerMessage.Define<string>(
+                LogLevel.Trace,
+                EventIds.EventWithoutFileCallback,
+                "Ignored event since '{Path}' was unavailable.");
+
+        public static void EventWithoutFile(ILogger<CertificatePathWatcher> logger, string path)
+        {
+            _eventWithoutFileCallback(logger, path, null);
+        }
     }
 }

@@ -1,15 +1,12 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Yarp.ReverseProxy.Model;
+
 public sealed class TunnelState
 {
-    private TunnelModel _Model = null!;
+    private TunnelModel? _model;
 
-    public TunnelState(string tunnelId)
+    internal TunnelState(string tunnelId)
     {
         TunnelId = tunnelId;
     }
@@ -22,7 +19,8 @@ public sealed class TunnelState
 
     public string TunnelId { get; }
 
-    public TunnelModel Model { get => _Model; internal set => _Model = value; }
+    public TunnelModel Model { get => _model ?? throw new InvalidOperationException("Model is null"); internal set => _model = value; }
 
     public int Revision { get; internal set; }
+
 }

@@ -3,28 +3,41 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-using Microsoft.AspNetCore.Server.Kestrel.Https;
 
+//using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 using Yarp.ReverseProxy.Configuration;
 
-namespace Yarp.ReverseProxy.Tunnel;
+namespace Yarp.ReverseProxy.Utilities;
 
 // copy from https://github.com/dotnet/aspnetcore.git src\Servers\Kestrel\Core\src\Internal\Certificates\CertificateConfigLoader.cs
 
-internal sealed partial class CertificateConfigLoader //: ICertificateConfigLoader
+public interface ICertificateConfigLoader
+{
+    /// <summary>
+    /// Loades the certificate used for ClientCertificate (for the server- and the client- side)
+    /// </summary>
+    /// <param name="certInfo"></param>
+    /// <param name="name"></param>
+    /// <param name="needPrivateKey">I have no idea if this is needed</param>
+    /// <returns></returns>
+    (X509Certificate2?, X509Certificate2Collection?) LoadCertificate(CertificateConfig? certInfo, string name, bool needPrivateKey);
+}
+
+internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
 {
     private readonly IHostEnvironment _hostEnvironment;
     private readonly ILogger<CertificateConfigLoader> _logger;
+
     public CertificateConfigLoader(IHostEnvironment hostEnvironment, ILogger<CertificateConfigLoader> logger)
     {
         _hostEnvironment = hostEnvironment;
         _logger = logger;
     }
 
-    public (X509Certificate2?, X509Certificate2Collection?) LoadCertificate(CertificateConfig? certInfo, string name)
+    public (X509Certificate2?, X509Certificate2Collection?) LoadCertificate(CertificateConfig? certInfo, string name, bool needPrivateKey)
     {
         if (certInfo is null)
         {
@@ -73,7 +86,7 @@ internal sealed partial class CertificateConfigLoader //: ICertificateConfigLoad
         }
         else if (certInfo.IsStoreCert)
         {
-            return (LoadFromStoreCert(certInfo), null);
+            return (LoadFromStoreCert(certInfo, needPrivateKey), null);
         }
 
         return (null, null);
@@ -87,10 +100,8 @@ internal sealed partial class CertificateConfigLoader //: ICertificateConfigLoad
         return new X509Certificate2(certificateBytes, "", X509KeyStorageFlags.DefaultKeySet);
     }
 
-    private static readonly Oid ClientCertificateOid = new Oid("1.3.6.1.5.5.7.3.2");
     private static X509Certificate2 LoadCertificateKey(X509Certificate2 certificate, string keyPath, string? password)
     {
-#warning wrong OID
         // OIDs for the certificate key types.
         const string RSAOid = "1.2.840.113549.1.1.1";
         const string DSAOid = "1.2.840.10040.4.1";
@@ -174,7 +185,7 @@ internal sealed partial class CertificateConfigLoader //: ICertificateConfigLoad
         }
     }
 
-    private static X509Certificate2 LoadFromStoreCert(CertificateConfig certInfo)
+    private static X509Certificate2 LoadFromStoreCert(CertificateConfig certInfo, bool needPrivateKey)
     {
         var subject = certInfo.Subject!;
         var storeName = string.IsNullOrEmpty(certInfo.Store) ? StoreName.My.ToString() : certInfo.Store;
@@ -186,17 +197,29 @@ internal sealed partial class CertificateConfigLoader //: ICertificateConfigLoad
         }
         var allowInvalid = certInfo.AllowInvalid ?? false;
 
-        return CertificateLoader.LoadFromStoreCert(subject, storeName, storeLocation, allowInvalid);
+        return ClientCertificateLoader.LoadFromStoreCert(subject, storeName, storeLocation, allowInvalid, needPrivateKey);
     }
 
     internal static class Log
     {
-#warning TODO
+        private static readonly Action<ILogger, string, Exception?> _failedToLoadCertificate = LoggerMessage.Define<string>(
+            LogLevel.Error,
+            EventIds.MissingOrInvalidCertificateFile,
+            "The certificate file at '{CertificateFilePath}' can not be found, contains malformed data or does not contain a certificate.");
 
-        //[LoggerMessage(EventId.FailedToLoadCertificate, LogLevel.Error, "The certificate file at '{CertificateFilePath}' can not be found, contains malformed data or does not contain a certificate.", EventName = "MissingOrInvalidCertificateFile")]
-        public static void FailedToLoadCertificate(ILogger logger, string certificateFilePath) { }
+        public static void FailedToLoadCertificate(ILogger logger, string certificateFilePath, Exception? error = default)
+        {
+            _failedToLoadCertificate(logger, certificateFilePath, error);
+        }
 
-        //[LoggerMessage(EventId.FailedToLoadCertificateKey, LogLevel.Error, "The certificate key file at '{CertificateKeyFilePath}' can not be found, contains malformed data or does not contain a PEM encoded key in PKCS8 format.", EventName = "MissingOrInvalidCertificateKeyFile")]
-        public static void FailedToLoadCertificateKey(ILogger logger, string certificateKeyFilePath) { }
+        private static readonly Action<ILogger, string, Exception?> _failedToLoadCertificateKey = LoggerMessage.Define<string>(
+            LogLevel.Error,
+            EventIds.MissingOrInvalidCertificateKeyFile,
+            "The certificate key file at '{CertificateKeyFilePath}' can not be found, contains malformed data or does not contain a PEM encoded key in PKCS8 format.");
+
+        public static void FailedToLoadCertificateKey(ILogger logger, string certificateKeyFilePath, Exception? error = default)
+        {
+            _failedToLoadCertificateKey(logger, certificateKeyFilePath, error);
+        }
     }
 }

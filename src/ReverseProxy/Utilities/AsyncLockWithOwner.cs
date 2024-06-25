@@ -14,7 +14,7 @@ internal interface IAsyncLockWithOwner
 /// Also the WaitAsync need an owner, that can be transfered to another owner.
 /// Only if latest owner release it's acutal released.
 /// </summary>
-public sealed class AsyncLockWithOwner
+internal sealed class AsyncLockWithOwner
     : IDisposable
     , IAsyncLockWithOwner
 {
@@ -29,7 +29,7 @@ public sealed class AsyncLockWithOwner
 
     public bool IsDisposed { get; private set; }
 
-    public async ValueTask<AsyncLockOwner> LockAsync(object? owner, CancellationToken cancellationToken)
+    internal async ValueTask<AsyncLockOwner> LockAsync(object? owner, CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
         return AsyncLockOwnership.Create(owner, this);
@@ -79,7 +79,7 @@ internal sealed class AsyncLockOwnership
 {
     private static readonly object _notAOwner = new();
 
-    public static AsyncLockOwner Create<T>(T? owner, AsyncLockWithOwner asyncLockWithOwner)
+    internal static AsyncLockOwner Create<T>(T? owner, AsyncLockWithOwner asyncLockWithOwner)
         where T : class
     {
         var asyncLockOwnership = new AsyncLockOwnership(owner, asyncLockWithOwner);
@@ -87,9 +87,9 @@ internal sealed class AsyncLockOwnership
     }
 
     private object? _owner;
-    private readonly AsyncLockWithOwner _asyncLockWithOwner;
+    private readonly IAsyncLockWithOwner _asyncLockWithOwner;
 
-    private AsyncLockOwnership(object? owner, AsyncLockWithOwner asyncLockWithOwner)
+    private AsyncLockOwnership(object? owner, IAsyncLockWithOwner asyncLockWithOwner)
     {
         _owner = owner;
         _asyncLockWithOwner = asyncLockWithOwner;
@@ -102,7 +102,7 @@ internal sealed class AsyncLockOwnership
             System.Threading.Interlocked.CompareExchange(ref _owner, _notAOwner, owner),
             owner))
         {
-            ((IAsyncLockWithOwner)_asyncLockWithOwner).Release();
+            _asyncLockWithOwner.Release();
             return true;
         }
         else
@@ -122,12 +122,12 @@ internal sealed class AsyncLockOwnership
 /// <summary>
 /// 
 /// </summary>
-public struct AsyncLockOwner : IDisposable
+internal struct AsyncLockOwner : IDisposable
 {
-    private readonly AsyncLockOwnership _asyncLockOwnership;
+    private readonly IAsyncLockOwnership _asyncLockOwnership;
     private readonly object? _owner;
 
-    internal AsyncLockOwner(AsyncLockOwnership asyncLockOwnership, object? owner)
+    internal AsyncLockOwner(IAsyncLockOwnership asyncLockOwnership, object? owner)
     {
         _asyncLockOwnership = asyncLockOwnership;
         _owner = owner;
@@ -136,16 +136,16 @@ public struct AsyncLockOwner : IDisposable
     public AsyncLockOwner Transfer<T>(T? owner)
         where T : class
     {
-        return ((IAsyncLockOwnership)_asyncLockOwnership).Transfer(_owner, owner);
+        return _asyncLockOwnership.Transfer(_owner, owner);
     }
 
     public readonly bool Release()
     {
-        return ((IAsyncLockOwnership?)_asyncLockOwnership)?.Release(_owner) ?? false;
+        return _asyncLockOwnership?.Release(_owner) ?? false;
     }
 
     public readonly void Dispose()
     {
-        _ = ((IAsyncLockOwnership?)_asyncLockOwnership)?.Release(_owner);
+        _ = _asyncLockOwnership?.Release(_owner);
     }
 }

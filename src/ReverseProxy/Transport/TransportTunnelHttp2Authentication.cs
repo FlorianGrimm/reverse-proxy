@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Transport;
 
@@ -18,26 +18,27 @@ public sealed class TransportTunnelHttp2Authentication(
     /// <summary>
     /// the services.
     /// </summary>
-    public ImmutableArray<ITransportTunnelHttp2Authentication> Services { get; set; }= services.ToImmutableArray();
+    public ImmutableArray<ITransportTunnelHttp2Authentication> Services { get; set; } = services.ToImmutableArray();
 
-    public async ValueTask<bool> ConfigureSocketsHttpHandlerAsync(TunnelConfig config, SocketsHttpHandler socketsHttpHandler)
+    public async ValueTask<bool> ConfigureSocketsHttpHandlerAsync(TunnelState tunnel, SocketsHttpHandler socketsHttpHandler)
     {
         var services = Services;
-        foreach(var service in services)
+        foreach (var service in services)
         {
-            if (await service.ConfigureSocketsHttpHandlerAsync(config, socketsHttpHandler)) {
+            if (await service.ConfigureSocketsHttpHandlerAsync(tunnel, socketsHttpHandler))
+            {
                 return true;
             }
         }
         return false;
     }
 
-    public async ValueTask<bool> ConfigureHttpRequestMessageAsync(TunnelConfig config, HttpRequestMessage requestMessage)
+    public async ValueTask<bool> ConfigureHttpRequestMessageAsync(TunnelState tunnel, HttpRequestMessage requestMessage)
     {
         var services = Services;
         foreach (var service in services)
         {
-            if (await service.ConfigureHttpRequestMessageAsync(config, requestMessage))
+            if (await service.ConfigureHttpRequestMessageAsync(tunnel, requestMessage))
             {
                 return true;
             }

@@ -1,24 +1,17 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading.Tasks;
 
-using Microsoft.AspNetCore.Server.Kestrel.Core;
-
-namespace Yarp.ReverseProxy.Transport;
+namespace Yarp.ReverseProxy.Utilities;
 
 // copied from Microsoft.AspNetCore.Server.Kestrel.Https;
 
 /// <summary>
-/// Enables loading TLS certificates from the certificate store.
+/// Enables loading client certificates from the certificate store.
 /// </summary>
-internal static class CertificateLoader
+public static class ClientCertificateLoader
 {
-    // See http://oid-info.com/get/1.3.6.1.5.5.7.3.1
-    // Indicates that a certificate can be used as a SSL server certificate
-    private const string ServerAuthenticationOid = "1.3.6.1.5.5.7.3.1";
+    private const string ClientCertificateOid = "1.3.6.1.5.5.7.3.2";
 
     /// <summary>
     /// Loads a certificate from the certificate store.
@@ -31,8 +24,9 @@ internal static class CertificateLoader
     /// <param name="storeName">The certificate store name.</param>
     /// <param name="storeLocation">The certificate store location.</param>
     /// <param name="allowInvalid">Whether or not to load certificates that are considered invalid.</param>
+    /// <param name="needPrivateKey">filter only certificates with private key</param>
     /// <returns>The loaded certificate.</returns>
-    public static X509Certificate2 LoadFromStoreCert(string subject, string storeName, StoreLocation storeLocation, bool allowInvalid)
+    public static X509Certificate2 LoadFromStoreCert(string subject, string storeName, StoreLocation storeLocation, bool allowInvalid, bool needPrivateKey)
     {
         using (var store = new X509Store(storeName, storeLocation))
         {
@@ -43,11 +37,14 @@ internal static class CertificateLoader
             {
                 store.Open(OpenFlags.ReadOnly);
                 storeCertificates = store.Certificates;
-                foreach (var certificate in storeCertificates.Find(X509FindType.FindBySubjectName, subject, !allowInvalid)
+
+                var listFiltered = storeCertificates.Find(X509FindType.FindBySubjectName, subject, !allowInvalid)
                     .OfType<X509Certificate2>()
-                    .Where(IsCertificateAllowedForServerAuth)
-                    .Where(DoesCertificateHaveAnAccessiblePrivateKey)
-                    .OrderByDescending(certificate => certificate.NotAfter))
+                    .Where(IsCertificateAllowedForClientCertificate)
+                    .Where((X509Certificate2 certificate) => needPrivateKey ? DoesCertificateHaveAnAccessiblePrivateKey(certificate) : true)
+                    .OrderByDescending(certificate => certificate.NotAfter);
+
+                foreach (var certificate in listFiltered)
                 {
                     // Pick the first one if there's no exact match as a fallback to substring default.
                     foundCertificate ??= certificate;
@@ -73,7 +70,7 @@ internal static class CertificateLoader
         }
     }
 
-    internal static bool IsCertificateAllowedForServerAuth(X509Certificate2 certificate)
+    internal static bool IsCertificateAllowedForClientCertificate(X509Certificate2 certificate)
     {
         /* If the Extended Key Usage extension is included, then we check that the serverAuth usage is included. (http://oid-info.com/get/1.3.6.1.5.5.7.3.1)
          * If the Extended Key Usage extension is not included, then we assume the certificate is allowed for all usages.
@@ -97,7 +94,7 @@ internal static class CertificateLoader
             hasEkuExtension = true;
             foreach (var oid in extension.EnhancedKeyUsages)
             {
-                if (string.Equals(oid.Value, ServerAuthenticationOid, StringComparison.Ordinal))
+                if (string.Equals(oid.Value, ClientCertificateOid, StringComparison.Ordinal))
                 {
                     return true;
                 }
@@ -109,10 +106,6 @@ internal static class CertificateLoader
 
     internal static bool DoesCertificateHaveAnAccessiblePrivateKey(X509Certificate2 certificate)
         => certificate.HasPrivateKey;
-
-#warning WEICHEI
-    //internal static bool DoesCertificateHaveASubjectAlternativeName(X509Certificate2 certificate)
-    //    => certificate.Extensions.OfType<X509SubjectAlternativeNameExtension>().Any();
 
     private static void DisposeCertificates(X509Certificate2Collection? certificates, X509Certificate2? except)
     {

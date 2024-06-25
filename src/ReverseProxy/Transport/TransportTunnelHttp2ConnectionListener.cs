@@ -73,6 +73,8 @@ internal sealed class TransportTunnelHttp2ConnectionListener
 
         cancellationToken = CancellationTokenSource.CreateLinkedTokenSource(_closedCts.Token, cancellationToken).Token;
 
+        var config = _tunnel.Model.Config;
+
         // Kestrel will keep an active accept call open as long as the transport is active
         using (var currentConnectionlock = await _connectionLock.LockAsync(this, cancellationToken))
         {
@@ -93,9 +95,10 @@ internal sealed class TransportTunnelHttp2ConnectionListener
 
                 while (true)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    var config = _tunnel.Model.Config;
+                    if (cancellationToken.IsCancellationRequested || _isDisposed)
+                    {
+                        return null;
+                    }
 
                     var requestMessage = new HttpRequestMessage(
                         HttpMethod.Post, _endPoint.Uri!)
@@ -104,7 +107,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                     };
 
                     {
-                        await _transportTunnelHttp2Authentication.ConfigureHttpRequestMessageAsync(config, requestMessage);
+                        await _transportTunnelHttp2Authentication.ConfigureHttpRequestMessageAsync(_tunnel, requestMessage);
                         if (_options.ConfigureHttpRequestMessageAsync is { } configure)
                         {
                             await configure(config, requestMessage);
@@ -154,6 +157,11 @@ internal sealed class TransportTunnelHttp2ConnectionListener
             {
                 return null;
             }
+            catch (Exception error)
+            {
+                Log.AcceptFailed(_logger, config.Url, error);
+                throw;
+            }
         }
     }
 
@@ -175,7 +183,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
             clientCertificates.AddRange(certificates);
         }
 
-        await _transportTunnelHttp2Authentication.ConfigureSocketsHttpHandlerAsync(config, socketsHttpHandler);
+        await _transportTunnelHttp2Authentication.ConfigureSocketsHttpHandlerAsync(_tunnel, socketsHttpHandler);
 
         // allow the user to configure the handler
         if (_options.ConfigureSocketsHttpHandlerAsync is { } configure)
@@ -281,6 +289,15 @@ internal sealed class TransportTunnelHttp2ConnectionListener
             _tunnelResumeConnectTunnel(logger, tunnelId, url, transport, error);
         }
 
+        private static readonly Action<ILogger, string, Exception?> _AcceptFailed = LoggerMessage.Define<string>(
+            LogLevel.Information,
+            EventIds.TransportHttp2AcceptFailed,
+            "Transport Http2 Accept failed: {endpoint}.");
+
+        public static void AcceptFailed(ILogger logger, string url, Exception? error)
+        {
+            _AcceptFailed(logger, url, error);
+        }
         /*
         private static readonly Action<ILogger, string, string, Exception?> _x = LoggerMessage.Define<string, string>(
             LogLevel.Debug,

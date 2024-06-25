@@ -74,7 +74,10 @@ internal sealed class TransportTunnelWebSocketConnectionListener
             {
                 while (true)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
+                    if (cancellationToken.IsCancellationRequested || _isDisposed)
+                    {
+                        return null;
+                    }
 
                     var config = _tunnel.Model.Config;
 
@@ -97,12 +100,11 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                                 {
                                     await underlyingWebSocket.ConnectAsync(context.Uri, cancellationToken);
                                 }
-                                catch (Exception error)
+                                catch (Exception error) when (error is not OperationCanceledException)
                                 {
-                                    _logger.LogError(error, "ConnectAsync {uri}", context.Uri);
+                                    Log.AcceptFailed(_logger, context.Uri, error);
                                     throw;
                                 }
-                                _logger.LogDebug("Created WebSocket {uri}", context.Uri);
                                 return underlyingWebSocket;
                             }
                         };
@@ -134,47 +136,12 @@ internal sealed class TransportTunnelWebSocketConnectionListener
             {
                 return null;
             }
-            catch (Exception ex)
+            catch (Exception error)
             {
-                _logger.LogError(ex, "AcceptAsync {endpoint}", _endPoint.Uri);
+                Log.AcceptFailed(_logger, _endPoint.Uri!, error);
                 throw;
             }
         }
-    }
-
-    private async ValueTask<TransportTunnelWebSocketConnectionContext> ConnectAsync(CancellationToken cancellationToken)
-    {
-        var uri = _endPoint.Uri!;
-        ClientWebSocket? underlyingWebSocket = null;
-        var options = new HttpConnectionOptions
-        {
-            Url = uri,
-            Transports = HttpTransportType.WebSockets,
-            SkipNegotiation = true,
-            WebSocketFactory = async (context, cancellationToken) =>
-            {
-                underlyingWebSocket = new ClientWebSocket();
-                underlyingWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(5);
-
-                await onConfigureClientWebSocket(underlyingWebSocket);
-                try
-                {
-                    await underlyingWebSocket.ConnectAsync(context.Uri, cancellationToken);
-                }
-                catch (Exception error)
-                {
-                    _logger.LogError(error, "ConnectAsync {uri}", context.Uri);
-                    throw;
-                }
-                _logger.LogDebug("Created WebSocket {uri}", context.Uri);
-                return underlyingWebSocket;
-            }
-        };
-
-        var connection = new TransportTunnelWebSocketConnectionContext(options, _logger, _loggerFactory);
-        await connection.StartAsync(TransferFormat.Binary, cancellationToken);
-        connection.underlyingWebSocket = underlyingWebSocket;
-        return connection;
     }
 
     private async ValueTask onConfigureClientWebSocket(ClientWebSocket socket)
@@ -282,6 +249,16 @@ internal sealed class TransportTunnelWebSocketConnectionListener
         internal static void TunnelResumeConnectTunnel(ILogger logger, string tunnelId, string url, TransportMode transport, Exception? error)
         {
             _tunnelResumeConnectTunnel(logger, tunnelId, url, transport, error);
+        }
+
+        private static readonly Action<ILogger, Uri, Exception?> _AcceptFailed = LoggerMessage.Define<Uri>(
+            LogLevel.Information,
+            EventIds.TransportWebSocketAcceptFailed,
+            "Transport WebSocket Accept failed: {endpoint}.");
+
+        public static void AcceptFailed(ILogger logger, Uri url, Exception? error)
+        {
+            _AcceptFailed(logger, url, error);
         }
 
         /*

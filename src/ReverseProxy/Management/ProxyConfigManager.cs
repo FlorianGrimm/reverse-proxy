@@ -536,7 +536,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     // Throws for validation failures
     private async Task<bool> ApplyConfigAsync(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TunnelConfig> tunnels)
     {
-        var (configuredTunnels, tunnelErrors) = await VerifyTunnelsAsync(tunnels, cancellation: default);
+        var (configuredTunnels, tunnelErrors) = await VerifyTunnelsAsync(tunnels);
         var (configuredClusters, clusterErrors) = await VerifyClustersAsync(clusters, cancellation: default);
         var (configuredRoutes, routeErrors) = await VerifyRoutesAsync(routes, configuredClusters, cancellation: default);
 
@@ -666,7 +666,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         return (configuredClusters, errors);
     }
 
-    private async Task<(IReadOnlyDictionary<string, TunnelConfig>, IList<Exception>)> VerifyTunnelsAsync(IReadOnlyList<TunnelConfig> tunnels, CancellationToken cancellation)
+    private async Task<(IReadOnlyDictionary<string, TunnelConfig>, IList<Exception>)> VerifyTunnelsAsync(IReadOnlyList<TunnelConfig> tunnels)
     {
         if (tunnels is null)
         {
@@ -725,7 +725,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             if (_tunnels.TryGetValue(incomingTunnel.TunnelId, out var currentTunnel))
             {
                 var newTunnelModel = new TunnelModel(incomingTunnel);
-                var currentTunnelModel = currentTunnel.Model;
+                var currentTunnelModel = currentTunnel.Model!;
                 var configChanged = currentTunnelModel.HasConfigChanged(newTunnelModel);
                 if (configChanged)
                 {
@@ -741,11 +741,14 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             }
             else
             {
-                currentTunnel = new TunnelState(incomingTunnel.TunnelId);
-                currentTunnel.Model = new TunnelModel(incomingTunnel);
+                var newTunnelModel = new TunnelModel(incomingTunnel);
+                currentTunnel = new TunnelState(incomingTunnel.TunnelId, newTunnelModel);
                 _tunnels.TryAdd(currentTunnel.TunnelId, currentTunnel);
 
-                // TODO: how to create a new endpoint in kestrel?
+                foreach (var listener in _tunnelChangeListeners)
+                {
+                    listener.OnTunnelAdded(currentTunnel);
+                }
             }
         }
 

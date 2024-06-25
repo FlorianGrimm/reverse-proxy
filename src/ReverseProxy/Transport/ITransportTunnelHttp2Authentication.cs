@@ -2,6 +2,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Transport;
 
@@ -19,16 +20,16 @@ public interface ITransportTunnelHttp2Authentication
     /// <summary>
     /// Authentification for the tunnel - configure the connection SocketsHttpHandler
     /// </summary>
-    /// <param name="config">the related config</param>
+    /// <param name="tunnel">the current tunnel</param>
     /// <param name="socketsHttpHandler">the used SocketsHttpHandler.</param>
     /// <returns>true the configuration is done and no other implemenation need to configure this.</returns>
-    ValueTask<bool> ConfigureSocketsHttpHandlerAsync(TunnelConfig config, SocketsHttpHandler socketsHttpHandler);
+    ValueTask<bool> ConfigureSocketsHttpHandlerAsync(TunnelState tunnel, SocketsHttpHandler socketsHttpHandler);
 
     /// <summary>
     /// Authentification for the tunnel - configure the HttpRequestMessage
     /// </summary>
-    /// <param name="config">the related config</param>
+    /// <param name="tunnel">the current tunnel</param>
     /// <param name="requestMessage">the used message.</param>
     /// <returns>true the configuration is done and no other implemenation need to configure this.</returns>
-    ValueTask<bool> ConfigureHttpRequestMessageAsync(TunnelConfig config, HttpRequestMessage requestMessage);
+    ValueTask<bool> ConfigureHttpRequestMessageAsync(TunnelState tunnel, HttpRequestMessage requestMessage);
 }

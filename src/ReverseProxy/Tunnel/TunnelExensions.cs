@@ -25,6 +25,7 @@ public static class TunnelExensions
         services.TryAddSingleton<TunnelHTTP2Route>();
         services.TryAddSingleton<TunnelWebSocketRoute>();
         services.TryAddSingleton<CertificatePathWatcher>();
+        services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
         return services;
     }
 

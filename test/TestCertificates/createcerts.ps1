@@ -31,3 +31,9 @@ Export-PfxCertificate -Cert $cert2 -FilePath localhostclient2.pfx -Password $ssp
 Export-Certificate -FilePath "localhostclient2.cer" -Cert $cert2 -Type CERT
 
 #
+
+<#
+$cert1 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new('.\localhostclient1.cer')
+$cert1 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new('.\localhostclient1.pfx')
+$cert1.PublicKey.Oid.Value
+#>
