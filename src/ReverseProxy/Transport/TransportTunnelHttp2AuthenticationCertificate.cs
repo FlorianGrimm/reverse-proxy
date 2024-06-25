@@ -13,14 +13,17 @@ namespace Yarp.ReverseProxy.Transport;
 
 public sealed class TransportTunnelHttp2AuthenticationCertificate : ITransportTunnelHttp2Authentication
 {
+    private readonly ICertificateConfigLoader _certificateConfigLoader;
     private readonly CertificatePathWatcher _certificatePathWatcher;
     private readonly ILogger<TransportTunnelHttp2AuthenticationCertificate> _logger;
 
     public TransportTunnelHttp2AuthenticationCertificate(
+        ICertificateConfigLoader certificateConfigLoader,
         CertificatePathWatcher certificatePathWatcher,
         ILogger<TransportTunnelHttp2AuthenticationCertificate> logger
         )
     {
+        _certificateConfigLoader = certificateConfigLoader;
         _certificatePathWatcher = certificatePathWatcher;
         _logger = logger;
     }
@@ -38,13 +41,35 @@ public sealed class TransportTunnelHttp2AuthenticationCertificate : ITransportTu
 
 #warning HELP pretty please I have no experiences with clientcertificates
 
-        // List<X509Certificate>? listX509Certificate = null;
+        // config
+        {
+            if (config.Authentication.ClientCertificates is { Count: > 0 } clientCertificates)
+            {
+                for (var index = 0; index < clientCertificates.Count; index++)
+                {
+                    var clientCertificateConfig = clientCertificates[index];
+                    var (certificate, collection) = _certificateConfigLoader.LoadCertificate(clientCertificateConfig, $"{config.TunnelId}/{index}", true);
+                    if (certificate is not null)
+                    {
+                        var sslClientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= new();
+                        sslClientCertificates.Add(certificate);
+                    }
+
+                    if (clientCertificateConfig.IsFileCert)
+                    {
+                        _certificatePathWatcher.AddWatchUnsynchronized(clientCertificateConfig);
+                    }
+                }
+            }
+        }
 
         // for in Memory Configuration
-        if (config.Authentication.ClientCertifiacteCollection is { } srcClientCertifiacteCollection)
         {
-            var clientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= new();
-            clientCertificates.AddRange(srcClientCertifiacteCollection);
+            if (config.Authentication.ClientCertifiacteCollection is { } srcClientCertifiacteCollection)
+            {
+                var sslClientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= new();
+                sslClientCertificates.AddRange(srcClientCertifiacteCollection);
+            }
         }
         return new(true);
     }
