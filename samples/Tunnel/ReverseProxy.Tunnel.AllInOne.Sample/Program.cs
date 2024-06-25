@@ -18,7 +18,8 @@ try
         The perfomance depend on the console logger (and the logging settings on the appsettings).
         You get better results if you are redirect the output to a file.
 
-        ".\artifacts\bin\ReverseProxy.Tunnel.AllInOne.Sample\Debug\net8.0\ReverseProxy.Tunnel.AllInOne.Sample.exe" >log.txt
+        cd ".\artifacts\bin\ReverseProxy.Tunnel.AllInOne.Sample\Debug\net8.0"
+        ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" >log.txt
 
      */
     System.Console.Out.WriteLine("Starting Servers");
@@ -43,7 +44,7 @@ try
     var taskRun = Task.WhenAll(listTaskRun);
 
     System.Console.Out.WriteLine("Starting Tests.");
-    // await RunTests();
+    await RunTests();
     /*
         https://localhost:5001/Frontend - 9.7654 / 13.8606 / 17.9559
         40 - Frontend https://localhost:5001/ - localhost:5001 - ::1:5001
@@ -292,7 +293,7 @@ static async Task RunTests()
                 new ("https://localhost:5002/beta/API"),
                 ];
             var startGlobal = Stopwatch.GetTimestamp();
-            var cntloop = 1;
+            var cntloop = 20;
             for (var loop = 1; loop <= cntloop; loop++)
             {
                 System.Console.Out.WriteLine($"{loop} / {cntloop}");
