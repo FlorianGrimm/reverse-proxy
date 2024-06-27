@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
@@ -11,6 +14,9 @@ namespace Yarp.ReverseProxy.Utilities;
 /// </summary>
 public static class ClientCertificateLoader
 {
+    internal static bool IsClientCertificate(string? mode)
+        => string.Equals(mode, "ClientCertificate", System.StringComparison.OrdinalIgnoreCase);
+
     private const string ClientCertificateOid = "1.3.6.1.5.5.7.3.2";
 
     /// <summary>
@@ -107,7 +113,7 @@ public static class ClientCertificateLoader
     internal static bool DoesCertificateHaveAnAccessiblePrivateKey(X509Certificate2 certificate)
         => certificate.HasPrivateKey;
 
-    private static void DisposeCertificates(X509Certificate2Collection? certificates, X509Certificate2? except)
+    internal static void DisposeCertificates(X509CertificateCollection? certificates, X509Certificate? except)
     {
         if (certificates != null)
         {
@@ -118,6 +124,7 @@ public static class ClientCertificateLoader
                     certificate.Dispose();
                 }
             }
+            certificates.Clear();
         }
     }
 }

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,28 +15,30 @@ using Yarp.ReverseProxy.Management;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
-internal sealed class TunnelHTTP2Route
+internal sealed class TunnelHTTP2Route : IDisposable
 {
-    private readonly UnShortCitcuitOnceProxyConfigManager _unShortCitcuitOnceProxyConfigManager;
+    private readonly UnShortCitcuitProxyConfigManager _proxyConfigManagerLazy;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly ILogger _logger;
+    private CancellationTokenRegistration? _unRegister;
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
     public TunnelHTTP2Route(
-        UnShortCitcuitOnceProxyConfigManager unShortCitcuitOnceProxyConfigManager,
+        UnShortCitcuitProxyConfigManager proxyConfigManagerLazy,
         TunnelConnectionChannelManager tunnelConnectionChannelManager,
         IHostApplicationLifetime lifetime,
         ILogger<TunnelHTTP2Route> logger)
     {
-        _unShortCitcuitOnceProxyConfigManager = unShortCitcuitOnceProxyConfigManager;
+        _proxyConfigManagerLazy = proxyConfigManagerLazy;
         _tunnelConnectionChannelManager = tunnelConnectionChannelManager;
         _lifetime = lifetime;
         _logger = logger;
 
-        _lifetime.ApplicationStopping.Register(() => _cancellationTokenSource.Cancel());
+        _unRegister = _lifetime.ApplicationStopping.Register(() => _cancellationTokenSource.Cancel());
     }
 
+    // [RequiresUnreferencedCode("")]
     internal IEndpointConventionBuilder Map(
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
@@ -64,7 +69,7 @@ internal sealed class TunnelHTTP2Route
             return Results.BadRequest();
         }
 
-        var proxyConfigManager = _unShortCitcuitOnceProxyConfigManager.GetService();
+        var proxyConfigManager = _proxyConfigManagerLazy.GetService();
         if (!proxyConfigManager.TryGetCluster(clusterId, out var cluster))
         {
             Log.ClusterNotFound(_logger, clusterId);
@@ -145,6 +150,28 @@ internal sealed class TunnelHTTP2Route
         return EmptyResult.Instance;
     }
 
+    private void Dispose(bool disposing)
+    {
+        using (var unRegister = _unRegister)
+        {
+            if (disposing)
+            {
+                _unRegister = null;
+            }
+        }
+    }
+
+    ~TunnelHTTP2Route()
+    {
+        Dispose(disposing: false);
+    }
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
     private static class Log
     {
         private static readonly Action<ILogger, string, Exception?> _parameterNotValid = LoggerMessage.Define<string>(
@@ -188,4 +215,5 @@ internal sealed class TunnelHTTP2Route
         }
         */
     }
+
 }

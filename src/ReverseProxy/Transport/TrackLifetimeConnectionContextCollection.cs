@@ -1,5 +1,7 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Collections.Concurrent;
-using System.Threading;
 
 using Microsoft.AspNetCore.Connections;
 

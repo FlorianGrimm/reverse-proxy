@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Net.WebSockets;
 using System.Threading;
@@ -16,25 +19,27 @@ using Yarp.ReverseProxy.Management;
 namespace Yarp.ReverseProxy.Tunnel;
 
 internal sealed class TunnelWebSocketRoute
+    : IDisposable
 {
-    private readonly UnShortCitcuitOnceProxyConfigManager _unShortCitcuitOnceProxyConfigManager;
+    private readonly UnShortCitcuitProxyConfigManager _proxyConfigManagerLazy;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly ILogger _logger;
+    private CancellationTokenRegistration? _unRegister;
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
     public TunnelWebSocketRoute(
-        UnShortCitcuitOnceProxyConfigManager unShortCitcuitOnceProxyConfigManager,
+        UnShortCitcuitProxyConfigManager proxyConfigManagerLazy,
         TunnelConnectionChannelManager tunnelConnectionChannelManager,
         IHostApplicationLifetime lifetime,
         ILogger<TunnelWebSocketRoute> logger)
     {
-        _unShortCitcuitOnceProxyConfigManager = unShortCitcuitOnceProxyConfigManager;
+        _proxyConfigManagerLazy = proxyConfigManagerLazy;
         _tunnelConnectionChannelManager = tunnelConnectionChannelManager;
         _lifetime = lifetime;
         _logger = logger;
 
-        _lifetime.ApplicationStopping.Register(() => _cancellationTokenSource.Cancel());
+        _unRegister = _lifetime.ApplicationStopping.Register(() => _cancellationTokenSource.Cancel());
     }
 
 
@@ -77,7 +82,7 @@ internal sealed class TunnelWebSocketRoute
             return Results.BadRequest();
         }
 
-        var proxyConfigManager = _unShortCitcuitOnceProxyConfigManager.GetService();
+        var proxyConfigManager = _proxyConfigManagerLazy.GetService();
         if (!proxyConfigManager.TryGetCluster(clusterId, out var cluster))
         {
             Log.ClusterNotFound(_logger, clusterId);
@@ -93,7 +98,7 @@ internal sealed class TunnelWebSocketRoute
         using (var ctsRequestAborted = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _cancellationTokenSource.Token))
         {
             var channelTCRReader = tunnelConnectionChannels.Reader;
-            System.Threading.Interlocked.Increment(ref tunnelConnectionChannels.CountSource);
+            _ = System.Threading.Interlocked.Increment(ref tunnelConnectionChannels.CountSource);
             try
             {
                 var tunnelConnectionRequest = await channelTCRReader.ReadAsync(ctsRequestAborted.Token);
@@ -111,7 +116,7 @@ internal sealed class TunnelWebSocketRoute
                                 //await responsesWriter.WriteAsync(stream, ctsRequestAborted.Token);
                                 if (tunnelConnectionRequest.Write(stream))
                                 {
-                                    await stream.StreamCompleteTask;
+                                    _ = await stream.StreamCompleteTask;
                                     stream.Reset();
                                 }
 
@@ -123,11 +128,34 @@ internal sealed class TunnelWebSocketRoute
             }
             finally
             {
-                System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSource);
+                _ = System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSource);
             }
         }
 
         return EmptyResult.Instance;
+    }
+
+
+    private void Dispose(bool disposing)
+    {
+        using (var unRegister = _unRegister)
+        {
+            if (disposing)
+            {
+                _unRegister = null;
+            }
+        }
+    }
+
+    ~TunnelWebSocketRoute()
+    {
+        Dispose(disposing: false);
+    }
+
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
     }
 
     private static class Log

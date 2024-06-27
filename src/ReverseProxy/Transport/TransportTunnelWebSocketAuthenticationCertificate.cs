@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Net.WebSockets;
 using System.Threading.Tasks;
 
@@ -10,11 +13,11 @@ public sealed class TransportTunnelWebSocketAuthenticationCertificate
 {
     public TransportTunnelWebSocketAuthenticationCertificate()
     {
-        
+
     }
     public ValueTask<bool> ConfigureClientWebSocketAsync(TunnelConfig config, ClientWebSocket clientWebSocketocket)
     {
-        if (!(string.Equals(config.Authentication.Mode, "Certificate", System.StringComparison.OrdinalIgnoreCase)))
+        if (!(string.Equals(config.Authentication.Mode, "ClientCertificate", System.StringComparison.OrdinalIgnoreCase)))
         {
             return new(false);
         }

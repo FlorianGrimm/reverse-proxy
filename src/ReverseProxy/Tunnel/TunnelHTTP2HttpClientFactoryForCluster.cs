@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -95,6 +98,7 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
         }
         var channelTCRWriter = tunnelConnectionChannels.Writer;
 
+        // TODO: replace with proper monitoring??
         System.Threading.Interlocked.Increment(ref tunnelConnectionChannels.CountSink);
 
         var tunnelConnectionRequest = _poolTunnelConnectionRequest.Get();
@@ -141,7 +145,9 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
         }
         finally
         {
+            // TODO: replace with proper monitoring??
             System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSink);
+
             var backToPool = tunnelConnectionRequest.GetReseted();
             if (backToPool is not null)
             {
@@ -169,18 +175,18 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
     private void ConfigureHandler(ForwarderHttpClientContext context, SocketsHttpHandler handler)
     {
         var newConfig = context.NewConfig;
-        // TODO: the inner connection is always http no s
-#if WEICHEI
-        if (newConfig.SslProtocols.HasValue) {
+        if (newConfig.SslProtocols.HasValue)
+        {
             handler.SslOptions.EnabledSslProtocols = newConfig.SslProtocols.Value;
         }
-        if (newConfig.MaxConnectionsPerServer is not null) {
+        if (newConfig.MaxConnectionsPerServer is not null)
+        {
             handler.MaxConnectionsPerServer = newConfig.MaxConnectionsPerServer.Value;
         }
-        if (newConfig.DangerousAcceptAnyServerCertificate ?? false) {
+        if (newConfig.DangerousAcceptAnyServerCertificate ?? false)
+        {
             handler.SslOptions.RemoteCertificateValidationCallback = delegate { return true; };
         }
-#endif
         handler.EnableMultipleHttp2Connections = newConfig.EnableMultipleHttp2Connections.GetValueOrDefault(true);
 
         if (newConfig.RequestHeaderEncoding is not null)

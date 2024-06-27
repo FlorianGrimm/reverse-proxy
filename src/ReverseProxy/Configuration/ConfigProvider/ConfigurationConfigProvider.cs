@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+
 using Yarp.ReverseProxy.Forwarder;
 
 using static System.Formats.Asn1.AsnWriter;
@@ -136,8 +137,10 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
 
     private TunnelAuthenticationConfig CreateTunnelAuthentication(IConfigurationSection section)
     {
-        return new TunnelAuthenticationConfig {
+        return new TunnelAuthenticationConfig
+        {
             Mode = section[nameof(TunnelAuthenticationConfig.Mode)],
+            ClientCertificate = CreateCertificateConfig(section.GetSection(nameof(TunnelAuthenticationConfig.ClientCertificate))),
             ClientCertificates = section.GetSection(nameof(TunnelAuthenticationConfig.ClientCertificates))
                         .GetChildren()
                         .Select(c => CreateCertificateConfig(c))
@@ -182,7 +185,8 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
 
     private TransportAuthenticationConfig CreateTransportAuthentication(IConfigurationSection section)
     {
-        return new TransportAuthenticationConfig() {
+        return new TransportAuthenticationConfig()
+        {
             Mode = section[nameof(TransportAuthenticationConfig.Mode)],
             ClientCertificate = CreateCertificateConfig(section.GetSection(nameof(TransportAuthenticationConfig.ClientCertificate)))
         };

@@ -5,22 +5,22 @@ using System;
 using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 
-using Microsoft.AspNetCore.Mvc;
-
 namespace Yarp.ReverseProxy.Configuration;
 
 public sealed record TunnelAuthenticationConfig
 {
     public string? Mode { get; init; }
 
-    // TODO
-    public List<CertificateConfig> ClientCertificates { get; init; } = new List<CertificateConfig>();
+    public List<CertificateConfig> ClientCertificates { get; init; } = [];
 
-    // TODO: specify X509Certificate: borrow form kestrel??
+    public CertificateConfig? ClientCertificate { get; init; }
 
-    // for in-memory configuration
+    /// <summary>
+    /// for in-memory configuration
+    /// </summary>
     public X509CertificateCollection? ClientCertifiacteCollection { get; init; }
 
+    /// <inheritdoc/>
     public bool Equals(TunnelAuthenticationConfig? other)
     {
         if (other is null)
@@ -29,13 +29,28 @@ public sealed record TunnelAuthenticationConfig
         }
 
         {
+            if (ClientCertificate is null && other.ClientCertificate is null)
+            {
+                // OK
+            }
+            if (ClientCertificate is null || other.ClientCertificate is null)
+            {
+                return false;
+            }
+            if (!ClientCertificate.Equals(other.ClientCertificate))
+            {
+                return false;
+            }
+        }
+
+        {
             if (ClientCertificates.Count != other.ClientCertificates.Count)
             {
                 return false;
             }
-            for (var i = 0; i < ClientCertificates.Count; i++)
+            for (var index = 0; index < ClientCertificates.Count; index++)
             {
-                if (!ClientCertificates[i].Equals(other.ClientCertificates[i]))
+                if (!ClientCertificates[index].Equals(other.ClientCertificates[index]))
                 {
                     return false;
                 }
@@ -45,7 +60,6 @@ public sealed record TunnelAuthenticationConfig
         {
             if (ClientCertifiacteCollection is null && other.ClientCertifiacteCollection is null)
             {
-                return true;
             }
 
             if (ClientCertifiacteCollection is null || other.ClientCertifiacteCollection is null)
@@ -53,23 +67,37 @@ public sealed record TunnelAuthenticationConfig
                 return false;
             }
 
-            if (ClientCertifiacteCollection != other.ClientCertifiacteCollection)
+            for (var index = 0; index < ClientCertificates.Count; index++)
             {
-                return false;
+                if (!ClientCertifiacteCollection[index].Equals(other.ClientCertifiacteCollection[index]))
+                {
+                    return false;
+                }
             }
         }
 
         return true;
     }
+
+    /// <inheritdoc/>
     public override int GetHashCode()
     {
         var hash = new HashCode();
-        hash.Add(ClientCertificates.Count);
-        for (var i = 0; i < ClientCertificates.Count; i++)
+        foreach (var certificateConfig in ClientCertificates)
         {
-            hash.Add(ClientCertificates[i]);
+            hash.Add(certificateConfig);
+        }
+        if (ClientCertificate is { })
+        {
+            hash.Add(ClientCertificate);
+        }
+        if (ClientCertifiacteCollection is { })
+        {
+            foreach (var certificate in ClientCertifiacteCollection)
+            {
+                hash.Add(certificate.GetSerialNumber());
+            }
         }
         return hash.ToHashCode();
     }
-
 }

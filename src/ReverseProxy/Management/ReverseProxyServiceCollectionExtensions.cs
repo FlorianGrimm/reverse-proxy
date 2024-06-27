@@ -57,7 +57,7 @@ public static class ReverseProxyServiceCollectionExtensions
             .AddHttpSysDelegation()
             .AddDestinationResolver()
             .AddProxy()
-            .AddCertificateConfig();
+            ;
 
         services.TryAddSingleton<ProxyEndpointFactory>();
 
@@ -78,6 +78,7 @@ public static class ReverseProxyServiceCollectionExtensions
         {
             throw new ArgumentNullException(nameof(config));
         }
+        (builder as ReverseProxyBuilder)?.SetConfiguration(config);
 
         builder.Services.AddSingleton<IProxyConfigProvider>(sp =>
         {

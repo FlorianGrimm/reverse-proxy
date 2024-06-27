@@ -1,14 +1,20 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Transport;
+using Yarp.ReverseProxy.Utilities;
 
 namespace Microsoft.AspNetCore.Builder;
 
@@ -26,33 +32,42 @@ public static class WebHostBuilderExtensions
     ///        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
     ///        .UseTunnelTransport();
     /// </example>
-    public static IReverseProxyBuilder UseTunnelTransport(
+    public static IReverseProxyBuilder AddTunnelTransport(
         this IReverseProxyBuilder builder,
-        Action<TransportTunnelHttp2Options>? configureTunnelHttp2 = null,
-        Action<TransportTunnelWebSocketOptions>? configureTunnelWebSocket = null
+        Action<TransportTunnelHttp2Options>? configureTunnelHttp2 = default,
+        Action<TransportTunnelWebSocketOptions>? configureTunnelWebSocket = default
         )
     {
-        builder.Services.AddSingleton<IConnectionListenerFactory, TransportTunnelHttp2ConnectionListenerFactory>();
-        builder.Services.AddSingleton<IConnectionListenerFactory, TransportTunnelWebSocketConnectionListenerFactory>();
-        builder.Services.AddSingleton<TransportTunnelHttp2Authentication>();
-        builder.Services.AddSingleton<TransportTunnelWebSocketAuthentication>();
-        builder.Services.AddSingleton<ITunnelChangeListener, TransportTunnelConnectionChangeListener>();
+        var services = builder.Services
+            .AddSingleton<ITunnelChangeListener, TransportTunnelConnectionChangeListener>();
+        services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
+        services.TryAddSingleton<CertificatePathWatcher>();
+
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelHttp2ConnectionListenerFactory>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelWebSocketConnectionListenerFactory>());
+
+        services.AddSingleton<TransportTunnelHttp2Authentication>()
+            .TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationCertificate>());
+
+        services.AddSingleton<TransportTunnelWebSocketAuthentication>()
+            .TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationCertificate>());
 
         if (configureTunnelHttp2 is not null)
         {
-            builder.Services.Configure(configureTunnelHttp2);
+            _ = builder.Services.Configure(configureTunnelHttp2);
         }
 
         if (configureTunnelWebSocket is not null)
         {
-            builder.Services.Configure(configureTunnelWebSocket);
+            _ = builder.Services.Configure(configureTunnelWebSocket);
         }
 
-        builder.Services.Configure<KestrelServerOptions>(configureTransportTunnels);
+        _ = builder.Services.Configure<KestrelServerOptions>(ConfigureTransportTunnels);
+
         return builder;
     }
 
-    private static void configureTransportTunnels(KestrelServerOptions options)
+    private static void ConfigureTransportTunnels(KestrelServerOptions options)
     {
         var proxyConfigManager = options.ApplicationServices.GetRequiredService<ProxyConfigManager>();
         var tunnels = proxyConfigManager.GetTransportTunnels();
@@ -75,5 +90,36 @@ public static class WebHostBuilderExtensions
                 continue;
             }
         }
+    }
+
+    public static IReverseProxyBuilder AddTunnelTransportAuthenticationCertificate(
+        this IReverseProxyBuilder builder,
+        Action<CertificateConfigOptions>? configureCertificateConfigOptions = default,
+        IConfiguration? configuration = default
+        )
+    {
+        if (configuration is null
+            && builder is ReverseProxyBuilder reverseProxyBuilder)
+        {
+            configuration = reverseProxyBuilder.GetConfiguration();
+        }
+
+        {
+            var optionsBuilder = builder.Services.AddOptions<CertificateConfigOptions>();
+            if (configuration is { })
+            {
+                optionsBuilder.Configure((options) =>
+                {
+                    options.Bind(configuration.GetSection(CertificateConfigOptions.SectionName));
+                });
+            }
+
+            if (configureCertificateConfigOptions is { })
+            {
+                optionsBuilder.Configure(configureCertificateConfigOptions);
+            }
+        }
+
+        return builder;
     }
 }

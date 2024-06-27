@@ -1,16 +1,9 @@
-using System;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.ObjectPool;
 
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Forwarder;
@@ -22,16 +15,16 @@ internal sealed class TunnelHTTP2HttpClientFactory
     : ITransportHttpClientFactorySelector
 {
     private readonly ConcurrentDictionary<string, TunnelHTTP2HttpClientFactoryForCluster> _tunnelHTTP2HttpClientFactoryBoundByClusterId = new();
-    private readonly UnShortCitcuitOnceProxyConfigManager _unShortCitcuitOnceProxyConfigManager;
+    private readonly UnShortCitcuitProxyConfigManager _proxyConfigManagerLazy;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
     private readonly ILogger _logger;
 
     public TunnelHTTP2HttpClientFactory(
-        UnShortCitcuitOnceProxyConfigManager unShortCitcuitOnceProxyConfigManager,
+        UnShortCitcuitProxyConfigManager proxyConfigManagerLazy,
         TunnelConnectionChannelManager tunnelConnectionChannelManager,
         ILogger<TunnelHTTP2HttpClientFactory> logger)
     {
-        _unShortCitcuitOnceProxyConfigManager = unShortCitcuitOnceProxyConfigManager;
+        _proxyConfigManagerLazy = proxyConfigManagerLazy;
         _tunnelConnectionChannelManager = tunnelConnectionChannelManager;
         _logger = logger;
     }
@@ -49,7 +42,7 @@ internal sealed class TunnelHTTP2HttpClientFactory
             if (!_tunnelHTTP2HttpClientFactoryBoundByClusterId.TryGetValue(context.ClusterId, out var result))
             {
                 result = new TunnelHTTP2HttpClientFactoryForCluster(
-                    _unShortCitcuitOnceProxyConfigManager.GetService(),
+                    _proxyConfigManagerLazy.GetService(),
                     _tunnelConnectionChannelManager,
                     context.ClusterId,
                     _logger);

@@ -32,8 +32,18 @@ Export-Certificate -FilePath "localhostclient2.cer" -Cert $cert2 -Type CERT
 
 #
 
-<#
-$cert1 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new('.\localhostclient1.cer')
-$cert1 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new('.\localhostclient1.pfx')
-$cert1.PublicKey.Oid.Value
-#>
+<# #>
+[string] $FullName = (dir '.\localhostclient1.cer').FullName
+$cert1 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($FullName)
+
+[string] $FullName = (dir '.\localhostclient1.pfx').FullName
+$cert1 = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($FullName, 'testPassword1', [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet)
+
+$cert1.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pkcs12, 'testPassword1')
+'.\localhostclient1.p12'
+
+$cert1 | gm
+
+#$cert1.PublicKey.Oid.Value
+
+<# #>

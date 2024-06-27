@@ -1,12 +1,14 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-
-//using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 using Yarp.ReverseProxy.Configuration;
 
@@ -28,13 +30,16 @@ public interface ICertificateConfigLoader
 
 internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
 {
-    private readonly IHostEnvironment _hostEnvironment;
     private readonly ILogger<CertificateConfigLoader> _logger;
+    private readonly string _certificateRoot;
 
-    public CertificateConfigLoader(IHostEnvironment hostEnvironment, ILogger<CertificateConfigLoader> logger)
+    public CertificateConfigLoader(
+        IOptions<CertificateConfigOptions> options,
+        IHostEnvironment hostEnvironment,
+        ILogger<CertificateConfigLoader> logger)
     {
-        _hostEnvironment = hostEnvironment;
         _logger = logger;
+        _certificateRoot = CertificateConfigOptions.GetCertificateRoot(options, hostEnvironment);
     }
 
     public (X509Certificate2?, X509Certificate2Collection?) LoadCertificate(CertificateConfig? certInfo, string name, bool needPrivateKey)
@@ -48,20 +53,27 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
         {
             throw new InvalidOperationException($"Multiple CertificateSources ({name})");
         }
-        else if (certInfo.IsFileCert)
+        else if (certInfo.IsFileCert && certInfo.Path is { Length: > 0 } certInfoPath)
         {
-            var certificatePath = Path.Combine(_hostEnvironment.ContentRootPath, certInfo.Path!);
+            var certificatePath = Path.Combine(_certificateRoot, certInfoPath);
+            if (!File.Exists(certificatePath))
+            {
+                return (null, null);
+            }
             var fullChain = new X509Certificate2Collection();
             fullChain.ImportFromPemFile(certificatePath);
 
-            if (certInfo.KeyPath != null)
+            if (certInfo.KeyPath is { Length: > 0 })
             {
-                var certificateKeyPath = Path.Combine(_hostEnvironment.ContentRootPath, certInfo.KeyPath);
+                var certificateKeyPath = Path.Combine(_certificateRoot, certInfo.KeyPath);
                 var certificate = GetCertificate(certificatePath);
 
                 if (certificate != null)
                 {
-                    certificate = LoadCertificateKey(certificate, certificateKeyPath, certInfo.Password);
+                    if (File.Exists(certificateKeyPath))
+                    {
+                        certificate = LoadCertificateKey(certificate, certificateKeyPath, certInfo.Password);
+                    }
                 }
                 else
                 {
@@ -82,7 +94,7 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
                 throw new InvalidOperationException("The provided key file is missing or invalid.");
             }
 
-            return (new X509Certificate2(Path.Combine(_hostEnvironment.ContentRootPath, certInfo.Path!), certInfo.Password), fullChain);
+            return (new X509Certificate2(certificatePath, certInfo.Password), fullChain);
         }
         else if (certInfo.IsStoreCert)
         {

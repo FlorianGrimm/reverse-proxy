@@ -1,7 +1,9 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
@@ -89,7 +91,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                     }
                     finally
                     {
-                        _createHttpMessageInvokerLock.Release();
+                        _ = _createHttpMessageInvokerLock.Release();
                     }
                 }
 
@@ -107,7 +109,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                     };
 
                     {
-                        await _transportTunnelHttp2Authentication.ConfigureHttpRequestMessageAsync(_tunnel, requestMessage);
+                        _ = await _transportTunnelHttp2Authentication.ConfigureHttpRequestMessageAsync(_tunnel, requestMessage);
                         if (_options.ConfigureHttpRequestMessageAsync is { } configure)
                         {
                             await configure(config, requestMessage);
@@ -123,7 +125,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                         requestMessage.Content = httpContent;
                         response = await _httpMessageInvoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
                         innerConnection.HttpResponseMessage = response;
-                        var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                        var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
                         innerConnection.Input = PipeReader.Create(responseStream);
                         var result = _connectionCollection.AddInnerConnection(innerConnection, currentConnectionlock);
 
@@ -179,11 +181,11 @@ internal sealed class TransportTunnelHttp2ConnectionListener
 
         if (config.Authentication.ClientCertifiacteCollection is { } certificates)
         {
-            var clientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= new();
+            var clientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= [];
             clientCertificates.AddRange(certificates);
         }
 
-        await _transportTunnelHttp2Authentication.ConfigureSocketsHttpHandlerAsync(_tunnel, socketsHttpHandler);
+        _ = await _transportTunnelHttp2Authentication.ConfigureSocketsHttpHandlerAsync(_tunnel, socketsHttpHandler);
 
         // allow the user to configure the handler
         if (_options.ConfigureSocketsHttpHandlerAsync is { } configure)
@@ -209,6 +211,8 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         {
             await Task.WhenAll(tasks);
         }
+
+        System.GC.SuppressFinalize(this);
     }
 
     public ValueTask UnbindAsync(CancellationToken cancellationToken = default)
@@ -289,14 +293,14 @@ internal sealed class TransportTunnelHttp2ConnectionListener
             _tunnelResumeConnectTunnel(logger, tunnelId, url, transport, error);
         }
 
-        private static readonly Action<ILogger, string, Exception?> _AcceptFailed = LoggerMessage.Define<string>(
+        private static readonly Action<ILogger, string, Exception?> _acceptFailed = LoggerMessage.Define<string>(
             LogLevel.Information,
             EventIds.TransportHttp2AcceptFailed,
             "Transport Http2 Accept failed: {endpoint}.");
 
         public static void AcceptFailed(ILogger logger, string url, Exception? error)
         {
-            _AcceptFailed(logger, url, error);
+            _acceptFailed(logger, url, error);
         }
         /*
         private static readonly Action<ILogger, string, string, Exception?> _x = LoggerMessage.Define<string, string>(

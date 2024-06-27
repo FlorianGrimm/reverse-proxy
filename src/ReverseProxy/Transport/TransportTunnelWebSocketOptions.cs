@@ -1,5 +1,9 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Net.WebSockets;
+
 using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Transport;

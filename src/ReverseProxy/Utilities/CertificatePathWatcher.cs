@@ -1,19 +1,20 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
+
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.FileProviders.Physical;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.FileProviders.Physical;
 using Microsoft.Extensions.Hosting;
-
 using Microsoft.Extensions.Logging;
-
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+
 using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Utilities;
@@ -36,30 +37,38 @@ public sealed partial class CertificatePathWatcher : IDisposable
     private ConfigurationReloadToken _reloadToken = new();
     private bool _disposed;
 
-    public CertificatePathWatcher(IHostEnvironment hostEnvironment, ILogger<CertificatePathWatcher> logger)
+    public CertificatePathWatcher(
+        IOptions<CertificateConfigOptions> options,
+        IHostEnvironment hostEnvironment,
+        ILogger<CertificatePathWatcher> logger)
         : this(
-            hostEnvironment.ContentRootPath,
+            CertificateConfigOptions.GetCertificateRoot(options, hostEnvironment),
             logger,
-            dir => Directory.Exists(dir)
-                ? new PhysicalFileProvider(dir, ExclusionFilters.None)
-                {
-                    // Force polling because it monitors both symlinks and their targets,
-                    // whereas the non-polling watcher only monitors the symlinks themselves
-                    UseActivePolling = true,
-                    UsePollingFileWatcher = true,
-                }
-                : null)
-    {
-    }
+            null)
+    { }
+
+    private static IFileProvider? CreatePhysicalFileProvider(string directoryPath)
+        => (Directory.Exists(directoryPath)
+            ? new PhysicalFileProvider(directoryPath, ExclusionFilters.None)
+            {
+                // Force polling because it monitors both symlinks and their targets,
+                // whereas the non-polling watcher only monitors the symlinks themselves
+                UseActivePolling = true,
+                UsePollingFileWatcher = true,
+            }
+            : null);
 
     /// <remarks>
     /// For testing.
     /// </remarks>
-    internal CertificatePathWatcher(string contentRootPath, ILogger<CertificatePathWatcher> logger, Func<string, IFileProvider?> fileProviderFactory)
+    internal CertificatePathWatcher(
+        string contentRootPath,
+        ILogger<CertificatePathWatcher> logger,
+        Func<string, IFileProvider?>? fileProviderFactory = null)
     {
         _contentRootDir = contentRootPath;
         _logger = logger;
-        _fileProviderFactory = fileProviderFactory;
+        _fileProviderFactory = fileProviderFactory ?? CreatePhysicalFileProvider;
     }
 
     /// <summary>

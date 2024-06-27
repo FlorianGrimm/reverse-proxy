@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using System;
+
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Yarp.ReverseProxy.Management;
@@ -24,4 +26,8 @@ internal sealed class ReverseProxyBuilder : IReverseProxyBuilder
     /// Gets the services collection.
     /// </summary>
     public IServiceCollection Services { get; }
+
+    private IConfiguration? _configuration;
+    internal void SetConfiguration(IConfiguration configuration) { _configuration = configuration; }
+    internal IConfiguration? GetConfiguration() { return _configuration; }
 }

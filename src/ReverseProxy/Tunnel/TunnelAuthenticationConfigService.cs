@@ -1,8 +1,10 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 
-using Yarp.ReverseProxy.Configuration;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
@@ -17,15 +19,26 @@ internal sealed class TunnelAuthenticationConfigService
         _services = listTunnelAuthenticationConfigService.ToList();
     }
 
-    public bool Configure(SocketsHttpHandler socketsHttpHandler, TunnelAuthenticationConfig authentication)
+#warning WEICHEI
+    //public bool Configure(SocketsHttpHandler socketsHttpHandler, TunnelAuthenticationConfig authentication)
+    //{
+    //    foreach (var service in _services)
+    //    {
+    //        if (service.Configure(socketsHttpHandler, authentication))
+    //        {
+    //            return true;
+    //        }
+    //    }
+    //    return false;
+    //}
+
+    public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)
     {
         foreach (var service in _services)
         {
-            if (service.Configure(socketsHttpHandler, authentication))
-            {
-                return true;
-            }
+            service.ConfigureKestrelServer(kestrelServerOptions);
         }
-        return false;
     }
+
+
 }

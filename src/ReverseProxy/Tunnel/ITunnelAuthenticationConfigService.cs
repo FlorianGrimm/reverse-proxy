@@ -1,15 +1,14 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
 
-using Yarp.ReverseProxy.Configuration;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
 public interface ITunnelAuthenticationConfigService
 {
-    bool Configure(SocketsHttpHandler socketsHttpHandler, TunnelAuthenticationConfig authentication);
+#warning WEICHEI guess this is wrong
+    //bool Configure(SocketsHttpHandler socketsHttpHandler, TunnelAuthenticationConfig authentication);
+
+    void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions);
 }

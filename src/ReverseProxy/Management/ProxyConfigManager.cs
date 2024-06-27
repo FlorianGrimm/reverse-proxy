@@ -1292,7 +1292,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     }
 }
 
-internal sealed class UnShortCitcuitOnceProxyConfigManager(IServiceProvider serviceProvider)
+internal sealed class UnShortCitcuitProxyConfigManager(IServiceProvider serviceProvider)
         : UnShortCircuitRequiredService<ProxyConfigManager>(serviceProvider)
 {
 }

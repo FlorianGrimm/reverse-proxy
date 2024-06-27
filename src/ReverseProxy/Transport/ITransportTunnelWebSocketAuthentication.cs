@@ -1,5 +1,6 @@
-using System;
-using System.Net.Http;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Net.WebSockets;
 using System.Threading.Tasks;
 

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -17,16 +20,16 @@ internal sealed class TunnelWebSocketHttpClientFactory
     : ITransportHttpClientFactorySelector
 {
     private readonly ConcurrentDictionary<string, TunnelWebSocketHttpClientFactoryForCluster> _tunnelWebSocketHttpClientFactoryBoundByClusterId = new();
-    private readonly UnShortCitcuitOnceProxyConfigManager _unShortCitcuitOnceProxyConfigManager;
+    private readonly UnShortCitcuitProxyConfigManager _proxyConfigManagerLazy;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
     private readonly ILogger _logger;
 
     public TunnelWebSocketHttpClientFactory(
-        UnShortCitcuitOnceProxyConfigManager unShortCitcuitOnceProxyConfigManager,
+        UnShortCitcuitProxyConfigManager proxyConfigManagerLazy,
         TunnelConnectionChannelManager tunnelConnectionChannelManager,
         ILogger<TunnelWebSocketHttpClientFactory> logger)
     {
-        _unShortCitcuitOnceProxyConfigManager = unShortCitcuitOnceProxyConfigManager;
+        _proxyConfigManagerLazy = proxyConfigManagerLazy;
         _tunnelConnectionChannelManager = tunnelConnectionChannelManager;
         _logger = logger;
     }
@@ -44,7 +47,7 @@ internal sealed class TunnelWebSocketHttpClientFactory
             if (!_tunnelWebSocketHttpClientFactoryBoundByClusterId.TryGetValue(context.ClusterId, out var result))
             {
                 result = new TunnelWebSocketHttpClientFactoryForCluster(
-                    _unShortCitcuitOnceProxyConfigManager.GetService(),
+                    _proxyConfigManagerLazy.GetService(),
                     _tunnelConnectionChannelManager,
                     context.ClusterId,
                     _logger);

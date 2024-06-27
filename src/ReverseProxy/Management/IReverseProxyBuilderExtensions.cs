@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.Linq;
 
 using Microsoft.AspNetCore.Routing;
@@ -77,7 +78,7 @@ internal static class IReverseProxyBuilderExtensions
     {
         builder.Services.TryAddSingleton<ProxyConfigManager>();
         builder.Services.TryAddSingleton<IProxyStateLookup>(sp => sp.GetRequiredService<ProxyConfigManager>());
-        builder.Services.TryAddSingleton<UnShortCitcuitOnceProxyConfigManager>();
+        builder.Services.TryAddSingleton<UnShortCitcuitProxyConfigManager>();
         return builder;
     }
 
@@ -160,13 +161,6 @@ internal static class IReverseProxyBuilderExtensions
     public static IReverseProxyBuilder AddDestinationResolver(this IReverseProxyBuilder builder)
     {
         builder.Services.TryAddSingleton<IDestinationResolver, NoOpDestinationResolver>();
-        return builder;
-    }
-
-    public static IReverseProxyBuilder AddCertificateConfig(this IReverseProxyBuilder builder)
-    {
-        builder.Services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
-        builder.Services.TryAddSingleton<CertificatePathWatcher>();
         return builder;
     }
 }
