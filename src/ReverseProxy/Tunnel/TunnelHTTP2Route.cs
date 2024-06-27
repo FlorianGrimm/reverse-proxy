@@ -19,6 +19,7 @@ internal sealed class TunnelHTTP2Route : IDisposable
 {
     private readonly UnShortCitcuitProxyConfigManager _proxyConfigManagerLazy;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
+    private readonly TunnelAuthenticationConfigService _tunnelAuthenticationConfigService;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly ILogger _logger;
     private CancellationTokenRegistration? _unRegister;
@@ -27,11 +28,13 @@ internal sealed class TunnelHTTP2Route : IDisposable
     public TunnelHTTP2Route(
         UnShortCitcuitProxyConfigManager proxyConfigManagerLazy,
         TunnelConnectionChannelManager tunnelConnectionChannelManager,
+        TunnelAuthenticationConfigService tunnelAuthenticationConfigService,
         IHostApplicationLifetime lifetime,
         ILogger<TunnelHTTP2Route> logger)
     {
         _proxyConfigManagerLazy = proxyConfigManagerLazy;
         _tunnelConnectionChannelManager = tunnelConnectionChannelManager;
+        _tunnelAuthenticationConfigService = tunnelAuthenticationConfigService;
         _lifetime = lifetime;
         _logger = logger;
 
@@ -81,6 +84,12 @@ internal sealed class TunnelHTTP2Route : IDisposable
             Log.TunnelConnectionChannelNotFound(_logger, clusterId);
             return Results.StatusCode(504);
         }
+
+        if (_tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster))
+        {
+            return Results.StatusCode(401);
+        }
+
 
         using (var ctsRequestAborted = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _cancellationTokenSource.Token))
         {

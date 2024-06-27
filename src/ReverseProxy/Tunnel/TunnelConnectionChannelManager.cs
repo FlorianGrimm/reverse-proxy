@@ -148,16 +148,13 @@ internal sealed class TunnelConnectionRequest()
     {
         using (var l = _lock)
         {
-            // TODO: thinkof should the stream be disposed here? It's not mine. better Abort it?
-            //using (var s = _stream)
-            //{
+            // the stream's owner is not this - so no Dispose here.
             _isDisposed = true;
             if (disposing)
             {
+                _stream = null;
                 _lock = null!;
-                //_stream = null;
             }
-            //}
         }
     }
 

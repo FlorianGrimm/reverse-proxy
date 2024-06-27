@@ -100,8 +100,8 @@ internal static class EventIds
     public static readonly EventId EventWithoutFileCallback = new EventId(92, "EventWithoutFileCallback");
     public static readonly EventId TransportWebSocketAcceptFailed = new EventId(93, "TransportWebSocketAcceptFailed");
     public static readonly EventId TransportHttp2AcceptFailed = new EventId(94, "TransportHttp2AcceptFailed");
-    // public static readonly EventId Z = new EventId(95, "Z");
-    // public static readonly EventId Z = new EventId(96, "Z");
+    public static readonly EventId ClusterAuthenticationSuccess = new EventId(95, "ClusterAuthenticationSuccess");
+    public static readonly EventId ClusterAuthenticationFailed = new EventId(96, "ClusterAuthenticationFailed");
     // public static readonly EventId Z = new EventId(97, "Z");
     // public static readonly EventId Z = new EventId(98, "Z");
     // public static readonly EventId Z = new EventId(99, "Z");
@@ -116,6 +116,5 @@ internal static class EventIds
     // public static readonly EventId Z = new EventId(107, "Z");
     // public static readonly EventId Z = new EventId(108, "Z");
     // public static readonly EventId Z = new EventId(109, "Z");
-
-
+#warning REMOVE before commit
 }

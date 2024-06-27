@@ -48,9 +48,11 @@ public static class WebHostBuilderExtensions
 
         services.AddSingleton<TransportTunnelHttp2Authentication>()
             .TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationCertificate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationAnonymous>());
 
         services.AddSingleton<TransportTunnelWebSocketAuthentication>()
             .TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationCertificate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationAnonymous>());
 
         if (configureTunnelHttp2 is not null)
         {

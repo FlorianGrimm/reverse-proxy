@@ -27,6 +27,7 @@ public static class TunnelExensions
     {
         services.TryAddSingleton<TunnelAuthenticationConfigService>();
         services.TryAddSingleton<ITunnelAuthenticationConfigService, TunnelAuthenticationCertificate>();
+        services.TryAddSingleton<ITunnelAuthenticationConfigService, TunnelAuthenticationAnonymous>();
         services.TryAddSingleton<TunnelConnectionChannelManager>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterChangeListener, TunnelConnectionChannelManager.ClusterChangeListener>());
         services.TryAddSingleton<TransportHttpClientFactorySelector>();
@@ -139,19 +140,18 @@ public static class TunnelExensions
                     {
                         //context.HttpContext.RequestServices
 
-                        if (context.ClientCertificate is not null)
+                        if (context.ClientCertificate is { } clientCertificate)
                         {
-                            // TODO: is this really usefull
                             var claims = new[]
                             {
                                 new Claim(
                                     ClaimTypes.NameIdentifier,
-                                    context.ClientCertificate.Subject,
+                                    clientCertificate.Thumbprint,
                                     ClaimValueTypes.String,
                                     context.Options.ClaimsIssuer),
                                 new Claim(
                                     ClaimTypes.Name,
-                                    context.ClientCertificate.Subject,
+                                    clientCertificate.Thumbprint,
                                     ClaimValueTypes.String,
                                     context.Options.ClaimsIssuer)
                             };
@@ -178,10 +178,6 @@ public static class TunnelExensions
                     policy.RequireAuthenticatedUser();
                 });
             });
-
-        // TODO: this does not enforce that the cluster's cert must match the current cert
-        // adding policy RequireCertificateFor<ClusterId> would prevent dynamic cluster config that uses tunnel
-        // so testing on the Map - Delegate??
 
         return builder;
     }

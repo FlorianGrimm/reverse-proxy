@@ -1,11 +1,13 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.Logging;
@@ -19,7 +21,6 @@ namespace Yarp.ReverseProxy.Tunnel;
 internal class TunnelAuthenticationCertificate
     : ITunnelAuthenticationConfigService
     , IClusterChangeListener
-
 {
     private readonly TunnelAuthenticationCertificateOptions _options;
     private readonly UnShortCitcuitProxyConfigManager _proxyConfigManagerLazy;
@@ -174,4 +175,69 @@ internal class TunnelAuthenticationCertificate
         }
 
     }
+
+    public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
+    {
+        var authentication = cluster.Model.Config.Authentication;
+        if (!ClientCertificateLoader.IsClientCertificate(authentication.Mode)) { return false; }
+
+        var identity = context.User.Identity;
+        if (identity is null) { return false; }
+        if (!(string.Equals(
+            identity.AuthenticationType,
+            Microsoft.AspNetCore.Authentication.Certificate.CertificateAuthenticationDefaults.AuthenticationScheme,
+            System.StringComparison.Ordinal))) { return false; }
+
+        var validCertificatesByCluster = _ValidCertificatesByCluster;
+        // ensure the certificates are loaded
+        if (validCertificatesByCluster is null)
+        {
+            lock (this)
+            {
+                if (_ValidCertificatesByCluster is null)
+                {
+                    LoadCertificates();
+                    validCertificatesByCluster = _ValidCertificatesByCluster;
+                }
+            }
+        }
+        if (validCertificatesByCluster is null) { return false; }
+
+        if (!validCertificatesByCluster.TryGetValue(cluster.ClusterId, out var certificate)) { return false; }
+
+        var result = string.Equals(certificate.Thumbprint, identity.Name, System.StringComparison.Ordinal);
+        if (result)
+        {
+            Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, certificate.Subject);
+        }
+        else
+        {
+            Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, certificate.Subject);
+        }
+        return result;
+    }
+
+    private static class Log
+    {
+        private static readonly Action<ILogger, string, string, Exception?> _clusterAuthenticationSuccess = LoggerMessage.Define<string, string>(
+            LogLevel.Debug,
+            EventIds.ClusterAuthenticationSuccess,
+            "Cluster {clusterId} Authentication success {subject}.");
+
+        public static void ClusterAuthenticationSuccess(ILogger<TunnelAuthenticationCertificate> logger, string clusterId, string subject)
+        {
+            _clusterAuthenticationSuccess(logger, clusterId, subject, null);
+        }
+
+        private static readonly Action<ILogger, string, string, Exception?> _clusterAuthenticationFailed = LoggerMessage.Define<string, string>(
+            LogLevel.Information,
+            EventIds.ClusterAuthenticationFailed,
+            "Cluster {clusterId} Authentication failed {subject}.");
+
+        public static void ClusterAuthenticationFailed(ILogger<TunnelAuthenticationCertificate> logger, string clusterId, string subject)
+        {
+            _clusterAuthenticationFailed(logger, clusterId, subject, null);
+        }
+    }
 }
+

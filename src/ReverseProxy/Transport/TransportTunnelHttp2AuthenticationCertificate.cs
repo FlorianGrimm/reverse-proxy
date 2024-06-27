@@ -2,9 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
@@ -13,7 +11,6 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 
-using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
 
@@ -57,12 +54,9 @@ public sealed class TransportTunnelHttp2AuthenticationCertificate
             return new(false);
         }
 
-#warning HELP pretty please I have no experiences with clientcertificates
-
         try
         {
             {
-                // TODO: bad until it works
                 X509CertificateCollection? srcClientCertifiacteCollection = null;
                 while (srcClientCertifiacteCollection is null)
                 {
@@ -144,7 +138,6 @@ public sealed class TransportTunnelHttp2AuthenticationCertificate
                 sslClientCertificates.AddRange(srcClientCertifiacteCollection);
             }
 
-            // for in Memory Configuration
             {
                 if (config.Authentication.ClientCertifiacteCollection is { } srcClientCertifiacteCollection)
                 {
@@ -202,53 +195,5 @@ public sealed class TransportTunnelHttp2AuthenticationCertificate
         // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
-    }
-}
-
-public sealed class KeyOfCertificateConfigEqualityComparer : IEqualityComparer<KeyOfCertificateConfig>
-{
-    private static KeyOfCertificateConfigEqualityComparer? _comparer;
-    public static KeyOfCertificateConfigEqualityComparer Comparer => _comparer ??= new();
-
-    public bool Equals(KeyOfCertificateConfig? x, KeyOfCertificateConfig? y)
-    {
-        if (ReferenceEquals(x, y)) { return true; }
-        if (x is null || y is null) { return false; }
-        return x.Equals(y);
-    }
-
-    public int GetHashCode([DisallowNull] KeyOfCertificateConfig obj) => obj.GetHashCode();
-}
-
-public sealed class KeyOfCertificateConfig(List<CertificateConfig> list)
-    : IEquatable<KeyOfCertificateConfig>
-{
-    private readonly CertificateConfig[] _items = [.. list];
-
-    /// <inheritdoc/>
-    public override bool Equals(object? obj) => obj is KeyOfCertificateConfig other && Equals(other);
-
-    /// <inheritdoc/>
-    public bool Equals(KeyOfCertificateConfig? other)
-    {
-        if (other is null) { return false; }
-
-        if (_items.Length != other._items.Length) { return false; }
-        for (var idx = 0; idx < _items.Length; idx++)
-        {
-            if (!_items[idx].Equals(other._items[idx])) { return false; }
-        }
-        return true;
-    }
-
-    /// <inheritdoc/>
-    public override int GetHashCode()
-    {
-        HashCode result = new();
-        for (var idx = 0; idx < _items.Length; idx++)
-        {
-            result.Add(_items[idx]);
-        }
-        return result.ToHashCode();
     }
 }

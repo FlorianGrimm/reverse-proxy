@@ -25,7 +25,6 @@ internal class Program
     {
         try
         {
-
             Console.Out.WriteLine("Starting Servers");
             Thread.CurrentThread.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(1033);
             Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(1033);
@@ -98,18 +97,31 @@ internal class Program
                         certificateAuthenticationOptions.RevocationMode = X509RevocationMode.NoCheck;
                         certificateAuthenticationOptions.ValidateCertificateUse = false;
                         certificateAuthenticationOptions.ValidateValidityPeriod = false;
+                        certificateAuthenticationOptions.RevocationFlag = X509RevocationFlag.EndCertificateOnly;
+
                     },
                     configureTunnelAuthenticationCertificateOptions: (tunnelAuthenticationCertificateOptions) =>
                     {
                         tunnelAuthenticationCertificateOptions.IgnoreSslPolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
                         tunnelAuthenticationCertificateOptions.IsCertificateValid = (certificate, chain, errors, result) =>
                         {
-                            Console.Out.WriteLine($"certificate:{certificate?.Subject} chain:{chain != null} errors:{errors} result:{result}");
-                            return result;
+                            //Console.Out.WriteLine($"certificate:{certificate?.Subject} chain:{chain != null} errors:{errors} result:{result}");
+                            //return result;
+                            return true;
                         };
                     })
                 ;
-
+            builder.WebHost.ConfigureKestrel(
+                (kestrelServerOptions) =>
+                {
+                    kestrelServerOptions.ConfigureHttpsDefaults(
+                        httpsOptions =>
+                        {
+                            httpsOptions.AllowAnyClientCertificate();
+                        }
+                        );
+                }
+                );
             var app = builder.Build();
 
             app.UseWebSockets();
@@ -130,8 +142,8 @@ internal class Program
 
             app.MapControllers();
             app.MapReverseProxy(
-                configureTunnelHTTP2: (endpoint) => endpoint.RequireAuthorization("RequireCertificate"),
-                configureTunnelWebSocket: (endpoint) => endpoint.RequireAuthorization("RequireCertificate")
+                //configureTunnelHTTP2: (endpoint) => endpoint.RequireAuthorization("RequireCertificate"),
+                //configureTunnelWebSocket: (endpoint) => endpoint.RequireAuthorization("RequireCertificate")
                 );
             app.MapGet("/Frontend", (HttpContext context) =>
             {
@@ -151,40 +163,9 @@ internal class Program
 
             builder.Services.AddReverseProxy()
                 .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-                .AddTunnelTransport(
-                    configureTunnelHttp2: (options) =>
-                    {
-                        options.MaxConnectionCount = 1;
-                    },
-                    configureTunnelWebSocket: (options) =>
-                    {
-                        options.MaxConnectionCount = 0;
-                    }
-                )
+                .AddTunnelTransport()
                 .AddTunnelTransportAuthenticationCertificate()
                 ;
-#if false
-            configureTunnelHttp2: (options) =>
-            {
-                options.ConfigureSocketsHttpHandlerAsync = (tunelConfig, socketsHttpHandler) =>
-                {
-#warning HELP pretty please I have no experiences with clientcertificates
-                    var clientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= new();
-                    clientCertificates.Add(certificate);
-                    return ValueTask.CompletedTask;
-                };
-            },
-            configureTunnelWebSocket: (options) =>
-            {
-                options.ConfigureClientWebSocket = (tunelConfig, webSocketOptions) =>
-                {
-#warning HELP pretty please I have no experiences with clientcertificates
-                    var clientCertificates = webSocketOptions.Options.ClientCertificates ??= new();
-                    clientCertificates.Add(certificate);
-                };
-            })
-        ;
-#endif
 
             var app = builder.Build();
             app.UseWebSockets();
