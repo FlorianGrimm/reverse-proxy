@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Linq;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -38,7 +39,9 @@ internal sealed class TunnelAuthenticationWindows
         if (user.Identity is not { } identity) { return false; }
 
         _logger.LogInformation("AuthenticationType: {AuthenticationType}", user.Identity.AuthenticationType);
-        return string.Equals(user.Identity.AuthenticationType, "Negotiate", StringComparison.OrdinalIgnoreCase);
+        if (!string.Equals(user.Identity.AuthenticationType, "Negotiate", StringComparison.OrdinalIgnoreCase)) { return false; }
+        if (cluster.Model.Config.Authentication.UserNames is not { } userNames) { return false; }
+        return userNames.Contains(identity.Name);
     }
 }
 

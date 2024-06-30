@@ -11,6 +11,9 @@ public sealed record TransportAuthenticationConfig
 
     public CertificateConfig? ClientCertificate { get; init; }
 
+#warning TODO: HERE missing config
+    public string[]? UserNames { get; init; }
+
     public bool Equals(TransportAuthenticationConfig? other)
     {
         if (other is null)
