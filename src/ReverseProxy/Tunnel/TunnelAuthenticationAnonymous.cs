@@ -10,7 +10,7 @@ using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
-internal class TunnelAuthenticationAnonymous
+internal sealed class TunnelAuthenticationAnonymous
     : ITunnelAuthenticationConfigService
 {
     public TunnelAuthenticationAnonymous()

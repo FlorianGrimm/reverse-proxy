@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Security.Claims;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Authentication.Certificate;
@@ -25,23 +24,23 @@ public static class TunnelExensions
 {
     public static IServiceCollection AddTunnelServices(this IServiceCollection services)
     {
-        services.TryAddSingleton<TunnelAuthenticationConfigService>();
-        services.TryAddSingleton<ITunnelAuthenticationConfigService, TunnelAuthenticationCertificate>();
-        services.TryAddSingleton<ITunnelAuthenticationConfigService, TunnelAuthenticationAnonymous>();
         services.TryAddSingleton<TunnelConnectionChannelManager>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterChangeListener, TunnelConnectionChannelManager.ClusterChangeListener>());
+
+        services.TryAddSingleton<TunnelHTTP2Route>();
+        services.TryAddSingleton<TunnelWebSocketRoute>();
+
         services.TryAddSingleton<TransportHttpClientFactorySelector>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportHttpClientFactorySelector, TunnelHTTP2HttpClientFactory>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportHttpClientFactorySelector, TunnelWebSocketHttpClientFactory>());
-        services.TryAddSingleton<TunnelHTTP2Route>();
-        services.TryAddSingleton<TunnelWebSocketRoute>();
+
+        services.TryAddSingleton<TunnelAuthenticationConfigService>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationConfigService, TunnelAuthenticationAnonymous>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationConfigService, TunnelAuthenticationCertificate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationConfigService, TunnelAuthenticationWindows>());
+
         services.TryAddSingleton<CertificatePathWatcher>();
         services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
-        return services;
-    }
-
-    public static IServiceCollection AddTunnelServicesCertificate(this IServiceCollection services)
-    {
         return services;
     }
 
@@ -85,6 +84,7 @@ public static class TunnelExensions
         Action<CertificateAuthenticationOptions>? configureCertificateAuthenticationOptions = default,
         Action<TunnelAuthenticationCertificateOptions>? configureTunnelAuthenticationCertificateOptions = default,
         Action<CertificateConfigOptions>? configureCertificateConfigOptions = default,
+        Action<KestrelServerOptions>? configureKestrelServerOptions = default,
         IConfiguration? configuration = default
         )
     {
@@ -126,59 +126,80 @@ public static class TunnelExensions
         }
 
         _ = builder.Services.Configure<KestrelServerOptions>(kestrelServerOptions =>
+        {
+            var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<TunnelAuthenticationConfigService>();
+            tunnelAuthenticationConfigService.ConfigureKestrelServer(kestrelServerOptions);
+
+            if (configureKestrelServerOptions is { })
             {
-                var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<TunnelAuthenticationConfigService>();
-                tunnelAuthenticationConfigService.ConfigureKestrelServer(kestrelServerOptions);
-            });
+                configureKestrelServerOptions(kestrelServerOptions);
+            }
+        });
 
         var authenticationBuilder = builder.Services.AddAuthentication();
-        _ = authenticationBuilder.AddCertificate(options =>
+        _ = authenticationBuilder.AddCertificate(
+            authenticationScheme: CertificateAuthenticationDefaults.AuthenticationScheme,
+            configureOptions: certificateAuthenticationOptions =>
             {
-                options.Events = new CertificateAuthenticationEvents
+                certificateAuthenticationOptions.Events ??= new CertificateAuthenticationEvents();
+                certificateAuthenticationOptions.Events.OnCertificateValidated = (context) =>
                 {
-                    OnCertificateValidated = context =>
+                    if (context.ClientCertificate is not null)
                     {
-                        //context.HttpContext.RequestServices
-
-                        if (context.ClientCertificate is { } clientCertificate)
-                        {
-                            var claims = new[]
-                            {
-                                new Claim(
-                                    ClaimTypes.NameIdentifier,
-                                    clientCertificate.Thumbprint,
-                                    ClaimValueTypes.String,
-                                    context.Options.ClaimsIssuer),
-                                new Claim(
-                                    ClaimTypes.Name,
-                                    clientCertificate.Thumbprint,
-                                    ClaimValueTypes.String,
-                                    context.Options.ClaimsIssuer)
-                            };
-                            context.Principal = new ClaimsPrincipal(
-                                new ClaimsIdentity(claims, context.Scheme.Name));
-
-                            context.Success();
-                        }
-                        return Task.CompletedTask;
+                        context.Success();
                     }
+                    else
+                    {
+                        context.NoResult();
+                    }
+                    return Task.CompletedTask;
                 };
                 if (configureCertificateAuthenticationOptions is { } configure)
                 {
-                    configure(options);
+                    configure(certificateAuthenticationOptions);
                 }
-            });
-
-        builder.Services.AddAuthorization(
-            options =>
-            {
-                options.AddPolicy("RequireCertificate", policy =>
-                {
-                    policy.AuthenticationSchemes.Add(CertificateAuthenticationDefaults.AuthenticationScheme);
-                    policy.RequireAuthenticatedUser();
-                });
             });
 
         return builder;
     }
+
+    /*
+    public static IReverseProxyBuilder AddTunnelServicesAuthenticationWindows(
+        this IReverseProxyBuilder builder,
+        Action<NegotiateOptions>? configureNegotiateOptions = default,
+        Action<KestrelServerOptions>? configureKestrelServerOptions = default,
+        IConfiguration? configuration = default
+        )
+    {
+        if (configuration is null
+            && builder is ReverseProxyBuilder reverseProxyBuilder)
+        {
+            configuration = reverseProxyBuilder.GetConfiguration();
+        }
+
+        _ = builder.Services.Configure<KestrelServerOptions>(kestrelServerOptions =>
+            {
+                var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<TunnelAuthenticationConfigService>();
+                tunnelAuthenticationConfigService.ConfigureKestrelServer(kestrelServerOptions);
+
+                if (configureKestrelServerOptions is { })
+                {
+                    configureKestrelServerOptions(kestrelServerOptions);
+                }
+            });
+
+        var authenticationBuilder = builder.Services.AddAuthentication();
+        _ = authenticationBuilder.AddNegotiate(
+            authenticationScheme: NegotiateDefaults.AuthenticationScheme,
+            configureOptions: negotiateOptions =>
+            {
+                if (configureNegotiateOptions is { })
+                {
+                    configureNegotiateOptions(negotiateOptions);
+                }
+            });
+
+        return builder;
+    }
+    */
 }

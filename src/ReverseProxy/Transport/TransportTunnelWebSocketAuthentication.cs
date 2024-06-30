@@ -10,7 +10,7 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Transport;
 
-public sealed class TransportTunnelWebSocketAuthentication(
+internal sealed class TransportTunnelWebSocketAuthentication(
         IEnumerable<ITransportTunnelWebSocketAuthentication> services
         ) : ITransportTunnelWebSocketAuthentication
 {

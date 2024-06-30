@@ -40,31 +40,34 @@ public static class WebHostBuilderExtensions
     {
         var services = builder.Services
             .AddSingleton<ITunnelChangeListener, TransportTunnelConnectionChangeListener>();
-        services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
-        services.TryAddSingleton<CertificatePathWatcher>();
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelHttp2ConnectionListenerFactory>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelWebSocketConnectionListenerFactory>());
 
         services.AddSingleton<TransportTunnelHttp2Authentication>()
-            .TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationCertificate>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationAnonymous>());
+            .TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationAnonymous>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationCertificate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationWindows>());
 
         services.AddSingleton<TransportTunnelWebSocketAuthentication>()
-            .TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationCertificate>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationAnonymous>());
+            .TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationAnonymous>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationCertificate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationWindows>());
+
+        services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
+        services.TryAddSingleton<CertificatePathWatcher>();
 
         if (configureTunnelHttp2 is not null)
         {
-            _ = builder.Services.Configure(configureTunnelHttp2);
+            _ = services.Configure(configureTunnelHttp2);
         }
 
         if (configureTunnelWebSocket is not null)
         {
-            _ = builder.Services.Configure(configureTunnelWebSocket);
+            _ = services.Configure(configureTunnelWebSocket);
         }
 
-        _ = builder.Services.Configure<KestrelServerOptions>(ConfigureTransportTunnels);
+        _ = services.Configure<KestrelServerOptions>(ConfigureTransportTunnels);
 
         return builder;
     }
@@ -110,7 +113,7 @@ public static class WebHostBuilderExtensions
             var optionsBuilder = builder.Services.AddOptions<CertificateConfigOptions>();
             if (configuration is { })
             {
-                optionsBuilder.Configure((options) =>
+                _ = optionsBuilder.Configure((options) =>
                 {
                     options.Bind(configuration.GetSection(CertificateConfigOptions.SectionName));
                 });
@@ -118,7 +121,7 @@ public static class WebHostBuilderExtensions
 
             if (configureCertificateConfigOptions is { })
             {
-                optionsBuilder.Configure(configureCertificateConfigOptions);
+                _ = optionsBuilder.Configure(configureCertificateConfigOptions);
             }
         }
 

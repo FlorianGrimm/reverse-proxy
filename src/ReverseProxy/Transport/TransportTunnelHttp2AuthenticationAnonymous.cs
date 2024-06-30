@@ -2,14 +2,9 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
-using System.Net.WebSockets;
-using System.Text;
 using System.Threading.Tasks;
 
-using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Transport;

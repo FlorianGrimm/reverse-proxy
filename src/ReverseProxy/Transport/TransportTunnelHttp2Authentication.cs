@@ -14,7 +14,7 @@ namespace Yarp.ReverseProxy.Transport;
 /// Calls all registered ITransportTunnelHttp2Authentication services.
 /// </summary>
 /// <param name="services">the known services.</param>
-public sealed class TransportTunnelHttp2Authentication(
+internal sealed class TransportTunnelHttp2Authentication(
     IEnumerable<ITransportTunnelHttp2Authentication> services
     ) : ITransportTunnelHttp2Authentication
 {

@@ -16,7 +16,7 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
 
-public sealed class TransportTunnelHttp2AuthenticationCertificate
+internal sealed class TransportTunnelHttp2AuthenticationCertificate
     : ITransportTunnelHttp2Authentication
     , IDisposable
 {
@@ -77,7 +77,7 @@ public sealed class TransportTunnelHttp2AuthenticationCertificate
                             {
                                 if (config.Authentication.ClientCertificate is { } certificateConfig)
                                 {
-                                    var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificate(certificateConfig, config.TunnelId, true);
+                                    var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificateWithPrivateKey(certificateConfig, config.TunnelId);
                                     if (certificate is not null)
                                     {
                                         _ = srcClientCertifiacteCollection.Add(certificate);
@@ -86,7 +86,7 @@ public sealed class TransportTunnelHttp2AuthenticationCertificate
 
                                         if (certificateConfig.IsFileCert)
                                         {
-                                            _certificatePathWatcher.AddWatchUnsynchronized(certificateConfig);
+                                            _certificatePathWatcher.AddWatch(certificateConfig);
                                         }
                                     }
                                     else
@@ -101,7 +101,7 @@ public sealed class TransportTunnelHttp2AuthenticationCertificate
                                 {
                                     var certificateConfig = authenticationClientCertificates[index];
                                     var keyname = $"{config.TunnelId}-{index}";
-                                    var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificate(certificateConfig, keyname, true);
+                                    var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificateWithPrivateKey(certificateConfig, keyname);
                                     if (certificate is not null)
                                     {
                                         _ = srcClientCertifiacteCollection.Add(certificate);
@@ -110,7 +110,7 @@ public sealed class TransportTunnelHttp2AuthenticationCertificate
 
                                         if (certificateConfig.IsFileCert)
                                         {
-                                            _certificatePathWatcher.AddWatchUnsynchronized(certificateConfig);
+                                            _certificatePathWatcher.AddWatch(certificateConfig);
                                         }
                                         else
                                         {

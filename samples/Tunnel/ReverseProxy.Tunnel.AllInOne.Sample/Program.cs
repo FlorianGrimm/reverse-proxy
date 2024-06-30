@@ -1,5 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
+
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net.Security;
@@ -16,13 +17,76 @@ namespace SampleServer;
     You get better results if you are redirect the output to a file.
 
     cd ".\artifacts\bin\ReverseProxy.Tunnel.AllInOne.Sample\Debug\net8.0"
-    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" >log.txt
+    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" a >loga.txt
+    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" w >logw.txt
+    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" c >logc.txt
+
  */
 
 internal class Program
 {
+
+    private static ModeAppSettings ModeSettings = ModeAppSettings.H2Anonymous;
+    private static ModeAuthentication ModeAuth = ModeAuthentication.AuthenticationAnonymous;
+
     private static async Task Main(string[] args)
     {
+        System.Console.Out.WriteLine("Syntax: [a|A|c|w] [1][2][3][4][5][6][test]");
+
+        var appsettingsFolder = "";
+
+        if (args is { Length: > 0 } && args[0] == "c")
+        {
+            args = args.AsSpan(1).ToArray();
+            ModeSettings = ModeAppSettings.H2Certificate;
+        }
+        else if (args is { Length: > 0 } && args[0] == "w")
+        {
+            args = args.AsSpan(1).ToArray();
+            ModeSettings = ModeAppSettings.H2WSWindows;
+        }
+        else if (args is { Length: > 0 } && args[0] == "A")
+        {
+            args = args.AsSpan(1).ToArray();
+            ModeSettings = ModeAppSettings.H2WSAnonymous;
+        }
+        else if (args is { Length: > 0 } && args[0] == "a")
+        {
+            args = args.AsSpan(1).ToArray();
+            ModeSettings = ModeAppSettings.H2Anonymous;
+        }
+        else
+        {
+            ModeSettings = ModeAppSettings.H2Anonymous;
+        }
+
+        if (ModeSettings == ModeAppSettings.H2Certificate)
+        {
+            appsettingsFolder = "appsettings-H2-ClientSecret";
+            ModeAuth = ModeAuthentication.AuthenticationCertificate;
+        }
+        else if (ModeSettings == ModeAppSettings.H2Certificate)
+        {
+            appsettingsFolder = "appsettings-H2WS-Windows";
+            ModeAuth = ModeAuthentication.AuthenticationWindows;
+        }
+        else if (ModeSettings == ModeAppSettings.H2WSAnonymous)
+        {
+            appsettingsFolder = "appsettings-H2WS-Anonymous";
+            ModeAuth = ModeAuthentication.AuthenticationAnonymous;
+        }
+        else if (ModeSettings == ModeAppSettings.H2Anonymous)
+        {
+            appsettingsFolder = "appsettings-H2-Anonymous";
+            ModeAuth = ModeAuthentication.AuthenticationAnonymous;
+        }
+        else
+        {
+            appsettingsFolder = "appsettings-H2-Anonymous";
+            ModeAuth = ModeAuthentication.AuthenticationAnonymous;
+        }
+        appsettingsFolder = System.IO.Path.Combine(System.AppContext.BaseDirectory, appsettingsFolder);
+
         try
         {
             Console.Out.WriteLine("Starting Servers");
@@ -31,20 +95,20 @@ internal class Program
 
             List<WebApplication> listWebApplication = [];
             var all = args.Length == 0;
-            if (all || args.Contains("1")) { listWebApplication.Add(ServerFrontend(args, "appsettings.server1FE.json")); }
-            if (all || args.Contains("2")) { listWebApplication.Add(ServerFrontend(args, "appsettings.server2FE.json")); }
-            if (all || args.Contains("3")) { listWebApplication.Add(ServerBackend(args, "appsettings.server3BE.json")); }
-            if (all || args.Contains("4")) { listWebApplication.Add(ServerBackend(args, "appsettings.server4BE.json")); }
-            if (all || args.Contains("5")) { listWebApplication.Add(ServerAPI(args, "appsettings.server5API.json")); }
-            if (all || args.Contains("6")) { listWebApplication.Add(ServerAPI(args, "appsettings.server6API.json")); }
+
+            if (all || args.Contains("1")) { listWebApplication.Add(ServerFrontend(args, appsettingsFolder, "appsettings.server1FE.json")); }
+            if (all || args.Contains("2")) { listWebApplication.Add(ServerFrontend(args, appsettingsFolder, "appsettings.server2FE.json")); }
+            if (all || args.Contains("3")) { listWebApplication.Add(ServerBackend(args, appsettingsFolder, "appsettings.server3BE.json")); }
+            if (all || args.Contains("4")) { listWebApplication.Add(ServerBackend(args, appsettingsFolder, "appsettings.server4BE.json")); }
+            if (all || args.Contains("5")) { listWebApplication.Add(ServerAPI(args, appsettingsFolder, "appsettings.server5API.json")); }
+            if (all || args.Contains("6")) { listWebApplication.Add(ServerAPI(args, appsettingsFolder, "appsettings.server6API.json")); }
 
             var listTaskRun = listWebApplication.Select(app => app.RunAsync()).ToList();
             var taskRun = listTaskRun.Count > 0 ? Task.WhenAll(listTaskRun) : Task.CompletedTask;
 
             if (all || args.Contains("test"))
             {
-
-                Console.Out.WriteLine("Starting Tests.");
+                System.Console.Out.WriteLine("Starting Tests.");
                 await RunTests();
                 /*
                     https://localhost:5001/Frontend - 9.7654 / 13.8606 / 17.9559
@@ -67,38 +131,52 @@ internal class Program
                     40 - API https://localhost:5006/ - localhost:5006 - ::1:5006
                  */
 
-                Console.Out.WriteLine("Done Tests.");
+                System.Console.Out.WriteLine("Done Tests.");
             }
 
-            Console.Out.WriteLine("Hit CTRL-C to exit.");
+            System.Console.Error.WriteLine("Hit CTRL-C to exit.");
             await taskRun;
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine(ex.ToString());
         }
+    }
 
+    private static WebApplication ServerFrontend(string[] args, string appsettingsFolder, string appsettingsPath)
+    {
+        var appsettingsFullname = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
 
-        static WebApplication ServerFrontend(string[] args, string appsettingsPath)
+        var builder = WebApplication.CreateBuilder(args);
+
+        builder.Configuration.AddJsonFile(appsettingsFullname, false, true);
+
+        var authenticationBuilder = builder.Services.AddAuthentication();
+
+        builder.Services.AddControllers()
+            .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
+
+        var reverseProxyBuilder = builder.Services.AddReverseProxy()
+            .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+            .AddTunnelServices();
+
+        if (ModeAuth == ModeAuthentication.AuthenticationAnonymous)
         {
-            var builder = WebApplication.CreateBuilder(args);
-            builder.Configuration.AddJsonFile(appsettingsPath, false, true);
-            builder.Services.AddControllers()
-                .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
+        }
 
-            builder.Services.AddReverseProxy()
-                .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-                .AddTunnelServices()
+        if (ModeAuth == ModeAuthentication.AuthenticationCertificate)
+        {
+
+            reverseProxyBuilder
                 .AddTunnelServicesAuthenticationCertificate(
                     configureCertificateAuthenticationOptions: (certificateAuthenticationOptions) =>
                     {
                         // for local self signed certs
-                        certificateAuthenticationOptions.AllowedCertificateTypes = CertificateTypes.All;
+                        certificateAuthenticationOptions.AllowedCertificateTypes = CertificateTypes.SelfSigned;
                         certificateAuthenticationOptions.RevocationMode = X509RevocationMode.NoCheck;
                         certificateAuthenticationOptions.ValidateCertificateUse = false;
                         certificateAuthenticationOptions.ValidateValidityPeriod = false;
                         certificateAuthenticationOptions.RevocationFlag = X509RevocationFlag.EndCertificateOnly;
-
                     },
                     configureTunnelAuthenticationCertificateOptions: (tunnelAuthenticationCertificateOptions) =>
                     {
@@ -109,158 +187,410 @@ internal class Program
                             //return result;
                             return true;
                         };
-                    })
-                ;
-            builder.WebHost.ConfigureKestrel(
-                (kestrelServerOptions) =>
-                {
-                    kestrelServerOptions.ConfigureHttpsDefaults(
-                        httpsOptions =>
-                        {
-                            httpsOptions.AllowAnyClientCertificate();
-                        }
-                        );
-                }
-                );
-            var app = builder.Build();
+                    },
+                    configureKestrelServerOptions: (kestrelServerOptions) =>
+                    {
+                        kestrelServerOptions.ConfigureHttpsDefaults(
+                            httpsOptions =>
+                            {
+                                httpsOptions.CheckCertificateRevocation = false;
+                                httpsOptions.ClientCertificateMode = Microsoft.AspNetCore.Server.Kestrel.Https.ClientCertificateMode.AllowCertificate;
+                                // httpsOptions.ClientCertificateValidation = (_, _, _) => true;
+                                httpsOptions.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+                            });
+                    });
 
-            app.UseWebSockets();
+        }
+        if (ModeAuth == ModeAuthentication.AuthenticationWindows)
+        {
+            authenticationBuilder.AddNegotiate();
+        }
 
-            app.MapGet("/_CheckCert", async (context) =>
+
+        //builder.WebHost.ConfigureKestrel(options =>
+        //{
+        //    options.ConfigureHttpsDefaults(httpsOptions =>
+        //    {
+        //        httpsOptions.AllowAnyClientCertificate();
+        //    });
+        //});
+
+        var app = builder.Build();
+
+
+        app.MapGet("/_CheckCert", async (context) =>
+        {
+            var certificate = await context.Connection.GetClientCertificateAsync();
+            if (certificate is null)
             {
-                var cert = await context.Connection.GetClientCertificateAsync();
-                if (cert is null)
+                await context.Response.WriteAsync("Hello no cert!");
+            }
+            else
+            {
+                await context.Response.WriteAsync("Hello cret!");
+            }
+
+        });
+        //.RequireAuthorization("RequireCertificate");
+
+        app.MapReverseProxy(
+            //configureTunnelHTTP2: (endpoint) => endpoint.RequireAuthorization("RequireCertificate"),
+            //configureTunnelWebSocket: (endpoint) => endpoint.RequireAuthorization("RequireCertificate")
+            );
+        app.UseWebSockets();
+        app.MapControllers();
+
+        app.MapGet("/Frontend", (HttpContext context) =>
+        {
+            var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
+            return $"Frontend {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
+        });
+
+        return app;
+    }
+
+    private static WebApplication ServerBackend(string[] args, string appsettingsFolder, string appsettingsPath)
+    {
+        var appsettingsFullname = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
+
+        var builder = WebApplication.CreateBuilder(args);
+
+        builder.Configuration.AddJsonFile(appsettingsFullname, false, true);
+
+        builder.Services.AddControllers()
+            .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
+
+        var authenticationBuilder = builder.Services.AddAuthentication();
+
+        var reverseProxyBuilder = builder.Services.AddReverseProxy()
+            .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+            .AddTunnelTransport();
+
+        if (ModeAuth == ModeAuthentication.AuthenticationAnonymous)
+        {
+        }
+
+        if (ModeAuth == ModeAuthentication.AuthenticationCertificate)
+        {
+            reverseProxyBuilder
+                .AddTunnelTransportAuthenticationCertificate();
+        }
+
+        if (ModeAuth == ModeAuthentication.AuthenticationWindows)
+        {
+            authenticationBuilder.AddNegotiate();
+        }
+
+        //builder.WebHost.ConfigureKestrel(options =>
+        //{
+        //    options.ConfigureHttpsDefaults(httpsOptions =>
+        //    {
+        //        httpsOptions.AllowAnyClientCertificate();
+        //    });
+        //});
+
+        var app = builder.Build();
+        app.UseWebSockets();
+        app.MapControllers();
+        app.MapReverseProxy();
+        app.MapGet("/Backend", (HttpContext context) =>
+        {
+            var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
+            return $"Backend {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
+        });
+        return app;
+    }
+
+    private static WebApplication ServerAPI(string[] args, string appsettingsFolder, string appsettingsPath)
+    {
+        var appsettingsFullname = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
+
+        var builder = WebApplication.CreateBuilder(args);
+
+        builder.Configuration.AddJsonFile(appsettingsFullname, false, true);
+
+        builder.Services.AddControllers()
+            .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
+
+
+        //builder.WebHost.ConfigureKestrel(options =>
+        //{
+        //    options.ConfigureHttpsDefaults(httpsOptions =>
+        //    {
+        //        httpsOptions.AllowAnyClientCertificate();
+        //    });
+        //});
+
+        var app = builder.Build();
+
+        app.UseWebSockets();
+        app.MapControllers();
+        app.MapGet("/API", (HttpContext context) =>
+        {
+            var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
+            return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
+        });
+        app.MapGet("/alpha/API", (HttpContext context) =>
+        {
+            var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
+            return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
+        });
+        app.MapGet("/beta/API", (HttpContext context) =>
+        {
+            var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
+            return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
+        });
+
+        return app;
+    }
+
+    private static async Task RunTests()
+    {
+
+        System.Console.WriteLine(System.DateTime.Now.ToString("s"));
+
+        // Try to access Url directly
+        try
+        {
+            // https://localhost:5001/Frontend
+            {
+                var socketsHttpHandler = new SocketsHttpHandler();
+                if (ModeAuth == ModeAuthentication.AuthenticationWindows)
                 {
-                    await context.Response.WriteAsync("Hello no cert!");
+                    socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
+                }
+                socketsHttpHandler.ConnectTimeout = TimeSpan.FromSeconds(2);
+                socketsHttpHandler.AllowAutoRedirect = false;
+                socketsHttpHandler.EnableMultipleHttp2Connections = true;
+
+                using HttpClient httpClient = new(socketsHttpHandler, true);
+                var url = "https://localhost:5001/Frontend";
+                Console.Out.WriteLine($"Sending request to {url}");
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                using var response = await httpClient.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+                var result = await response.Content.ReadAsStringAsync();
+                if (result.StartsWith("Frontend https://localhost:5001/ - localhost:5001 -"))
+                {
+                    Console.Out.WriteLine($"Success: {result}");
                 }
                 else
                 {
-                    await context.Response.WriteAsync("Hello cret!");
+                    Console.Out.WriteLine($"Failed: {result}");
                 }
+            }
 
-            }).RequireAuthorization("RequireCertificate");
-
-            app.MapControllers();
-            app.MapReverseProxy(
-                //configureTunnelHTTP2: (endpoint) => endpoint.RequireAuthorization("RequireCertificate"),
-                //configureTunnelWebSocket: (endpoint) => endpoint.RequireAuthorization("RequireCertificate")
-                );
-            app.MapGet("/Frontend", (HttpContext context) =>
+            // https://localhost:5003/Backend
             {
-                var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
-                return $"Frontend {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
-            });
-
-            return app;
-        }
-
-        static WebApplication ServerBackend(string[] args, string appsettingsPath)
-        {
-            var builder = WebApplication.CreateBuilder(args);
-            builder.Configuration.AddJsonFile(appsettingsPath, false, true);
-            builder.Services.AddControllers()
-                .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
-
-            builder.Services.AddReverseProxy()
-                .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-                .AddTunnelTransport()
-                .AddTunnelTransportAuthenticationCertificate()
-                ;
-
-            var app = builder.Build();
-            app.UseWebSockets();
-            app.MapControllers();
-            app.MapReverseProxy();
-            app.MapGet("/Backend", (HttpContext context) =>
-            {
-                var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
-                return $"Backend {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
-            });
-            return app;
-        }
-
-        static WebApplication ServerAPI(string[] args, string appsettingsPath)
-        {
-            var builder = WebApplication.CreateBuilder(args);
-            builder.Configuration.AddJsonFile(appsettingsPath, false, true);
-            builder.Services.AddControllers()
-                .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
-
-            var app = builder.Build();
-
-            app.UseWebSockets();
-            app.MapControllers();
-            app.MapGet("/API", (HttpContext context) =>
-            {
-                var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
-                return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
-            });
-            app.MapGet("/alpha/API", (HttpContext context) =>
-            {
-                var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
-                return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
-            });
-            app.MapGet("/beta/API", (HttpContext context) =>
-            {
-                var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
-                return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
-            });
-
-            return app;
-        }
-
-        static async Task RunTests()
-        {
-            try
-            {
-                // to test the certificate
-                // https://localhost:5001/_CheckCert
+                var socketsHttpHandler = new SocketsHttpHandler();
+                if (ModeAuth == ModeAuthentication.AuthenticationWindows)
                 {
-                    var testCertPfxPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!, "testCert.pfx");
-                    var cert = new X509Certificate2(testCertPfxPath, "testPassword", X509KeyStorageFlags.PersistKeySet);
-                    SocketsHttpHandler socketsHttpHandler = new();
-                    socketsHttpHandler.SslOptions.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
-                    (socketsHttpHandler.SslOptions.ClientCertificates ??= []).Add(cert);
-                    socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback
-                        = (sender, targetHost, localCertificates, remoteCertificate, acceptableIssuers) => cert;
-                    HttpClient httpClient = new(socketsHttpHandler);
-                    var url = "https://localhost:5001/_CheckCert";
-                    Console.Out.WriteLine($"Sending request to {url}");
-                    var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
-                    response.EnsureSuccessStatusCode();
-                    var result = await response.Content.ReadAsStringAsync();
+                    socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
+                }
+                socketsHttpHandler.ConnectTimeout = TimeSpan.FromSeconds(2);
+                socketsHttpHandler.AllowAutoRedirect = false;
+                socketsHttpHandler.EnableMultipleHttp2Connections = true;
+
+                using HttpClient httpClient = new(socketsHttpHandler, true);
+                var url = "https://localhost:5003/Backend";
+                Console.Out.WriteLine($"Sending request to {url}");
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                using var response = await httpClient.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+                var result = await response.Content.ReadAsStringAsync();
+                if (result.StartsWith("Backend https://localhost:5003/ - localhost:5003 -"))
+                {
                     Console.Out.WriteLine($"Success: {result}");
                 }
-
-                // https://localhost:5001/test
+                else
                 {
-                    using HttpClient httpClient = new();
-                    var url = "https://localhost:5001/test";
-                    Console.Out.WriteLine($"Sending request to {url}");
-                    using var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
-                    response.EnsureSuccessStatusCode();
-                    var result = await response.Content.ReadAsStringAsync();
-                    if (result.Contains(" \"host\": \"localhost:5005\",") || result.Contains(" \"host\": \"localhost:5006\","))
+                    Console.Out.WriteLine($"Failed: {result}");
+                }
+            }
+
+            // https://localhost:5005/API
+            {
+                var socketsHttpHandler = new SocketsHttpHandler();
+                if (ModeAuth == ModeAuthentication.AuthenticationWindows)
+                {
+                    socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
+                }
+                socketsHttpHandler.ConnectTimeout = TimeSpan.FromSeconds(2);
+                socketsHttpHandler.AllowAutoRedirect = false;
+                socketsHttpHandler.EnableMultipleHttp2Connections = true;
+
+                using HttpClient httpClient = new(socketsHttpHandler, true);
+                var url = "https://localhost:5005/API";
+                Console.Out.WriteLine($"Sending request to {url}");
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                using var response = await httpClient.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+                var result = await response.Content.ReadAsStringAsync();
+                if (result.StartsWith("API https://localhost:5005/ - localhost:5005 -"))
+                {
+                    Console.Out.WriteLine($"Success: {result}");
+                }
+                else
+                {
+                    Console.Out.WriteLine($"Failed: {result}");
+                }
+            }
+            //
+        }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine(error.ToString());
+            if (error.InnerException is not null)
+            {
+                Console.Error.WriteLine(error.InnerException.ToString());
+            }
+        }
+        //
+
+        System.Console.WriteLine(System.DateTime.Now.ToString("s"));
+
+        // try tunnel - forward
+        try
+        {
+            // https://localhost:5001/API
+            {
+                var socketsHttpHandler = new SocketsHttpHandler();
+                if (ModeAuth == ModeAuthentication.AuthenticationWindows)
+                {
+                    socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
+                }
+                socketsHttpHandler.ConnectTimeout = TimeSpan.FromSeconds(2);
+                socketsHttpHandler.AllowAutoRedirect = false;
+                socketsHttpHandler.EnableMultipleHttp2Connections = true;
+
+                using HttpClient httpClient = new(socketsHttpHandler, true);
+                var url = "https://localhost:5001/API";
+                Console.Out.WriteLine($"Sending request to {url}");
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                using var response = await httpClient.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+                var result = await response.Content.ReadAsStringAsync();
+                if (result.Contains("API https://localhost:5005/ - localhost:5005 -"))
+                {
+                    Console.Out.WriteLine($"Success: {result}");
+                }
+                else
+                {
+                    Console.Out.WriteLine($"Failed: {result}");
+                }
+            }
+        }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine(error.ToString());
+            if (error.InnerException is not null)
+            {
+                Console.Error.WriteLine(error.InnerException.ToString());
+            }
+        }
+        //
+
+        if (ModeAuth == ModeAuthentication.AuthenticationCertificate)
+        {
+            System.Console.WriteLine(System.DateTime.Now.ToString("s"));
+            // localhostclient1.pfx - the right one
+            {
+                try
+                {
+                    // to test the certificate
+                    // https://localhost:5001/_CheckCert
                     {
+                        var testCertPfxPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!, "localhostclient1.pfx");
+                        var certificate = new X509Certificate2(testCertPfxPath, "testPassword1", X509KeyStorageFlags.PersistKeySet);
+                        SocketsHttpHandler socketsHttpHandler = new();
+                        socketsHttpHandler.SslOptions.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+                        (socketsHttpHandler.SslOptions.ClientCertificates ??= []).Add(certificate);
+                        socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback
+                            = (sender, targetHost, localCertificates, remoteCertificate, acceptableIssuers) => certificate;
+                        HttpClient httpClient = new(socketsHttpHandler);
+                        var url = "https://localhost:5001/_CheckCert";
+                        Console.Out.WriteLine($"Sending request to {url}");
+                        var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+                        response.EnsureSuccessStatusCode();
+                        var result = await response.Content.ReadAsStringAsync();
                         Console.Out.WriteLine($"Success: {result}");
+                    }
+                }
+                catch (Exception error)
+                {
+                    Console.Error.WriteLine(error.ToString());
+                    if (error.InnerException is not null)
+                    {
+                        Console.Error.WriteLine(error.InnerException.ToString());
+                    }
+                }
+            }
+
+            // testCert.pfx (the wrong one)
+            {
+                try
+                {
+                    // to test the certificate
+                    // https://localhost:5001/_CheckCert
+                    {
+                        var testCertPfxPath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)!, "testCert.pfx");
+                        var certificate = new X509Certificate2(testCertPfxPath, "testPassword", X509KeyStorageFlags.PersistKeySet);
+                        SocketsHttpHandler socketsHttpHandler = new();
+                        socketsHttpHandler.SslOptions.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+                        (socketsHttpHandler.SslOptions.ClientCertificates ??= []).Add(certificate);
+                        socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback
+                            = (sender, targetHost, localCertificates, remoteCertificate, acceptableIssuers) => certificate;
+                        HttpClient httpClient = new(socketsHttpHandler);
+                        var url = "https://localhost:5001/_CheckCert";
+                        Console.Out.WriteLine($"Sending request to {url}");
+                        var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));
+                        response.EnsureSuccessStatusCode();
+                        var result = await response.Content.ReadAsStringAsync();
+                        Console.Out.WriteLine($"Failed: Request {response.StatusCode}: {result}");
+                    }
+                }
+                catch (System.Net.Http.HttpRequestException error)
+                {
+                    if ((error.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                        || (error.StatusCode == System.Net.HttpStatusCode.Forbidden))
+                    {
+                        System.Console.Error.WriteLine($"Success expected StatusCode:{error.StatusCode}");
                     }
                     else
                     {
-                        Console.Out.WriteLine($"Failed: {result}");
+                        System.Console.Error.WriteLine($"Failed StatusCode:{error.StatusCode}");
                     }
                 }
+                catch (Exception error)
+                {
+                    Console.Error.WriteLine(error.ToString());
+                    if (error.InnerException is not null)
+                    {
+                        System.Console.Error.WriteLine(error.InnerException.ToString());
+                    }
+                }
+            }
+        }
 
+
+
+        System.Console.WriteLine(System.DateTime.Now.ToString("s"));
+
+        // little bit of speed meassurment
+        {
+            try
+            {
                 {
                     TestSettings[] listTestSettings = [
                         new ("https://localhost:5001/Frontend"),
-                new ("https://localhost:5002/Frontend"),
-                new ("https://localhost:5001/Backend"),
-                new ("https://localhost:5002/Backend"),
-                new ("https://localhost:5001/API"),
-                new ("https://localhost:5002/API"),
-                new ("https://localhost:5001/alpha/API"),
-                new ("https://localhost:5002/beta/API"),
-                ];
+                        new ("https://localhost:5002/Frontend"),
+                        new ("https://localhost:5001/Backend"),
+                        new ("https://localhost:5002/Backend"),
+                        new ("https://localhost:5001/API"),
+                        new ("https://localhost:5002/API"),
+                        new ("https://localhost:5001/alpha/API"),
+                        new ("https://localhost:5002/beta/API"),
+                        ];
                     var startGlobal = Stopwatch.GetTimestamp();
                     var cntloop = 20;
                     for (var loop = 1; loop <= cntloop; loop++)
@@ -275,7 +605,13 @@ internal class Program
 
                             for (var innerloop = 0; innerloop < 20; innerloop++)
                             {
-                                var client = new HttpClient(new SocketsHttpHandler());
+                                var socketsHttpHandler = new SocketsHttpHandler();
+                                if (ModeAuth == ModeAuthentication.AuthenticationWindows)
+                                {
+                                    socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
+                                }
+
+                                var client = new HttpClient(socketsHttpHandler);
                                 var taskGetString = client.GetStringAsync(testSettings.Url);
                                 listTask.Add((client, taskGetString));
                             }
@@ -327,8 +663,41 @@ internal class Program
     }
 }
 
+internal enum ModeAppSettings
+{
+    H2Anonymous,
+    H2Certificate,
+    H2WSAnonymous,
+    H2WSWindows
+}
+
+internal enum ModeAuthentication
+{
+    AuthenticationAnonymous,
+    AuthenticationCertificate,
+    AuthenticationWindows
+}
+
+
 internal record TestSettings(string Url)
 {
     public readonly ConcurrentDictionary<string, int> Count = new();
     public readonly List<long> Duration = new(1000);
 }
+
+/*
+ 
+        if (Mode == ModeAuthentication.AuthenticationAnonymous)
+        {
+        }
+
+        if (Mode == ModeAuthentication.AuthenticationCertificate)
+        {
+        }
+
+        if (Mode == ModeAuthentication.AuthenticationWindows)
+        {
+        }
+
+
+ */

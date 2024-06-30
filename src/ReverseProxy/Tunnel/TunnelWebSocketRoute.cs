@@ -97,7 +97,7 @@ internal sealed class TunnelWebSocketRoute
             Log.TunnelConnectionChannelNotFound(_logger, clusterId);
             return Results.BadRequest();
         }
-        if (_tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster))
+        if (!_tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster))
         {
             return Results.StatusCode(401);
         }

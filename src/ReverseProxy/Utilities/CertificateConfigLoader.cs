@@ -18,14 +18,8 @@ namespace Yarp.ReverseProxy.Utilities;
 
 public interface ICertificateConfigLoader
 {
-    /// <summary>
-    /// Loades the certificate used for ClientCertificate (for the server- and the client- side)
-    /// </summary>
-    /// <param name="certInfo"></param>
-    /// <param name="name"></param>
-    /// <param name="needPrivateKey">I have no idea if this is needed</param>
-    /// <returns></returns>
-    (X509Certificate2?, X509Certificate2Collection?) LoadCertificate(CertificateConfig? certInfo, string name, bool needPrivateKey);
+    (X509Certificate2?, X509Certificate2Collection?) LoadCertificateNoPrivateKey(CertificateConfig? certInfo, string name);
+    (X509Certificate2?, X509Certificate2Collection?) LoadCertificateWithPrivateKey(CertificateConfig? certInfo, string name);
 }
 
 internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
@@ -42,7 +36,7 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
         _certificateRoot = CertificateConfigOptions.GetCertificateRoot(options, hostEnvironment);
     }
 
-    public (X509Certificate2?, X509Certificate2Collection?) LoadCertificate(CertificateConfig? certInfo, string name, bool needPrivateKey)
+    public (X509Certificate2?, X509Certificate2Collection?) LoadCertificateNoPrivateKey(CertificateConfig? certInfo, string name)
     {
         if (certInfo is null)
         {
@@ -58,6 +52,40 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
             var certificatePath = Path.Combine(_certificateRoot, certInfoPath);
             if (!File.Exists(certificatePath))
             {
+                Log.FailedToLoadCertificate(_logger, certificatePath);
+                return (null, null);
+            }
+            var fullChain = new X509Certificate2Collection();
+            fullChain.ImportFromPemFile(certificatePath);
+
+            return (new X509Certificate2(certificatePath, certInfo.Password), fullChain);
+        }
+        else if (certInfo.IsStoreCert)
+        {
+            return (LoadFromStoreCert(certInfo, false), null);
+        }
+
+        return (null, null);
+    }
+
+
+    public (X509Certificate2?, X509Certificate2Collection?) LoadCertificateWithPrivateKey(CertificateConfig? certInfo, string name)
+    {
+        if (certInfo is null)
+        {
+            return (null, null);
+        }
+
+        if (certInfo.IsFileCert && certInfo.IsStoreCert)
+        {
+            throw new InvalidOperationException($"Multiple CertificateSources ({name})");
+        }
+        else if (certInfo.IsFileCert && certInfo.Path is { Length: > 0 } certInfoPath)
+        {
+            var certificatePath = Path.Combine(_certificateRoot, certInfoPath);
+            if (!File.Exists(certificatePath))
+            {
+                Log.FailedToLoadCertificate(_logger, certificatePath);
                 return (null, null);
             }
             var fullChain = new X509Certificate2Collection();
@@ -70,7 +98,11 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
 
                 if (certificate != null)
                 {
-                    if (File.Exists(certificateKeyPath))
+                    if (!File.Exists(certificateKeyPath))
+                    {
+                        Log.FailedToLoadCertificateKey(_logger, certificateKeyPath);
+                    }
+                    else
                     {
                         certificate = LoadCertificateKey(certificate, certificateKeyPath, certInfo.Password);
                     }
@@ -98,7 +130,7 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
         }
         else if (certInfo.IsStoreCert)
         {
-            return (LoadFromStoreCert(certInfo, needPrivateKey), null);
+            return (LoadFromStoreCert(certInfo, true), null);
         }
 
         return (null, null);

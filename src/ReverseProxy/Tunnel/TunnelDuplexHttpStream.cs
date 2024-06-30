@@ -18,19 +18,19 @@ internal sealed class TunnelDuplexHttpStream
     private ManualResetValueTaskSourceCore<object?> _tcs = new() { RunContinuationsAsynchronously = true };
     private readonly object _sync = new();
 
-    private readonly HttpContext _context;
+    private readonly HttpContext _httpContext;
 
-    public TunnelDuplexHttpStream(HttpContext context)
+    public TunnelDuplexHttpStream(HttpContext httpContext)
     {
-        _context = context;
+        _httpContext = httpContext;
     }
 
-    private Stream RequestBody => _context.Request.Body;
-    private Stream ResponseBody => _context.Response.Body;
+    private Stream RequestBody => _httpContext.Request.Body;
+    private Stream ResponseBody => _httpContext.Response.Body;
 
     internal ValueTask<object?> StreamCompleteTask => new(this, _tcs.Version);
 
-    public bool IsClosed => _context.RequestAborted.IsCancellationRequested;
+    public bool IsClosed => _httpContext.RequestAborted.IsCancellationRequested;
 
     public override bool CanRead => true;
 
@@ -48,22 +48,38 @@ internal sealed class TunnelDuplexHttpStream
     }
 
     public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-     => ResponseBody.WriteAsync(buffer, cancellationToken);
+    {
+        return ResponseBody.WriteAsync(buffer, cancellationToken);
+    }
 
     public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-     => RequestBody.ReadAsync(buffer, cancellationToken);
+    {
+        return RequestBody.ReadAsync(buffer, cancellationToken);
+    }
 
-    public object? GetResult(short token) => _tcs.GetResult(token);
+    public object? GetResult(short token)
+    {
+        return _tcs.GetResult(token);
+    }
 
-    public void Reset() => _tcs.Reset();
+    public void Reset()
+    {
+        _tcs.Reset();
+    }
 
-    public ValueTaskSourceStatus GetStatus(short token) => _tcs.GetStatus(token);
-    public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags) =>
+    public ValueTaskSourceStatus GetStatus(short token)
+    {
+        return _tcs.GetStatus(token);
+    }
+
+    public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
+    {
         _tcs.OnCompleted(continuation, state, token, flags);
+    }
 
     public void Abort()
     {
-        _context.Abort();
+        _httpContext.Abort();
 
         lock (_sync)
         {

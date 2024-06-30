@@ -179,12 +179,6 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         // set the socketsHttpHandler.SslOptions based on the tunnel configuration authentication
         var config = _tunnel.Model.Config;
 
-        if (config.Authentication.ClientCertifiacteCollection is { } certificates)
-        {
-            var clientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= [];
-            clientCertificates.AddRange(certificates);
-        }
-
         _ = await _transportTunnelHttp2Authentication.ConfigureSocketsHttpHandlerAsync(_tunnel, socketsHttpHandler);
 
         // allow the user to configure the handler

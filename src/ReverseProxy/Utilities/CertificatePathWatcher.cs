@@ -118,6 +118,13 @@ public sealed partial class CertificatePathWatcher : IDisposable
             }
         }
     }
+    internal void AddWatch(CertificateConfig certificateConfig)
+    {
+        lock (_metadataLock)
+        {
+            AddWatchUnsynchronized(certificateConfig);
+        }
+    }
 
     /// <summary>
     /// Start watching a certificate's file path for changes.
@@ -126,7 +133,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
     /// <remarks>
     /// Internal for testing.
     /// </remarks>
-    internal void AddWatchUnsynchronized(CertificateConfig certificateConfig)
+    private void AddWatchUnsynchronized(CertificateConfig certificateConfig)
     {
         Debug.Assert(certificateConfig.IsFileCert, "AddWatch called on non-file cert");
 
@@ -222,6 +229,14 @@ public sealed partial class CertificatePathWatcher : IDisposable
         previousToken.OnReload();
     }
 
+    internal void RemoveWatch(CertificateConfig certificateConfig)
+    {
+        lock (_metadataLock)
+        {
+            RemoveWatchUnsynchronized(certificateConfig);
+        }
+    }
+
     /// <summary>
     /// Stop watching a certificate's file path for changes (previously started by <see cref="AddWatchUnsynchronized"/>.
     /// <paramref name="certificateConfig"/> must have <see cref="CertificateConfig.IsFileCert"/> set to <code>true</code>.
@@ -229,7 +244,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
     /// <remarks>
     /// Internal for testing.
     /// </remarks>
-    internal void RemoveWatchUnsynchronized(CertificateConfig certificateConfig)
+    private void RemoveWatchUnsynchronized(CertificateConfig certificateConfig)
     {
         Debug.Assert(certificateConfig.IsFileCert, "RemoveWatch called on non-file cert");
 

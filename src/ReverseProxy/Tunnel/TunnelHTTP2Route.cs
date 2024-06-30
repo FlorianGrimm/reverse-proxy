@@ -85,7 +85,7 @@ internal sealed class TunnelHTTP2Route : IDisposable
             return Results.StatusCode(504);
         }
 
-        if (_tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster))
+        if (!_tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster))
         {
             return Results.StatusCode(401);
         }
@@ -115,7 +115,11 @@ internal sealed class TunnelHTTP2Route : IDisposable
 
                 using (var stream = new TunnelDuplexHttpStream(context))
                 {
-                    using (var reg = ctsRequestAborted.Token.Register(() => stream.Abort()))
+                    using (var reg = ctsRequestAborted.Token.Register(() =>
+                    {
+                        _logger.LogInformation("Tunnel connection aborted");
+                        stream.Abort();
+                    }))
                     {
                         // Keep reusing this connection while, it's still open on the backend
                         while (!ctsRequestAborted.IsCancellationRequested)

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Net.Security;
+using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
 
 using Microsoft.AspNetCore.Http;
@@ -18,7 +19,7 @@ using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
-internal class TunnelAuthenticationCertificate
+internal sealed class TunnelAuthenticationCertificate
     : ITunnelAuthenticationConfigService
     , IClusterChangeListener
 {
@@ -141,22 +142,24 @@ internal class TunnelAuthenticationCertificate
             }
             if (config.Authentication.ClientCertificate is { } clientCertificate)
             {
-                var (cert, coll) = _certificateConfigLoader.LoadCertificate(clientCertificate, cluster.ClusterId, false);
-                ClientCertificateLoader.DisposeCertificates(coll, cert);
-                if (cert is not null)
+                //TODO: does this work??
+                //var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificateNoPrivateKey(clientCertificate, cluster.ClusterId);
+                var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificateWithPrivateKey(clientCertificate, cluster.ClusterId);
+                ClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
+                if (certificate is not null)
                 {
-                    var thumbprint = cert.Thumbprint;
+                    var thumbprint = certificate.Thumbprint;
 
-                    if (resultCertificatesByThumbprint.TryAdd(thumbprint, cert))
+                    if (resultCertificatesByThumbprint.TryAdd(thumbprint, certificate))
                     {
                         // OK
-                        resultCertificatesByCluster[config.ClusterId] = cert;
+                        resultCertificatesByCluster[config.ClusterId] = certificate;
                     }
                     else
                     {
                         resultCertificatesByCluster[config.ClusterId] = resultCertificatesByThumbprint[thumbprint];
                         // already added forget this
-                        cert.Dispose();
+                        certificate.Dispose();
                     }
                 }
             }
@@ -181,8 +184,11 @@ internal class TunnelAuthenticationCertificate
         var authentication = cluster.Model.Config.Authentication;
         if (!ClientCertificateLoader.IsClientCertificate(authentication.Mode)) { return false; }
 
-        var identity = context.User.Identity;
-        if (identity is null) { return false; }
+        if (context.User.Identity is not ClaimsIdentity identity
+            || !identity.IsAuthenticated)
+        {
+            return false;
+        }
         if (!(string.Equals(
             identity.AuthenticationType,
             Microsoft.AspNetCore.Authentication.Certificate.CertificateAuthenticationDefaults.AuthenticationScheme,
@@ -205,7 +211,16 @@ internal class TunnelAuthenticationCertificate
 
         if (!validCertificatesByCluster.TryGetValue(cluster.ClusterId, out var certificate)) { return false; }
 
-        var result = string.Equals(certificate.Thumbprint, identity.Name, System.StringComparison.Ordinal);
+        var identityThumbprint = string.Empty;
+        foreach (var claim in identity.Claims)
+        {
+            if (string.Equals(claim.Type, ClaimTypes.Thumbprint, StringComparison.Ordinal))
+            {
+                identityThumbprint = claim.Value;
+            }
+        }
+
+        var result = string.Equals(certificate.Thumbprint, identityThumbprint, System.StringComparison.Ordinal);
         if (result)
         {
             Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, certificate.Subject);

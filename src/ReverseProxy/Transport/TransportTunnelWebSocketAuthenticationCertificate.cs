@@ -1,27 +1,23 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net.WebSockets;
-
-using Yarp.ReverseProxy.Configuration;
-
-
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
+using System.Net.WebSockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 
-using Yarp.ReverseProxy.Model;
+using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
 
-public sealed class TransportTunnelWebSocketAuthenticationCertificate
+internal sealed class TransportTunnelWebSocketAuthenticationCertificate
     : ITransportTunnelWebSocketAuthentication
     , IDisposable
 {
@@ -30,6 +26,7 @@ public sealed class TransportTunnelWebSocketAuthenticationCertificate
     private readonly ILogger<TransportTunnelWebSocketAuthenticationCertificate> _logger;
 
     private readonly ConcurrentDictionary<string, X509CertificateCollection> _clientCertifiacteCollectionByTunnelId;
+    private readonly HashSet<CertificateConfig> _allCertificateConfig;
     private IDisposable? _unregisterCertificatePathWatcher;
 
     public TransportTunnelWebSocketAuthenticationCertificate(
@@ -42,16 +39,12 @@ public sealed class TransportTunnelWebSocketAuthenticationCertificate
         _certificatePathWatcher = certificatePathWatcher;
         _logger = logger;
 
-        _clientCertifiacteCollectionByTunnelId = new ConcurrentDictionary<string, X509CertificateCollection>(StringComparer.OrdinalIgnoreCase);
-
+        _clientCertifiacteCollectionByTunnelId = new(StringComparer.OrdinalIgnoreCase);
+        _allCertificateConfig = new();
         _unregisterCertificatePathWatcher = ChangeToken.OnChange(
             _certificatePathWatcher.GetChangeToken,
             () => ReloadCertificate()
             );
-    }
-
-    public TransportTunnelWebSocketAuthenticationCertificate()
-    {
     }
 
     public ValueTask<bool> ConfigureClientWebSocketAsync(TunnelConfig config, ClientWebSocket clientWebSocketocket)
@@ -84,7 +77,7 @@ public sealed class TransportTunnelWebSocketAuthenticationCertificate
                             {
                                 if (config.Authentication.ClientCertificate is { } certificateConfig)
                                 {
-                                    var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificate(certificateConfig, config.TunnelId, true);
+                                    var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificateWithPrivateKey(certificateConfig, config.TunnelId);
                                     if (certificate is not null)
                                     {
                                         _ = srcClientCertifiacteCollection.Add(certificate);
@@ -93,7 +86,13 @@ public sealed class TransportTunnelWebSocketAuthenticationCertificate
 
                                         if (certificateConfig.IsFileCert)
                                         {
-                                            _certificatePathWatcher.AddWatchUnsynchronized(certificateConfig);
+                                            lock (_allCertificateConfig)
+                                            {
+                                                if (_allCertificateConfig.Add(certificateConfig))
+                                                {
+                                                    _certificatePathWatcher.AddWatch(certificateConfig);
+                                                }
+                                            }
                                         }
                                     }
                                     else
@@ -108,7 +107,7 @@ public sealed class TransportTunnelWebSocketAuthenticationCertificate
                                 {
                                     var certificateConfig = authenticationClientCertificates[index];
                                     var keyname = $"{config.TunnelId}-{index}";
-                                    var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificate(certificateConfig, keyname, true);
+                                    var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificateWithPrivateKey(certificateConfig, keyname);
                                     if (certificate is not null)
                                     {
                                         _ = srcClientCertifiacteCollection.Add(certificate);
@@ -117,7 +116,13 @@ public sealed class TransportTunnelWebSocketAuthenticationCertificate
 
                                         if (certificateConfig.IsFileCert)
                                         {
-                                            _certificatePathWatcher.AddWatchUnsynchronized(certificateConfig);
+                                            lock (_allCertificateConfig)
+                                            {
+                                                if (_allCertificateConfig.Add(certificateConfig))
+                                                {
+                                                    _certificatePathWatcher.AddWatch(certificateConfig);
+                                                }
+                                            }
                                         }
                                         else
                                         {
@@ -165,14 +170,27 @@ public sealed class TransportTunnelWebSocketAuthenticationCertificate
 
     private void ReloadCertificate()
     {
-        var certificateCollections = _clientCertifiacteCollectionByTunnelId.Values.ToList();
-        _clientCertifiacteCollectionByTunnelId.Clear();
-        _logger.LogInformation("Certifactes cache cleared");
-        foreach (var certificateCollection in certificateCollections)
+        List<X509CertificateCollection> certificateCollections;
+        List<CertificateConfig> allCertificateConfig;
+        lock (_allCertificateConfig)
         {
-            ClientCertificateLoader.DisposeCertificates(certificateCollection, null);
-            certificateCollection.Clear();
+            certificateCollections = _clientCertifiacteCollectionByTunnelId.Values.ToList();
+            allCertificateConfig = _allCertificateConfig.ToList();
+
+            _clientCertifiacteCollectionByTunnelId.Clear();
+            _allCertificateConfig.Clear();
+
+            foreach (var certificateConfig in _allCertificateConfig)
+            {
+                _certificatePathWatcher.RemoveWatch(certificateConfig);
+            }
+            foreach (var certificateCollection in certificateCollections)
+            {
+                ClientCertificateLoader.DisposeCertificates(certificateCollection, null);
+                certificateCollection.Clear();
+            }
         }
+        _logger.LogInformation("Certifactes cache cleared");
     }
 
     private void Dispose(bool disposing)

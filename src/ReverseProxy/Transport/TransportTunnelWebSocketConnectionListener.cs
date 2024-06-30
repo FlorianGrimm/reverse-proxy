@@ -32,7 +32,6 @@ internal sealed class TransportTunnelWebSocketConnectionListener
     private AsyncLockWithOwner _connectionLock;
     private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections = new();
     private readonly TransportTunnelWebSocketOptions _options;
-    private readonly ILoggerFactory? _loggerFactory;
     private readonly ILogger _logger;
     private readonly TunnelState _tunnel;
     private readonly ITransportTunnelWebSocketAuthentication _transportTunnelWebSocketAuthentication;
@@ -46,7 +45,6 @@ internal sealed class TransportTunnelWebSocketConnectionListener
         TunnelState tunnel,
         ITransportTunnelWebSocketAuthentication transportTunnelWebSocketAuthentication,
         TransportTunnelWebSocketOptions options,
-        ILoggerFactory? loggerFactory,
         ILogger logger
         )
     {
@@ -58,7 +56,6 @@ internal sealed class TransportTunnelWebSocketConnectionListener
         _tunnel = tunnel;
         _transportTunnelWebSocketAuthentication = transportTunnelWebSocketAuthentication;
         _options = options;
-        _loggerFactory = loggerFactory;
         _logger = logger;
         _connectionLock = new(options.MaxConnectionCount);
         _connectionCollection = new TrackLifetimeConnectionContextCollection(_connections, _connectionLock);
@@ -112,7 +109,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                             }
                         };
 
-                        var innerConnection = new TransportTunnelWebSocketConnectionContext(options, _logger, _loggerFactory);
+                        var innerConnection = new TransportTunnelWebSocketConnectionContext(options, _logger, null);
                         await innerConnection.StartAsync(TransferFormat.Binary, cancellationToken);
                         innerConnection.underlyingWebSocket = underlyingWebSocket;
 
