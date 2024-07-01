@@ -37,7 +37,7 @@ namespace Yarp.ReverseProxy.Management;
 internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup, IDisposable
 {
     private static readonly IReadOnlyDictionary<string, ClusterConfig> _emptyClusterDictionary = new ReadOnlyDictionary<string, ClusterConfig>(new Dictionary<string, ClusterConfig>());
-    private static readonly IReadOnlyDictionary<string, TunnelConfig> _emptyTunnelDictionary = new ReadOnlyDictionary<string, TunnelConfig>(new Dictionary<string, TunnelConfig>());
+    private static readonly IReadOnlyDictionary<string, TransportTunnelConfig> _emptyTunnelDictionary = new ReadOnlyDictionary<string, TransportTunnelConfig>(new Dictionary<string, TransportTunnelConfig>());
 
     private readonly object _syncRoot = new();
     private readonly ILogger<ProxyConfigManager> _logger;
@@ -153,7 +153,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         UpdateEndpoints(endpoints);
     }
 
-    public IReadOnlyList<TunnelConfig> Tunnels
+    public IReadOnlyList<TransportTunnelConfig> Tunnels
     {
         get
         {
@@ -191,7 +191,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         if (_preloadOnce is { Loaded: false } preloadOnce)
         {
             preloadOnce.Loaded = true;
-            var tunnels = new List<TunnelConfig>();
+            var tunnels = new List<TransportTunnelConfig>();
             var routes = new List<RouteConfig>();
             var clusters = new List<ClusterConfig>();
             // Begin resolving config providers concurrently.
@@ -270,7 +270,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         _configChangeSource.Dispose();
 
         var sourcesChanged = false;
-        var tunnels = new List<TunnelConfig>();
+        var tunnels = new List<TransportTunnelConfig>();
         var routes = new List<RouteConfig>();
         var clusters = new List<ClusterConfig>();
         var reloadedConfigs = new List<(ConfigState Config, ValueTask<IProxyConfig> ResolveTask)>();
@@ -475,7 +475,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
         public IReadOnlyList<RouteConfig> Routes => _innerConfig.Routes;
         public IReadOnlyList<ClusterConfig> Clusters { get; }
-        public IReadOnlyList<TunnelConfig> Tunnels => _innerConfig.Tunnels;
+        public IReadOnlyList<TransportTunnelConfig> Tunnels => _innerConfig.Tunnels;
         public IChangeToken ChangeToken { get; }
     }
 
@@ -534,7 +534,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     }
 
     // Throws for validation failures
-    private async Task<bool> ApplyConfigAsync(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TunnelConfig> tunnels)
+    private async Task<bool> ApplyConfigAsync(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TransportTunnelConfig> tunnels)
     {
         var (configuredTunnels, tunnelErrors) = await VerifyTunnelsAsync(tunnels);
         var (configuredClusters, clusterErrors) = await VerifyClustersAsync(clusters, cancellation: default);
@@ -666,14 +666,14 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         return (configuredClusters, errors);
     }
 
-    private async Task<(IReadOnlyDictionary<string, TunnelConfig>, IList<Exception>)> VerifyTunnelsAsync(IReadOnlyList<TunnelConfig> tunnels)
+    private async Task<(IReadOnlyDictionary<string, TransportTunnelConfig>, IList<Exception>)> VerifyTunnelsAsync(IReadOnlyList<TransportTunnelConfig> tunnels)
     {
         if (tunnels is null)
         {
             return (_emptyTunnelDictionary, Array.Empty<Exception>());
         }
 
-        var configuredTunnels = new Dictionary<string, TunnelConfig>(tunnels.Count, StringComparer.OrdinalIgnoreCase);
+        var configuredTunnels = new Dictionary<string, TransportTunnelConfig>(tunnels.Count, StringComparer.OrdinalIgnoreCase);
         var errors = new List<Exception>();
         // The IProxyConfigProvider provides a fresh snapshot that we need to reconfigure each time.
         foreach (var t in tunnels)
@@ -713,7 +713,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         return (configuredTunnels, errors);
     }
 
-    private void UpdateRuntimeTunnels(IReadOnlyDictionary<string, TunnelConfig> incomingTunnels)
+    private void UpdateRuntimeTunnels(IReadOnlyDictionary<string, TransportTunnelConfig> incomingTunnels)
     {
         var desiredTunnels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 

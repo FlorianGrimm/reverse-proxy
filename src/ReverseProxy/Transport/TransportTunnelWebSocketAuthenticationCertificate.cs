@@ -47,7 +47,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
             );
     }
 
-    public ValueTask<bool> ConfigureClientWebSocketAsync(TunnelConfig config, ClientWebSocket clientWebSocketocket)
+    public ValueTask<bool> ConfigureClientWebSocketAsync(TransportTunnelConfig config, ClientWebSocket clientWebSocketocket)
     {
         if (!ClientCertificateLoader.IsClientCertificate(config.Authentication.Mode))
         {

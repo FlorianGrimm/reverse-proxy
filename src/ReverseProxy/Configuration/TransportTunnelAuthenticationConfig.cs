@@ -7,7 +7,7 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace Yarp.ReverseProxy.Configuration;
 
-public sealed record TunnelAuthenticationConfig
+public sealed record TransportTunnelAuthenticationConfig
 {
     public string? Mode { get; init; }
 
@@ -21,7 +21,7 @@ public sealed record TunnelAuthenticationConfig
     public X509CertificateCollection? ClientCertifiacteCollection { get; init; }
 
     /// <inheritdoc/>
-    public bool Equals(TunnelAuthenticationConfig? other)
+    public bool Equals(TransportTunnelAuthenticationConfig? other)
     {
         if (other is null)
         {

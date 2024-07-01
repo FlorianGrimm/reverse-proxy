@@ -2,18 +2,18 @@ using System;
 
 namespace Yarp.ReverseProxy.Configuration;
 
-public sealed record TunnelConfig
+public sealed record TransportTunnelConfig
 {
     public string TunnelId { get; init; } = default!;
     public string Url { get; init; } = default!;
     public string RemoteTunnelId { get; init; } = default!;
     public TransportMode Transport { get; init; } = default!;
-    public TunnelAuthenticationConfig Authentication { get; init; } = new TunnelAuthenticationConfig();
+    public TransportTunnelAuthenticationConfig Authentication { get; init; } = new TransportTunnelAuthenticationConfig();
 
     public bool IsTunnelTransport => Transport == TransportMode.TunnelHTTP2 || Transport == TransportMode.TunnelWebSocket;
     public string GetRemoteTunnelId() => RemoteTunnelId is { Length: > 0 } value ? value : TunnelId;
 
-    public bool Equals(TunnelConfig? other)
+    public bool Equals(TransportTunnelConfig? other)
     {
         if (other is null)
         {

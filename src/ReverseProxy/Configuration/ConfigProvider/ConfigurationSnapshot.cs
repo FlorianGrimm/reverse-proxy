@@ -12,13 +12,13 @@ internal sealed class ConfigurationSnapshot : IProxyConfig
 
     public List<ClusterConfig> Clusters { get; internal set; } = new List<ClusterConfig>();
 
-    public List<TunnelConfig> Tunnels { get; internal set; } = new List<TunnelConfig>();
+    public List<TransportTunnelConfig> Tunnels { get; internal set; } = new List<TransportTunnelConfig>();
 
     IReadOnlyList<RouteConfig> IProxyConfig.Routes => Routes;
 
     IReadOnlyList<ClusterConfig> IProxyConfig.Clusters => Clusters;
 
-    IReadOnlyList<TunnelConfig> IProxyConfig.Tunnels => Tunnels;
+    IReadOnlyList<TransportTunnelConfig> IProxyConfig.Tunnels => Tunnels;
 
     // This field is required.
     public IChangeToken ChangeToken { get; internal set; } = default!;

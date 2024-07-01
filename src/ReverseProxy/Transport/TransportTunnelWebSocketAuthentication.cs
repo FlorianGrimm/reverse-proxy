@@ -16,7 +16,7 @@ internal sealed class TransportTunnelWebSocketAuthentication(
 {
     public ImmutableArray<ITransportTunnelWebSocketAuthentication> Services { get; set; } = services.ToImmutableArray();
 
-    public async ValueTask<bool> ConfigureClientWebSocketAsync(TunnelConfig config, ClientWebSocket clientWebSocketocket)
+    public async ValueTask<bool> ConfigureClientWebSocketAsync(TransportTunnelConfig config, ClientWebSocket clientWebSocketocket)
     {
         var services = Services;
         foreach (var service in services)

@@ -544,7 +544,7 @@ public class ProxyConfigManagerTests
 
         public IChangeToken ChangeToken { get; }
 
-        public IReadOnlyList<TunnelConfig> Tunnels => [];
+        public IReadOnlyList<TransportTunnelConfig> Tunnels => [];
 
         internal void SignalChange()
         {
@@ -779,7 +779,7 @@ public class ProxyConfigManagerTests
     {
         public IReadOnlyList<RouteConfig> Routes => throw new NotImplementedException();
         public IReadOnlyList<ClusterConfig> Clusters => throw new NotImplementedException();
-        public IReadOnlyList<TunnelConfig> Tunnels => throw new NotImplementedException();
+        public IReadOnlyList<TransportTunnelConfig> Tunnels => throw new NotImplementedException();
         public IChangeToken ChangeToken => throw new NotImplementedException();
 
     }

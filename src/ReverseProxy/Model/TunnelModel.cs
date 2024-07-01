@@ -4,12 +4,12 @@ namespace Yarp.ReverseProxy.Model;
 
 public sealed class TunnelModel
 {
-    public TunnelModel(TunnelConfig config)
+    public TunnelModel(TransportTunnelConfig config)
     {
         Config = config;
     }
 
-    public TunnelConfig Config { get; }
+    public TransportTunnelConfig Config { get; }
 
     internal bool HasConfigChanged(TunnelModel newModel)
     {

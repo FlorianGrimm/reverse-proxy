@@ -123,27 +123,27 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         }
     }
 
-    private TunnelConfig CreateTunnel(IConfigurationSection section)
+    private TransportTunnelConfig CreateTunnel(IConfigurationSection section)
     {
-        return new TunnelConfig
+        return new TransportTunnelConfig
         {
             TunnelId = section.Key,
-            Url = section[nameof(TunnelConfig.Url)] ?? string.Empty,
-            RemoteTunnelId = section[nameof(TunnelConfig.RemoteTunnelId)] ?? string.Empty,
-            Transport = ConvertTransportMode(section[nameof(TunnelConfig.Transport)]),
-            Authentication = CreateTunnelAuthentication(section.GetSection(nameof(TunnelConfig.Authentication)))
+            Url = section[nameof(TransportTunnelConfig.Url)] ?? string.Empty,
+            RemoteTunnelId = section[nameof(TransportTunnelConfig.RemoteTunnelId)] ?? string.Empty,
+            Transport = ConvertTransportMode(section[nameof(TransportTunnelConfig.Transport)]),
+            Authentication = CreateTunnelAuthentication(section.GetSection(nameof(TransportTunnelConfig.Authentication)))
         };
     }
 
-    private TunnelAuthenticationConfig CreateTunnelAuthentication(IConfigurationSection section)
+    private TransportTunnelAuthenticationConfig CreateTunnelAuthentication(IConfigurationSection section)
     {
-        return new TunnelAuthenticationConfig
+        return new TransportTunnelAuthenticationConfig
         {
-            Mode = section[nameof(TunnelAuthenticationConfig.Mode)],
-            ClientCertificate = CreateCertificateConfig(section.GetSection(nameof(TunnelAuthenticationConfig.ClientCertificate))),
-            ClientCertificates = section.GetSection(nameof(TunnelAuthenticationConfig.ClientCertificates))
+            Mode = section[nameof(TransportTunnelAuthenticationConfig.Mode)],
+            ClientCertificate = CreateClientCertificateConfig(section.GetSection(nameof(TransportTunnelAuthenticationConfig.ClientCertificate))),
+            ClientCertificates = section.GetSection(nameof(TransportTunnelAuthenticationConfig.ClientCertificates))
                         .GetChildren()
-                        .Select(c => CreateCertificateConfig(c))
+                        .Select(c => CreateClientCertificateConfig(c))
                         .OfType<CertificateConfig>()
                         .ToList()
         };
@@ -166,7 +166,7 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             HttpClient = CreateHttpClientConfig(section.GetSection(nameof(ClusterConfig.HttpClient))),
             HttpRequest = CreateProxyRequestConfig(section.GetSection(nameof(ClusterConfig.HttpRequest))),
             Transport = ConvertTransportMode(section[nameof(ClusterConfig.Transport)]),
-            Authentication = CreateTransportAuthentication(section.GetSection(nameof(ClusterConfig.Authentication))),
+            Authentication = CreateClusterTunnelAuthenticationConfig(section.GetSection(nameof(ClusterConfig.Authentication))),
             Metadata = section.GetSection(nameof(ClusterConfig.Metadata)).ReadStringDictionary(),
             Destinations = destinations,
         };
@@ -183,16 +183,18 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         return TransportMode.Invalid;
     }
 
-    private TransportAuthenticationConfig CreateTransportAuthentication(IConfigurationSection section)
+    private ClusterTunnelAuthenticationConfig CreateClusterTunnelAuthenticationConfig(IConfigurationSection section)
     {
-        return new TransportAuthenticationConfig()
+        //
+        return new ClusterTunnelAuthenticationConfig()
         {
-            Mode = section[nameof(TransportAuthenticationConfig.Mode)],
-            ClientCertificate = CreateCertificateConfig(section.GetSection(nameof(TransportAuthenticationConfig.ClientCertificate)))
+            Mode = section[nameof(ClusterTunnelAuthenticationConfig.Mode)],
+            ClientCertificate = CreateClientCertificateConfig(section.GetSection(nameof(ClusterTunnelAuthenticationConfig.ClientCertificate))),
+            UserNames = CreateUserNamesConfig(section.GetSection(nameof(ClusterTunnelAuthenticationConfig.UserNames)))
         };
     }
 
-    private CertificateConfig? CreateCertificateConfig(IConfigurationSection configSection)
+    private CertificateConfig? CreateClientCertificateConfig(IConfigurationSection configSection)
     {
         if (!configSection.Exists()) { return null; }
         return new CertificateConfig()
@@ -234,6 +236,19 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             Transforms = CreateTransforms(section.GetSection(nameof(RouteConfig.Transforms))),
             Match = CreateRouteMatch(section.GetSection(nameof(RouteConfig.Match))),
         };
+    }
+
+    private string[] CreateUserNamesConfig(IConfigurationSection configSection)
+    {
+        var result = new List<string>();
+        foreach (var section in configSection.GetChildren())
+        {
+            if (section.Value is { Length: > 0 } value)
+            {
+                result.Add(value);
+            }
+        }
+        return result.ToArray();
     }
 
     private static IReadOnlyList<IReadOnlyDictionary<string, string>>? CreateTransforms(IConfigurationSection section)

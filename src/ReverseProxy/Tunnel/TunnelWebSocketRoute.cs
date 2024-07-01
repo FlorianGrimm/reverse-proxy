@@ -23,7 +23,7 @@ internal sealed class TunnelWebSocketRoute
 {
     private readonly UnShortCitcuitProxyConfigManager _proxyConfigManagerLazy;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
-    private readonly TunnelAuthenticationConfigService _tunnelAuthenticationConfigService;
+    private readonly TunnelAuthenticationService _tunnelAuthenticationConfigService;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly ILogger _logger;
     private CancellationTokenRegistration? _unRegister;
@@ -32,7 +32,7 @@ internal sealed class TunnelWebSocketRoute
     public TunnelWebSocketRoute(
         UnShortCitcuitProxyConfigManager proxyConfigManagerLazy,
         TunnelConnectionChannelManager tunnelConnectionChannelManager,
-        TunnelAuthenticationConfigService tunnelAuthenticationConfigService,
+        TunnelAuthenticationService tunnelAuthenticationConfigService,
         IHostApplicationLifetime lifetime,
         ILogger<TunnelWebSocketRoute> logger)
     {
@@ -45,18 +45,13 @@ internal sealed class TunnelWebSocketRoute
         _unRegister = _lifetime.ApplicationStopping.Register(() => _cancellationTokenSource.Cancel());
     }
 
-
     internal IEndpointConventionBuilder Map(
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
     {
-        // TODO: EnableRequestDelegateGenerator does not work - how to do this right for AOT?
-#warning HELP pretty please I tried, but EnableRequestDelegateGenerator defended me
-#pragma warning disable IL3050
-#pragma warning disable IL2026
+#pragma warning disable IL2026 // Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code
         var conventionBuilder = endpoints.MapGet("_Tunnel/{clusterId}", TunnelWebSocketRouteGet);
-#pragma warning restore IL3050
-#pragma warning restore IL2026
+#pragma warning restore IL2026 // Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code
 
         // Make this endpoint do websockets automagically as middleware for this specific route
         conventionBuilder.Add(e =>

@@ -22,5 +22,5 @@ public interface IConfigValidator
     /// </summary>
     ValueTask<IList<Exception>> ValidateClusterAsync(ClusterConfig cluster);
 
-    ValueTask<IList<Exception>> ValidateTunnelAsync(TunnelConfig tunnel);
+    ValueTask<IList<Exception>> ValidateTunnelAsync(TransportTunnelConfig tunnel);
 }

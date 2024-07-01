@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -15,11 +16,11 @@ using Yarp.ReverseProxy.Management;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
-internal sealed class TunnelHTTP2Route : IDisposable
+internal sealed partial class TunnelHTTP2Route : IDisposable
 {
     private readonly UnShortCitcuitProxyConfigManager _proxyConfigManagerLazy;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
-    private readonly TunnelAuthenticationConfigService _tunnelAuthenticationConfigService;
+    private readonly TunnelAuthenticationService _tunnelAuthenticationConfigService;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly ILogger _logger;
     private CancellationTokenRegistration? _unRegister;
@@ -28,7 +29,7 @@ internal sealed class TunnelHTTP2Route : IDisposable
     public TunnelHTTP2Route(
         UnShortCitcuitProxyConfigManager proxyConfigManagerLazy,
         TunnelConnectionChannelManager tunnelConnectionChannelManager,
-        TunnelAuthenticationConfigService tunnelAuthenticationConfigService,
+        TunnelAuthenticationService tunnelAuthenticationConfigService,
         IHostApplicationLifetime lifetime,
         ILogger<TunnelHTTP2Route> logger)
     {
@@ -41,18 +42,15 @@ internal sealed class TunnelHTTP2Route : IDisposable
         _unRegister = _lifetime.ApplicationStopping.Register(() => _cancellationTokenSource.Cancel());
     }
 
-    // [RequiresUnreferencedCode("")]
+
     internal IEndpointConventionBuilder Map(
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
     {
         // TODO: EnableRequestDelegateGenerator does not work - how to do this right for AOT?
-#warning HELP pretty please I tried, but EnableRequestDelegateGenerator defended me
-#pragma warning disable IL3050
-#pragma warning disable IL2026
+#pragma warning disable IL2026 // Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code
         var conventionBuilder = endpoints.MapPost("_Tunnel/{clusterId}", TunnelHTTP2RoutePost);
-#pragma warning restore IL3050
-#pragma warning restore IL2026
+#pragma warning restore IL2026 // Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code
         if (configure is not null)
         {
             configure(conventionBuilder);

@@ -166,13 +166,13 @@ internal class Program
 
         if (ModeAuth == ModeAuthentication.AuthenticationCertificate)
         {
-
             reverseProxyBuilder
                 .AddTunnelServicesAuthenticationCertificate(
                     configureCertificateAuthenticationOptions: (certificateAuthenticationOptions) =>
                     {
                         // for local self signed certs
-                        certificateAuthenticationOptions.AllowedCertificateTypes = CertificateTypes.SelfSigned;
+                        //certificateAuthenticationOptions.AllowedCertificateTypes = CertificateTypes.SelfSigned;
+                        certificateAuthenticationOptions.AllowedCertificateTypes = CertificateTypes.All;
                         certificateAuthenticationOptions.RevocationMode = X509RevocationMode.NoCheck;
                         certificateAuthenticationOptions.ValidateCertificateUse = false;
                         certificateAuthenticationOptions.ValidateValidityPeriod = false;
@@ -181,6 +181,7 @@ internal class Program
                     configureTunnelAuthenticationCertificateOptions: (tunnelAuthenticationCertificateOptions) =>
                     {
                         tunnelAuthenticationCertificateOptions.IgnoreSslPolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
+#warning WEICHEI
                         tunnelAuthenticationCertificateOptions.IsCertificateValid = (certificate, chain, errors, result) =>
                         {
                             //Console.Out.WriteLine($"certificate:{certificate?.Subject} chain:{chain != null} errors:{errors} result:{result}");
@@ -195,7 +196,11 @@ internal class Program
                             {
                                 httpsOptions.CheckCertificateRevocation = false;
                                 httpsOptions.ClientCertificateMode = Microsoft.AspNetCore.Server.Kestrel.Https.ClientCertificateMode.AllowCertificate;
-                                // httpsOptions.ClientCertificateValidation = (_, _, _) => true;
+                                httpsOptions.ClientCertificateValidation = (certificate, chain, sslPolicyErrors) =>
+                                {
+                                    Console.Out.WriteLine($"certificate:{certificate?.Subject} chain:{chain != null} errors:{sslPolicyErrors}");
+                                    return true;
+                                };
                                 httpsOptions.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
                             });
                     });
@@ -206,17 +211,7 @@ internal class Program
             authenticationBuilder.AddNegotiate();
         }
 
-
-        //builder.WebHost.ConfigureKestrel(options =>
-        //{
-        //    options.ConfigureHttpsDefaults(httpsOptions =>
-        //    {
-        //        httpsOptions.AllowAnyClientCertificate();
-        //    });
-        //});
-
         var app = builder.Build();
-
 
         app.MapGet("/_CheckCert", async (context) =>
         {
@@ -233,10 +228,7 @@ internal class Program
         });
         //.RequireAuthorization("RequireCertificate");
 
-        app.MapReverseProxy(
-            //configureTunnelHTTP2: (endpoint) => endpoint.RequireAuthorization("RequireCertificate"),
-            //configureTunnelWebSocket: (endpoint) => endpoint.RequireAuthorization("RequireCertificate")
-            );
+        app.MapReverseProxy();
         app.UseWebSockets();
         app.MapControllers();
 
@@ -254,6 +246,7 @@ internal class Program
         var appsettingsFullname = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
 
         var builder = WebApplication.CreateBuilder(args);
+
 
         builder.Configuration.AddJsonFile(appsettingsFullname, false, true);
 
@@ -281,14 +274,6 @@ internal class Program
             authenticationBuilder.AddNegotiate();
         }
 
-        //builder.WebHost.ConfigureKestrel(options =>
-        //{
-        //    options.ConfigureHttpsDefaults(httpsOptions =>
-        //    {
-        //        httpsOptions.AllowAnyClientCertificate();
-        //    });
-        //});
-
         var app = builder.Build();
         app.UseWebSockets();
         app.MapControllers();
@@ -311,15 +296,6 @@ internal class Program
 
         builder.Services.AddControllers()
             .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
-
-
-        //builder.WebHost.ConfigureKestrel(options =>
-        //{
-        //    options.ConfigureHttpsDefaults(httpsOptions =>
-        //    {
-        //        httpsOptions.AllowAnyClientCertificate();
-        //    });
-        //});
 
         var app = builder.Build();
 
@@ -464,6 +440,7 @@ internal class Program
                 socketsHttpHandler.EnableMultipleHttp2Connections = true;
 
                 using HttpClient httpClient = new(socketsHttpHandler, true);
+                httpClient.Timeout = TimeSpan.FromSeconds(2);
                 var url = "https://localhost:5001/API";
                 Console.Out.WriteLine($"Sending request to {url}");
                 var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -577,6 +554,7 @@ internal class Program
         System.Console.WriteLine(System.DateTime.Now.ToString("s"));
 
         // little bit of speed meassurment
+        if (false)
         {
             try
             {

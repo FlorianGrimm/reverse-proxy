@@ -25,5 +25,5 @@ public interface ITransportTunnelWebSocketAuthentication
     /// <param name="config">the related config</param>
     /// <param name="clientWebSocketocket">the used ClientWebSocket.</param>
     /// <returns>true the configuration is done and no other implemenation need to configure this.</returns>
-    ValueTask<bool> ConfigureClientWebSocketAsync(TunnelConfig config, ClientWebSocket clientWebSocketocket);
+    ValueTask<bool> ConfigureClientWebSocketAsync(TransportTunnelConfig config, ClientWebSocket clientWebSocketocket);
 }

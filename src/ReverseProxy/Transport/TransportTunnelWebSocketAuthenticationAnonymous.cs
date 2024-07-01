@@ -12,7 +12,7 @@ namespace Yarp.ReverseProxy.Transport;
 internal sealed class TransportTunnelWebSocketAuthenticationAnonymous
     : ITransportTunnelWebSocketAuthentication
 {
-    public ValueTask<bool> ConfigureClientWebSocketAsync(TunnelConfig config, ClientWebSocket clientWebSocketocket)
+    public ValueTask<bool> ConfigureClientWebSocketAsync(TransportTunnelConfig config, ClientWebSocket clientWebSocketocket)
     {
         if (!string.Equals(config.Authentication.Mode, "Anonymous", StringComparison.InvariantCultureIgnoreCase))
         {

@@ -33,7 +33,7 @@ public interface IProxyConfig
     /// <summary>
     /// Tunnels that can be used to connect to remote servers.
     /// </summary>
-    IReadOnlyList<TunnelConfig> Tunnels { get; }
+    IReadOnlyList<TransportTunnelConfig> Tunnels { get; }
 
     /// <summary>
     /// A notification that triggers when this snapshot expires.

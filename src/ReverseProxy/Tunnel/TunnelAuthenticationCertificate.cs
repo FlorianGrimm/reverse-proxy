@@ -20,7 +20,7 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 internal sealed class TunnelAuthenticationCertificate
-    : ITunnelAuthenticationConfigService
+    : ITunnelAuthenticationService
     , IClusterChangeListener
 {
     private readonly TunnelAuthenticationCertificateOptions _options;

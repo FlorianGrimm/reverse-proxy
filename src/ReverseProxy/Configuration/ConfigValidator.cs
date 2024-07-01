@@ -85,7 +85,7 @@ internal sealed class ConfigValidator : IConfigValidator
 
 
     // Note this performs all validation steps without short circuiting in order to report all possible errors.
-    public async ValueTask<IList<Exception>> ValidateTunnelAsync(TunnelConfig tunnel)
+    public async ValueTask<IList<Exception>> ValidateTunnelAsync(TransportTunnelConfig tunnel)
     {
         _ = tunnel ?? throw new ArgumentNullException(nameof(tunnel));
         var errors = new List<Exception>();

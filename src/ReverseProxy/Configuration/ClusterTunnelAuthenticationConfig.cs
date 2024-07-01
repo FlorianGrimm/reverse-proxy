@@ -5,16 +5,15 @@ using System;
 
 namespace Yarp.ReverseProxy.Configuration;
 
-public sealed record TransportAuthenticationConfig
+public sealed record ClusterTunnelAuthenticationConfig
 {
     public string? Mode { get; init; }
 
     public CertificateConfig? ClientCertificate { get; init; }
 
-#warning TODO: HERE missing config
     public string[]? UserNames { get; init; }
 
-    public bool Equals(TransportAuthenticationConfig? other)
+    public bool Equals(ClusterTunnelAuthenticationConfig? other)
     {
         if (other is null)
         {

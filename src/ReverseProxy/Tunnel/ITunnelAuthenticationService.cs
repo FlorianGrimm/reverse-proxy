@@ -8,7 +8,7 @@ using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
-public interface ITunnelAuthenticationConfigService
+public interface ITunnelAuthenticationService
 {
     void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions);
 

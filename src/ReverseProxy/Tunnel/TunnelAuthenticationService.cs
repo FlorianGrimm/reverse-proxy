@@ -12,13 +12,13 @@ using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
-internal sealed class TunnelAuthenticationConfigService
-    : ITunnelAuthenticationConfigService
+internal sealed class TunnelAuthenticationService
+    : ITunnelAuthenticationService
 {
-    private readonly List<ITunnelAuthenticationConfigService> _services;
+    private readonly List<ITunnelAuthenticationService> _services;
 
-    public TunnelAuthenticationConfigService(
-        IEnumerable<ITunnelAuthenticationConfigService> listTunnelAuthenticationConfigService)
+    public TunnelAuthenticationService(
+        IEnumerable<ITunnelAuthenticationService> listTunnelAuthenticationConfigService)
     {
         _services = listTunnelAuthenticationConfigService.ToList();
     }

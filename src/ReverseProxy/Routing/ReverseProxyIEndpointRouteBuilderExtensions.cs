@@ -80,7 +80,13 @@ public static class ReverseProxyIEndpointRouteBuilderExtensions
             // Reloads will be async.
             proxyConfigManager.InitialLoadAsync().GetAwaiter().GetResult();
 
-            endpoints.MapTunnels(configureTunnelHTTP2, configureTunnelWebSocket);
+            // The (memory) config can change - so checking the config does not work.
+            // Testing if .AddTunnelServices() was called will do it
+            var areTunnelServicesEnabled = endpoints.ServiceProvider.GetService<TunnelConnectionChannelManager>() != null;
+            if (areTunnelServicesEnabled)
+            {
+                endpoints.MapTunnels(configureTunnelHTTP2, configureTunnelWebSocket);
+            }
         }
         return proxyConfigManager.DefaultBuilder;
     }

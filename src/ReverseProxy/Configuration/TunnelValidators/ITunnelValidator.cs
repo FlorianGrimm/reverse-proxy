@@ -15,5 +15,5 @@ public interface ITunnelValidator
     /// <param name="tunnelConfig">tunnel configuration to validate</param>
     /// <param name="errors">Collection of all validation exceptions</param>
     /// <returns>A ValueTask representing the asynchronous validation operation.</returns>
-    public ValueTask ValidateAsync(TunnelConfig tunnelConfig, IList<Exception> errors);
+    public ValueTask ValidateAsync(TransportTunnelConfig tunnelConfig, IList<Exception> errors);
 }

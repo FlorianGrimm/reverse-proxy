@@ -34,7 +34,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationWindows
         _logger = logger;
     }
 
-    public ValueTask<bool> ConfigureClientWebSocketAsync(TunnelConfig config, ClientWebSocket clientWebSocketocket)
+    public ValueTask<bool> ConfigureClientWebSocketAsync(TransportTunnelConfig config, ClientWebSocket clientWebSocketocket)
     {
         if (!string.Equals(config.Authentication.Mode, "Windows", System.StringComparison.OrdinalIgnoreCase))
         {

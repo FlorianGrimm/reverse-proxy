@@ -44,7 +44,7 @@ internal class KubernetesConfigProvider : IProxyConfigProvider, IUpdateConfig
             : this(routes, clusters, [],Guid.NewGuid().ToString())
         { }
 
-        public MessageConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TunnelConfig> tunnels, string revisionId)
+        public MessageConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TransportTunnelConfig> tunnels, string revisionId)
         {
             RevisionId = revisionId ?? throw new ArgumentNullException(nameof(revisionId));
             Routes = routes;
@@ -59,7 +59,7 @@ internal class KubernetesConfigProvider : IProxyConfigProvider, IUpdateConfig
 
         public IReadOnlyList<ClusterConfig> Clusters { get; }
 
-        public IReadOnlyList<TunnelConfig> Tunnels { get; }
+        public IReadOnlyList<TransportTunnelConfig> Tunnels { get; }
 
         public IChangeToken ChangeToken { get; }
 

@@ -6,7 +6,7 @@ namespace Yarp.ReverseProxy.Configuration.TunnelValidators;
 
 public class TunnelUrlValidator : ITunnelValidator
 {
-    public ValueTask ValidateAsync(TunnelConfig tunnelConfig, IList<Exception> errors)
+    public ValueTask ValidateAsync(TransportTunnelConfig tunnelConfig, IList<Exception> errors)
     {
         if (string.IsNullOrEmpty(tunnelConfig.Url))
         {

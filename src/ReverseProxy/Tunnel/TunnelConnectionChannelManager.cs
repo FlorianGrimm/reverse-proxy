@@ -15,20 +15,31 @@ namespace Yarp.ReverseProxy.Tunnel;
 
 public sealed class TunnelConnectionChannelManager
 {
+    // calls the manager's RegisterConnectionChannel or UnregisterConnectionChannel on cluster changes
     internal sealed class ClusterChangeListener(TunnelConnectionChannelManager manager) : IClusterChangeListener
     {
         public void OnClusterAdded(ClusterState cluster)
         {
-            manager.RegisterConnectionChannel(cluster.ClusterId);
+            if (cluster.Model.Config.IsTunnelTransport)
+            {
+                manager.RegisterConnectionChannel(cluster.ClusterId);
+            }
         }
 
         public void OnClusterChanged(ClusterState cluster)
         {
+            if (cluster.Model.Config.IsTunnelTransport)
+            {
+                manager.RegisterConnectionChannel(cluster.ClusterId);
+            }
         }
 
         public void OnClusterRemoved(ClusterState cluster)
         {
-            manager._clusterConnections.TryRemove(cluster.ClusterId, out _);
+            if (cluster.Model.Config.IsTunnelTransport)
+            {
+                manager.UnregisterConnectionChannel(cluster.ClusterId);
+            }
         }
     }
     private readonly ConcurrentDictionary<string, TunnelConnectionChannels> _clusterConnections = new(StringComparer.OrdinalIgnoreCase);
@@ -45,6 +56,13 @@ public sealed class TunnelConnectionChannelManager
         var result = new TunnelConnectionChannels();
         _clusterConnections.TryAdd(clusterId, result);
     }
+
+    internal void UnregisterConnectionChannel(string clusterId)
+    {
+        _clusterConnections.TryRemove(clusterId, out _);
+
+    }
+
 }
 
 public sealed class TunnelConnectionChannels : IDisposable

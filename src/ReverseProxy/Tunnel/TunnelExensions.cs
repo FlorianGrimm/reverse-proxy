@@ -19,7 +19,6 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
-
 public static class TunnelExensions
 {
     public static IServiceCollection AddTunnelServices(this IServiceCollection services)
@@ -34,10 +33,10 @@ public static class TunnelExensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportHttpClientFactorySelector, TunnelHTTP2HttpClientFactory>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportHttpClientFactorySelector, TunnelWebSocketHttpClientFactory>());
 
-        services.TryAddSingleton<TunnelAuthenticationConfigService>();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationConfigService, TunnelAuthenticationAnonymous>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationConfigService, TunnelAuthenticationCertificate>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationConfigService, TunnelAuthenticationWindows>());
+        services.TryAddSingleton<TunnelAuthenticationService>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationAnonymous>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationCertificate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationWindows>());
 
         services.TryAddSingleton<CertificatePathWatcher>();
         services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
@@ -61,6 +60,7 @@ public static class TunnelExensions
         _ = builder.Services.AddTunnelServices();
         return builder;
     }
+
 
     internal static void MapTunnels(
         this IEndpointRouteBuilder endpoints,
@@ -127,7 +127,7 @@ public static class TunnelExensions
 
         _ = builder.Services.Configure<KestrelServerOptions>(kestrelServerOptions =>
         {
-            var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<TunnelAuthenticationConfigService>();
+            var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<TunnelAuthenticationService>();
             tunnelAuthenticationConfigService.ConfigureKestrelServer(kestrelServerOptions);
 
             if (configureKestrelServerOptions is { })

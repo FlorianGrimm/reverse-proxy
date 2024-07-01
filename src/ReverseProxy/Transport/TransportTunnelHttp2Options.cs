@@ -22,10 +22,10 @@ public sealed class TransportTunnelHttp2Options
     /// <summary>
     /// Allows Authentification for the tunnel.
     /// </summary>
-    public Func<TunnelConfig, SocketsHttpHandler, ValueTask>? ConfigureSocketsHttpHandlerAsync { get; set; }
+    public Func<TransportTunnelConfig, SocketsHttpHandler, ValueTask>? ConfigureSocketsHttpHandlerAsync { get; set; }
 
     /// <summary>
     /// Allows Authentification for the tunnel.
     /// </summary>
-    public Func<TunnelConfig, HttpRequestMessage, ValueTask>? ConfigureHttpRequestMessageAsync { get; set; }
+    public Func<TransportTunnelConfig, HttpRequestMessage, ValueTask>? ConfigureHttpRequestMessageAsync { get; set; }
 }

@@ -13,7 +13,7 @@ using Yarp.ReverseProxy.Model;
 namespace Yarp.ReverseProxy.Tunnel;
 
 internal sealed class TunnelAuthenticationWindows
-    : ITunnelAuthenticationConfigService
+    : ITunnelAuthenticationService
 {
     private readonly ILogger<TunnelAuthenticationWindows> _logger;
 
@@ -31,7 +31,8 @@ internal sealed class TunnelAuthenticationWindows
 
     public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
-        if (!string.Equals(cluster.Model.Config.Authentication.Mode, "Windows", System.StringComparison.OrdinalIgnoreCase))
+        var authentication = cluster.Model.Config.Authentication;
+        if (!string.Equals(authentication.Mode, "Windows", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -40,7 +41,16 @@ internal sealed class TunnelAuthenticationWindows
 
         _logger.LogInformation("AuthenticationType: {AuthenticationType}", user.Identity.AuthenticationType);
         if (!string.Equals(user.Identity.AuthenticationType, "Negotiate", StringComparison.OrdinalIgnoreCase)) { return false; }
-        if (cluster.Model.Config.Authentication.UserNames is not { } userNames) { return false; }
+        var userNames = authentication.UserNames;
+        if (userNames is null
+            || userNames.Length == 0
+            || (userNames.Length == 1 && string.Equals(userNames[0], "CurrentUser", StringComparison.OrdinalIgnoreCase)))
+        {
+            var envUserDomain = System.Environment.GetEnvironmentVariable("USERDOMAIN");
+            var envUserName = System.Environment.GetEnvironmentVariable("USERNAME");
+            var envUser = $"{envUserDomain}/{envUserName}";
+            return string.Equals(identity.Name, envUser, StringComparison.OrdinalIgnoreCase);
+        }
         return userNames.Contains(identity.Name);
     }
 }
