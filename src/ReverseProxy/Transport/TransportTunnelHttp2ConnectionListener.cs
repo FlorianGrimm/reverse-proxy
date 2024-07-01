@@ -124,6 +124,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                         (innerConnection, httpContent) = TransportTunnelHttp2ConnectionContext.Create(_logger);
                         requestMessage.Content = httpContent;
                         response = await _httpMessageInvoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
+                        response.EnsureSuccessStatusCode();
                         innerConnection.HttpResponseMessage = response;
                         var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
                         innerConnection.Input = PipeReader.Create(responseStream);

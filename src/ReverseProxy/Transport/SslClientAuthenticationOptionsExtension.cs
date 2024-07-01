@@ -18,6 +18,10 @@ public static class SslClientAuthenticationOptionsExtension
             {
                 return cert;
             };
+            sslOptions.RemoteCertificateValidationCallback = (_, _, _, _) =>
+            {
+                return true;
+            };
         }
     }
 }

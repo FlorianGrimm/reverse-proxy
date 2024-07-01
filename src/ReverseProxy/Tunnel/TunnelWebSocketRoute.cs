@@ -94,7 +94,8 @@ internal sealed class TunnelWebSocketRoute
         }
         if (!_tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster))
         {
-            return Results.StatusCode(401);
+#warning HERE temporary turn off
+            //return Results.StatusCode(401);
         }
 
         using (var ctsRequestAborted = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _cancellationTokenSource.Token))

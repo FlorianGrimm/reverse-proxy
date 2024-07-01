@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
@@ -144,6 +145,19 @@ internal sealed class TransportTunnelHttp2AuthenticationCertificate
                     var sslClientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= [];
                     sslClientCertificates.AddRange(srcClientCertifiacteCollection);
                 }
+            }
+            if (socketsHttpHandler.SslOptions.ClientCertificates is { Count: > 0 } clientCertificates)
+            {
+                socketsHttpHandler.SslOptions.CertificateRevocationCheckMode = X509RevocationMode.NoCheck;
+                socketsHttpHandler.SslOptions.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+                socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback = (sender, host, localCertificates, remoteCertificate, acceptableIssuers) =>
+                {
+                    return clientCertificates[0];
+                };
+                socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback = (sender, certificate, chain, error) =>
+                {
+                    return true;
+                };
             }
 
             //

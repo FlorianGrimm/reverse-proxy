@@ -62,7 +62,7 @@ internal class Program
 
         if (ModeSettings == ModeAppSettings.H2Certificate)
         {
-            appsettingsFolder = "appsettings-H2-ClientSecret";
+            appsettingsFolder = "appsettings-H2-ClientCertificate";
             ModeAuth = ModeAuthentication.AuthenticationCertificate;
         }
         else if (ModeSettings == ModeAppSettings.H2Certificate)
@@ -166,41 +166,67 @@ internal class Program
 
         if (ModeAuth == ModeAuthentication.AuthenticationCertificate)
         {
+
+            builder.Services.AddAuthentication()
+               .AddCertificate(options =>
+               {
+                   options.AllowedCertificateTypes = CertificateTypes.SelfSigned;
+                   options.RevocationMode = X509RevocationMode.NoCheck;
+                   options.ValidateCertificateUse = false;
+                   options.ValidateValidityPeriod = false;
+
+                   options.Events = new CertificateAuthenticationEvents
+                   {
+                       OnCertificateValidated = context =>
+                       {
+                           if (context.ClientCertificate != null)
+                           {
+                               context.Success();
+                           }
+                           else
+                           {
+                               context.NoResult();
+                           }
+                           return Task.CompletedTask;
+                       }
+                   };
+
+               });
+
+            builder.Services.AddAuthorization(
+                options =>
+                {
+                    options.AddPolicy("RequireCertificate", policy =>
+                    {
+                        policy.AuthenticationSchemes.Add(CertificateAuthenticationDefaults.AuthenticationScheme);
+                        policy.RequireAuthenticatedUser();
+                    });
+                });
+
             reverseProxyBuilder
                 .AddTunnelServicesAuthenticationCertificate(
-                    configureCertificateAuthenticationOptions: (certificateAuthenticationOptions) =>
-                    {
-                        // for local self signed certs
-                        //certificateAuthenticationOptions.AllowedCertificateTypes = CertificateTypes.SelfSigned;
-                        certificateAuthenticationOptions.AllowedCertificateTypes = CertificateTypes.All;
-                        certificateAuthenticationOptions.RevocationMode = X509RevocationMode.NoCheck;
-                        certificateAuthenticationOptions.ValidateCertificateUse = false;
-                        certificateAuthenticationOptions.ValidateValidityPeriod = false;
-                        certificateAuthenticationOptions.RevocationFlag = X509RevocationFlag.EndCertificateOnly;
-                    },
+                    allowAnyClientCertificate: true,
+                    //configureCertificateAuthenticationOptions: (certificateAuthenticationOptions) =>
+                    //{
+                    //    // for local self signed certs
+                    //    //certificateAuthenticationOptions.AllowedCertificateTypes = CertificateTypes.SelfSigned;
+                    //    certificateAuthenticationOptions.AllowedCertificateTypes = CertificateTypes.All;
+                    //    certificateAuthenticationOptions.RevocationMode = X509RevocationMode.NoCheck;
+                    //    certificateAuthenticationOptions.ValidateCertificateUse = false;
+                    //    certificateAuthenticationOptions.ValidateValidityPeriod = false;
+                    //    certificateAuthenticationOptions.RevocationFlag = X509RevocationFlag.EndCertificateOnly;
+                    //},
                     configureTunnelAuthenticationCertificateOptions: (tunnelAuthenticationCertificateOptions) =>
                     {
                         tunnelAuthenticationCertificateOptions.IgnoreSslPolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
-#warning WEICHEI
-                        tunnelAuthenticationCertificateOptions.IsCertificateValid = (certificate, chain, errors, result) =>
-                        {
-                            //Console.Out.WriteLine($"certificate:{certificate?.Subject} chain:{chain != null} errors:{errors} result:{result}");
-                            //return result;
-                            return true;
-                        };
                     },
                     configureKestrelServerOptions: (kestrelServerOptions) =>
                     {
                         kestrelServerOptions.ConfigureHttpsDefaults(
                             httpsOptions =>
                             {
-                                httpsOptions.CheckCertificateRevocation = false;
                                 httpsOptions.ClientCertificateMode = Microsoft.AspNetCore.Server.Kestrel.Https.ClientCertificateMode.AllowCertificate;
-                                httpsOptions.ClientCertificateValidation = (certificate, chain, sslPolicyErrors) =>
-                                {
-                                    Console.Out.WriteLine($"certificate:{certificate?.Subject} chain:{chain != null} errors:{sslPolicyErrors}");
-                                    return true;
-                                };
+                                httpsOptions.CheckCertificateRevocation = false;
                                 httpsOptions.SslProtocols = System.Security.Authentication.SslProtocols.Tls12;
                             });
                     });
@@ -435,12 +461,12 @@ internal class Program
                 {
                     socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
                 }
-                socketsHttpHandler.ConnectTimeout = TimeSpan.FromSeconds(2);
+                //socketsHttpHandler.ConnectTimeout = TimeSpan.FromSeconds(2);
                 socketsHttpHandler.AllowAutoRedirect = false;
                 socketsHttpHandler.EnableMultipleHttp2Connections = true;
 
                 using HttpClient httpClient = new(socketsHttpHandler, true);
-                httpClient.Timeout = TimeSpan.FromSeconds(2);
+                //httpClient.Timeout = TimeSpan.FromSeconds(2);
                 var url = "https://localhost:5001/API";
                 Console.Out.WriteLine($"Sending request to {url}");
                 var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -517,7 +543,10 @@ internal class Program
                         (socketsHttpHandler.SslOptions.ClientCertificates ??= []).Add(certificate);
                         socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback
                             = (sender, targetHost, localCertificates, remoteCertificate, acceptableIssuers) => certificate;
+                        socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback
+                            = (sender, targetHost, localCertificates, remoteCertificate) => true;
                         HttpClient httpClient = new(socketsHttpHandler);
+
                         var url = "https://localhost:5001/_CheckCert";
                         Console.Out.WriteLine($"Sending request to {url}");
                         var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, url));

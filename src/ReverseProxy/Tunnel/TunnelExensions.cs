@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
@@ -81,7 +82,9 @@ public static class TunnelExensions
 
     public static IReverseProxyBuilder AddTunnelServicesAuthenticationCertificate(
         this IReverseProxyBuilder builder,
-        Action<CertificateAuthenticationOptions>? configureCertificateAuthenticationOptions = default,
+        bool allowAnyClientCertificate = false,
+#warning HERE
+        //Action<CertificateAuthenticationOptions>? configureCertificateAuthenticationOptions = default,
         Action<TunnelAuthenticationCertificateOptions>? configureTunnelAuthenticationCertificateOptions = default,
         Action<CertificateConfigOptions>? configureCertificateConfigOptions = default,
         Action<KestrelServerOptions>? configureKestrelServerOptions = default,
@@ -127,6 +130,12 @@ public static class TunnelExensions
 
         _ = builder.Services.Configure<KestrelServerOptions>(kestrelServerOptions =>
         {
+            if (allowAnyClientCertificate)
+            {
+                kestrelServerOptions.ConfigureEndpointDefaults(e => { e.UseHttps(o => o.AllowAnyClientCertificate()); ; });
+                kestrelServerOptions.ConfigureHttpsDefaults(h => h.AllowAnyClientCertificate());
+            }
+
             var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<TunnelAuthenticationService>();
             tunnelAuthenticationConfigService.ConfigureKestrelServer(kestrelServerOptions);
 
@@ -135,7 +144,8 @@ public static class TunnelExensions
                 configureKestrelServerOptions(kestrelServerOptions);
             }
         });
-
+#warning HERE without this their is no need for the nuget
+        /*
         var authenticationBuilder = builder.Services.AddAuthentication();
         _ = authenticationBuilder.AddCertificate(
             authenticationScheme: CertificateAuthenticationDefaults.AuthenticationScheme,
@@ -159,7 +169,7 @@ public static class TunnelExensions
                     configure(certificateAuthenticationOptions);
                 }
             });
-
+        */
         return builder;
     }
 
