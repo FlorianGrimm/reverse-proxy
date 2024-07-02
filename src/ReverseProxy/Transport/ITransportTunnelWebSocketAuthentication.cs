@@ -21,6 +21,8 @@ namespace Yarp.ReverseProxy.Transport;
 /// </example>
 public interface ITransportTunnelWebSocketAuthentication
 {
+#warning TODO add selector
+
     void ConfigureWebSocketConnectionOptions(TransportTunnelConfig config, HttpConnectionOptions options);
 
     /// <summary>

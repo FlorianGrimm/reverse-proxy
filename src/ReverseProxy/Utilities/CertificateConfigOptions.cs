@@ -35,19 +35,11 @@ public sealed class CertificateConfigOptions
 
         if (optionsValue.CertificateRoot is { Length: > 0 } certificateRoot)
         {
-            if (string.Equals(certificateRoot, "Assembly", StringComparison.OrdinalIgnoreCase))
-            {
-                result = System.AppContext.BaseDirectory;
-            }
-            else if (certificateRoot.IndexOf("%Assembly%") >= 0)
+            if (certificateRoot.IndexOf("%Assembly%") >= 0)
             {
                 result = certificateRoot.Replace("%Assembly%", System.AppContext.BaseDirectory);
             }
-            else if (string.Equals(certificateRoot, "ContentRootPath", StringComparison.OrdinalIgnoreCase))
-            {
-                result = hostEnvironment.ContentRootPath;
-            }
-            else if (certificateRoot.IndexOf("%ContentRootPath%") >= 0)
+            if (certificateRoot.IndexOf("%ContentRootPath%") >= 0)
             {
                 result = certificateRoot.Replace("%ContentRootPath%", hostEnvironment.ContentRootPath);
             }

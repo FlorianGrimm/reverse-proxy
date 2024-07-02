@@ -19,14 +19,8 @@ namespace Yarp.ReverseProxy.Transport;
 internal sealed class TransportTunnelHttp2AuthenticationWindows
     : ITransportTunnelHttp2Authentication
 {
-    private readonly ILogger<TransportTunnelHttp2AuthenticationWindows> _logger;
 
-    public TransportTunnelHttp2AuthenticationWindows(
-        ILogger<TransportTunnelHttp2AuthenticationWindows> logger
-        )
-    {
-        _logger = logger;
-    }
+    public TransportTunnelHttp2AuthenticationWindows() { }
 
 
     public ValueTask<bool> ConfigureSocketsHttpHandlerAsync(TunnelState tunnel, SocketsHttpHandler socketsHttpHandler)

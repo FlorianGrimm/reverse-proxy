@@ -95,7 +95,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                                 underlyingWebSocket = new ClientWebSocket();
                                 underlyingWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(5);
 
-                                onConfigureClientWebSocket(underlyingWebSocket);
+                                OnConfigureClientWebSocket(underlyingWebSocket);
                                 try
                                 {
                                     await underlyingWebSocket.ConnectAsync(context.Uri, cancellationToken);
@@ -109,7 +109,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                             }
                         };
 
-                        onConfigureWebSocketConnectionOptions(options);
+                        OnConfigureWebSocketConnectionOptions(options);
                         var innerConnection = new TransportTunnelWebSocketConnectionContext(options, _logger, null);
                         await innerConnection.StartAsync(TransferFormat.Binary, cancellationToken);
                         innerConnection.underlyingWebSocket = underlyingWebSocket;
@@ -145,13 +145,13 @@ internal sealed class TransportTunnelWebSocketConnectionListener
         }
     }
 
-    private void onConfigureWebSocketConnectionOptions(HttpConnectionOptions options)
+    private void OnConfigureWebSocketConnectionOptions(HttpConnectionOptions options)
     {
         var config = _tunnel.Model.Config;
         _transportTunnelWebSocketAuthentication.ConfigureWebSocketConnectionOptions(config, options);
     }
 
-    private void onConfigureClientWebSocket(ClientWebSocket socket)
+    private void OnConfigureClientWebSocket(ClientWebSocket socket)
     {
         // set the socketsHttpHandler.SslOptions based on the tunnel configuration authentication
         var config = _tunnel.Model.Config;
@@ -183,6 +183,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
         {
             await Task.WhenAll(tasks);
         }
+        System.GC.SuppressFinalize(this);
     }
 
     public ValueTask UnbindAsync(CancellationToken cancellationToken = default)
@@ -258,14 +259,14 @@ internal sealed class TransportTunnelWebSocketConnectionListener
             _tunnelResumeConnectTunnel(logger, tunnelId, url, transport, error);
         }
 
-        private static readonly Action<ILogger, Uri, Exception?> _AcceptFailed = LoggerMessage.Define<Uri>(
+        private static readonly Action<ILogger, Uri, Exception?> _acceptFailed = LoggerMessage.Define<Uri>(
             LogLevel.Information,
             EventIds.TransportWebSocketAcceptFailed,
             "Transport WebSocket Accept failed: {endpoint}.");
 
         public static void AcceptFailed(ILogger logger, Uri url, Exception? error)
         {
-            _AcceptFailed(logger, url, error);
+            _acceptFailed(logger, url, error);
         }
 
         /*

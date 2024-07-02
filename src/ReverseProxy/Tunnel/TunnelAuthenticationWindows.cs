@@ -33,12 +33,26 @@ internal sealed class TunnelAuthenticationWindows
 
     public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
-        if (context.User is not { } user) { return false; }
-        if (user.Identity is not { } identity) { return false; }
-        if (!identity.IsAuthenticated) { return false; }
+#warning TODO Log
+        if (context.User is not { } user)
+        {
+            _logger.LogDebug("TODO");
+            return false;
+        }
+        if (user.Identity is not { } identity)
+        {
+            _logger.LogDebug("TODO");
+            return false;
+        }
+        if (!identity.IsAuthenticated)
+        {
+            _logger.LogDebug("TODO");
+            return false;
+        }
 
         if (!string.Equals(user.Identity.AuthenticationType, "Negotiate", StringComparison.OrdinalIgnoreCase))
         {
+            _logger.LogDebug("TODO");
             return false;
         }
 

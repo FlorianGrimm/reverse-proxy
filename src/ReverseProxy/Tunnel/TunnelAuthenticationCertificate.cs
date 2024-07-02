@@ -30,7 +30,7 @@ internal sealed class TunnelAuthenticationCertificate
     private readonly ILogger<TunnelAuthenticationCertificate> _logger;
 
     private ImmutableDictionary<string, X509Certificate2>? _ValidCertificatesByThumbprint;
-    private ImmutableDictionary<string, X509Certificate2>? _ValidCertificatesByCluster;
+    private ImmutableDictionary<string, X509Certificate2>? _validCertificatesByCluster;
 
     public TunnelAuthenticationCertificate(
         IOptions<TunnelAuthenticationCertificateOptions> options,
@@ -45,6 +45,7 @@ internal sealed class TunnelAuthenticationCertificate
         _certificateConfigLoader = certificateConfigLoader;
         _certificatePathWatcher = certificatePathWatcher;
         _logger = logger;
+#warning listen to _certificatePathWatcher
     }
 
     public string GetAuthenticationName() => "ClientCertificate";
@@ -168,7 +169,7 @@ internal sealed class TunnelAuthenticationCertificate
         }
 
         _ValidCertificatesByThumbprint = resultCertificatesByThumbprint.ToImmutableDictionary();
-        _ValidCertificatesByCluster = resultCertificatesByCluster.ToImmutableDictionary();
+        _validCertificatesByCluster = resultCertificatesByCluster.ToImmutableDictionary();
     }
 
     private void ClearCertificateCache()
@@ -176,14 +177,13 @@ internal sealed class TunnelAuthenticationCertificate
         lock (this)
         {
             _ValidCertificatesByThumbprint = null;
-            _ValidCertificatesByCluster = null;
+            _validCertificatesByCluster = null;
         }
 
     }
 
     public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
-        var authentication = cluster.Model.Config.Authentication;
         if (context.User.Identity is not ClaimsIdentity identity
             || !identity.IsAuthenticated)
         {
@@ -194,16 +194,16 @@ internal sealed class TunnelAuthenticationCertificate
             "Certificate" /* = Microsoft.AspNetCore.Authentication.Certificate.CertificateAuthenticationDefaults.AuthenticationScheme */,
             System.StringComparison.Ordinal))) { return false; }
 
-        var validCertificatesByCluster = _ValidCertificatesByCluster;
+        var validCertificatesByCluster = _validCertificatesByCluster;
         // ensure the certificates are loaded
         if (validCertificatesByCluster is null)
         {
             lock (this)
             {
-                if (_ValidCertificatesByCluster is null)
+                if (_validCertificatesByCluster is null)
                 {
                     LoadCertificates();
-                    validCertificatesByCluster = _ValidCertificatesByCluster;
+                    validCertificatesByCluster = _validCertificatesByCluster;
                 }
             }
         }

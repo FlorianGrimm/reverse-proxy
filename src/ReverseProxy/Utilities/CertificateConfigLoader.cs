@@ -26,7 +26,7 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
 {
     private readonly ILogger<CertificateConfigLoader> _logger;
     private readonly string _certificateRoot;
-    private readonly Func<CertificateConfig, string?> _GetCertificatePassword;
+    private readonly Func<CertificateConfig, string?> _getCertificatePassword;
 
     public CertificateConfigLoader(
         IOptions<CertificateConfigOptions> options,
@@ -37,7 +37,7 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
         var optionsValue = options.Value;
 
         _certificateRoot = CertificateConfigOptions.GetCertificateRoot(optionsValue, hostEnvironment);
-        _GetCertificatePassword = optionsValue.GetCertificatePassword;
+        _getCertificatePassword = optionsValue.GetCertificatePassword;
     }
 
     public (X509Certificate2?, X509Certificate2Collection?) LoadCertificateNoPrivateKey(CertificateConfig? certInfo, string name)
@@ -62,7 +62,7 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
             var fullChain = new X509Certificate2Collection();
             fullChain.ImportFromPemFile(certificatePath);
 
-            var password = _GetCertificatePassword(certInfo);
+            var password = _getCertificatePassword(certInfo);
             return (new X509Certificate2(certificatePath, password), fullChain);
         }
         else if (certInfo.IsStoreCert)
@@ -110,7 +110,7 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
                     }
                     else
                     {
-                        var password = _GetCertificatePassword(certInfo);
+                        var password = _getCertificatePassword(certInfo);
                         certificate = LoadCertificateKey(certificate, certificateKeyPath, password);
                     }
                 }
@@ -135,7 +135,7 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
 
             // fallback
             {
-                var password = _GetCertificatePassword(certInfo);
+                var password = _getCertificatePassword(certInfo);
                 return (new X509Certificate2(certificatePath, password), fullChain);
             }
         }

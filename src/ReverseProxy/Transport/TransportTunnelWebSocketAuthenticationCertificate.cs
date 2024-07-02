@@ -165,7 +165,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
                 }
             }
 
-            clientWebSocket.Options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => onRemoteCertificateValidation(sender, certificate, chain, sslPolicyErrors, clientWebSocket.Options);
+            clientWebSocket.Options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => OnRemoteCertificateValidation(sender, certificate, chain, sslPolicyErrors, clientWebSocket.Options);
 
             return;
         }
@@ -177,7 +177,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
     }
 
 #pragma warning disable IDE0060 // Remove unused parameter
-    private bool onRemoteCertificateValidation(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors, ClientWebSocketOptions options)
+    private bool OnRemoteCertificateValidation(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors, ClientWebSocketOptions options)
 #pragma warning restore IDE0060 // Remove unused parameter
     {
         if (certificate is null)

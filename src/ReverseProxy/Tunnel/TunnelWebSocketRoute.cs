@@ -50,9 +50,7 @@ internal sealed class TunnelWebSocketRoute
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
     {
-#pragma warning disable IL2026 // Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code
         var conventionBuilder = endpoints.MapGet("_Tunnel/{clusterId}", TunnelWebSocketRouteGet);
-#pragma warning restore IL2026 // Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code
 
         // Make this endpoint do websockets automagically as middleware for this specific route
         conventionBuilder.Add(e =>
