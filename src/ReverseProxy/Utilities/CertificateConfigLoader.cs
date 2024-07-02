@@ -26,6 +26,7 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
 {
     private readonly ILogger<CertificateConfigLoader> _logger;
     private readonly string _certificateRoot;
+    private readonly Func<CertificateConfig, string?> _GetCertificatePassword;
 
     public CertificateConfigLoader(
         IOptions<CertificateConfigOptions> options,
@@ -33,7 +34,10 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
         ILogger<CertificateConfigLoader> logger)
     {
         _logger = logger;
-        _certificateRoot = CertificateConfigOptions.GetCertificateRoot(options, hostEnvironment);
+        var optionsValue = options.Value;
+
+        _certificateRoot = CertificateConfigOptions.GetCertificateRoot(optionsValue, hostEnvironment);
+        _GetCertificatePassword = optionsValue.GetCertificatePassword;
     }
 
     public (X509Certificate2?, X509Certificate2Collection?) LoadCertificateNoPrivateKey(CertificateConfig? certInfo, string name)
@@ -58,7 +62,8 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
             var fullChain = new X509Certificate2Collection();
             fullChain.ImportFromPemFile(certificatePath);
 
-            return (new X509Certificate2(certificatePath, certInfo.Password), fullChain);
+            var password = _GetCertificatePassword(certInfo);
+            return (new X509Certificate2(certificatePath, password), fullChain);
         }
         else if (certInfo.IsStoreCert)
         {
@@ -91,6 +96,7 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
             var fullChain = new X509Certificate2Collection();
             fullChain.ImportFromPemFile(certificatePath);
 
+
             if (certInfo.KeyPath is { Length: > 0 })
             {
                 var certificateKeyPath = Path.Combine(_certificateRoot, certInfo.KeyPath);
@@ -104,7 +110,8 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
                     }
                     else
                     {
-                        certificate = LoadCertificateKey(certificate, certificateKeyPath, certInfo.Password);
+                        var password = _GetCertificatePassword(certInfo);
+                        certificate = LoadCertificateKey(certificate, certificateKeyPath, password);
                     }
                 }
                 else
@@ -126,7 +133,11 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
                 throw new InvalidOperationException("The provided key file is missing or invalid.");
             }
 
-            return (new X509Certificate2(certificatePath, certInfo.Password), fullChain);
+            // fallback
+            {
+                var password = _GetCertificatePassword(certInfo);
+                return (new X509Certificate2(certificatePath, password), fullChain);
+            }
         }
         else if (certInfo.IsStoreCert)
         {

@@ -5,10 +5,12 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Security;
 using System.Net.WebSockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.Http.Connections.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 
@@ -47,11 +49,15 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
             );
     }
 
-    public ValueTask<bool> ConfigureClientWebSocketAsync(TransportTunnelConfig config, ClientWebSocket clientWebSocketocket)
+    public void ConfigureWebSocketConnectionOptions(TransportTunnelConfig config, HttpConnectionOptions options)
+    {
+    }
+
+    public void ConfigureClientWebSocketAsync(TransportTunnelConfig config, ClientWebSocket clientWebSocket)
     {
         if (!ClientCertificateLoader.IsClientCertificate(config.Authentication.Mode))
         {
-            return new(false);
+            return;
         }
 
         try
@@ -147,25 +153,47 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
                     }
                 }
 
-                var sslClientCertificates = clientWebSocketocket.Options.ClientCertificates ??= [];
+                var sslClientCertificates = clientWebSocket.Options.ClientCertificates ??= [];
                 sslClientCertificates.AddRange(srcClientCertifiacteCollection);
             }
 
             {
                 if (config.Authentication.ClientCertifiacteCollection is { } srcClientCertifiacteCollection)
                 {
-                    var sslClientCertificates = clientWebSocketocket.Options.ClientCertificates ??= [];
+                    var sslClientCertificates = clientWebSocket.Options.ClientCertificates ??= [];
                     sslClientCertificates.AddRange(srcClientCertifiacteCollection);
                 }
             }
 
-            return new(true);
+            clientWebSocket.Options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => onRemoteCertificateValidation(sender, certificate, chain, sslPolicyErrors, clientWebSocket.Options);
+
+            return;
         }
         catch (System.Exception error)
         {
             _logger.LogError(error, "Failed to load certificate");
-            return new(true);
+            return;
         }
+    }
+
+#pragma warning disable IDE0060 // Remove unused parameter
+    private bool onRemoteCertificateValidation(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors, ClientWebSocketOptions options)
+#pragma warning restore IDE0060 // Remove unused parameter
+    {
+        if (certificate is null)
+        {
+            // TODO: no idea
+            return false;
+        }
+        var certHash = certificate.GetCertHash();
+        foreach (var clientCertificate in options.ClientCertificates)
+        {
+            if (certHash.SequenceEqual(clientCertificate.GetCertHash()))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void ReloadCertificate()

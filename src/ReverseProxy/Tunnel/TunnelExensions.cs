@@ -2,9 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Threading.Tasks;
 
-using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
@@ -41,6 +39,13 @@ public static class TunnelExensions
 
         services.TryAddSingleton<CertificatePathWatcher>();
         services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
+
+        _ = services.Configure<KestrelServerOptions>(kestrelServerOptions =>
+        {
+            var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<TunnelAuthenticationService>();
+            tunnelAuthenticationConfigService.ConfigureKestrelServer(kestrelServerOptions);
+        });
+
         return services;
     }
 
@@ -62,7 +67,7 @@ public static class TunnelExensions
         return builder;
     }
 
-
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute("Map")]
     internal static void MapTunnels(
         this IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configureTunnelHTTP2 = default,
@@ -80,14 +85,9 @@ public static class TunnelExensions
         }
     }
 
-    public static IReverseProxyBuilder AddTunnelServicesAuthenticationCertificate(
+    public static IReverseProxyBuilder ConfigureTunnelAuthenticationCertificateOptions(
         this IReverseProxyBuilder builder,
-        bool allowAnyClientCertificate = false,
-#warning HERE
-        //Action<CertificateAuthenticationOptions>? configureCertificateAuthenticationOptions = default,
-        Action<TunnelAuthenticationCertificateOptions>? configureTunnelAuthenticationCertificateOptions = default,
-        Action<CertificateConfigOptions>? configureCertificateConfigOptions = default,
-        Action<KestrelServerOptions>? configureKestrelServerOptions = default,
+        Action<TunnelAuthenticationCertificateOptions>? configure = default,
         IConfiguration? configuration = default
         )
     {
@@ -106,110 +106,12 @@ public static class TunnelExensions
                     options.Bind(configuration.GetSection(TunnelAuthenticationCertificateOptions.SectionName));
                 });
             }
-            if (configureTunnelAuthenticationCertificateOptions is { })
+            if (configure is { })
             {
-                optionsBuilder.Configure(configureTunnelAuthenticationCertificateOptions);
+                optionsBuilder.Configure(configure);
             }
         }
-
-        {
-            var optionsBuilder = builder.Services.AddOptions<CertificateConfigOptions>();
-            if (configuration is { })
-            {
-                optionsBuilder.Configure((options) =>
-                {
-                    options.Bind(configuration.GetSection(CertificateConfigOptions.SectionName));
-                });
-            }
-
-            if (configureCertificateConfigOptions is { })
-            {
-                optionsBuilder.Configure(configureCertificateConfigOptions);
-            }
-        }
-
-        _ = builder.Services.Configure<KestrelServerOptions>(kestrelServerOptions =>
-        {
-            if (allowAnyClientCertificate)
-            {
-                kestrelServerOptions.ConfigureEndpointDefaults(e => { e.UseHttps(o => o.AllowAnyClientCertificate()); ; });
-                kestrelServerOptions.ConfigureHttpsDefaults(h => h.AllowAnyClientCertificate());
-            }
-
-            var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<TunnelAuthenticationService>();
-            tunnelAuthenticationConfigService.ConfigureKestrelServer(kestrelServerOptions);
-
-            if (configureKestrelServerOptions is { })
-            {
-                configureKestrelServerOptions(kestrelServerOptions);
-            }
-        });
-#warning HERE without this their is no need for the nuget
-        /*
-        var authenticationBuilder = builder.Services.AddAuthentication();
-        _ = authenticationBuilder.AddCertificate(
-            authenticationScheme: CertificateAuthenticationDefaults.AuthenticationScheme,
-            configureOptions: certificateAuthenticationOptions =>
-            {
-                certificateAuthenticationOptions.Events ??= new CertificateAuthenticationEvents();
-                certificateAuthenticationOptions.Events.OnCertificateValidated = (context) =>
-                {
-                    if (context.ClientCertificate is not null)
-                    {
-                        context.Success();
-                    }
-                    else
-                    {
-                        context.NoResult();
-                    }
-                    return Task.CompletedTask;
-                };
-                if (configureCertificateAuthenticationOptions is { } configure)
-                {
-                    configure(certificateAuthenticationOptions);
-                }
-            });
-        */
-        return builder;
-    }
-
-    /*
-    public static IReverseProxyBuilder AddTunnelServicesAuthenticationWindows(
-        this IReverseProxyBuilder builder,
-        Action<NegotiateOptions>? configureNegotiateOptions = default,
-        Action<KestrelServerOptions>? configureKestrelServerOptions = default,
-        IConfiguration? configuration = default
-        )
-    {
-        if (configuration is null
-            && builder is ReverseProxyBuilder reverseProxyBuilder)
-        {
-            configuration = reverseProxyBuilder.GetConfiguration();
-        }
-
-        _ = builder.Services.Configure<KestrelServerOptions>(kestrelServerOptions =>
-            {
-                var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<TunnelAuthenticationConfigService>();
-                tunnelAuthenticationConfigService.ConfigureKestrelServer(kestrelServerOptions);
-
-                if (configureKestrelServerOptions is { })
-                {
-                    configureKestrelServerOptions(kestrelServerOptions);
-                }
-            });
-
-        var authenticationBuilder = builder.Services.AddAuthentication();
-        _ = authenticationBuilder.AddNegotiate(
-            authenticationScheme: NegotiateDefaults.AuthenticationScheme,
-            configureOptions: negotiateOptions =>
-            {
-                if (configureNegotiateOptions is { })
-                {
-                    configureNegotiateOptions(negotiateOptions);
-                }
-            });
 
         return builder;
     }
-    */
 }

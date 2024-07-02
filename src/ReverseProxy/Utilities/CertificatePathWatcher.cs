@@ -42,7 +42,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
         IHostEnvironment hostEnvironment,
         ILogger<CertificatePathWatcher> logger)
         : this(
-            CertificateConfigOptions.GetCertificateRoot(options, hostEnvironment),
+            CertificateConfigOptions.GetCertificateRoot(options.Value, hostEnvironment),
             logger,
             null)
     { }

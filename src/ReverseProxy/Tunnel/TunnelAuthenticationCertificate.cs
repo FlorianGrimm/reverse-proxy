@@ -47,6 +47,8 @@ internal sealed class TunnelAuthenticationCertificate
         _logger = logger;
     }
 
+    public string GetAuthenticationName() => "ClientCertificate";
+
     public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)
     {
         kestrelServerOptions.ConfigureHttpsDefaults((HttpsConnectionAdapterOptions httpsOptions) =>
@@ -182,8 +184,6 @@ internal sealed class TunnelAuthenticationCertificate
     public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
         var authentication = cluster.Model.Config.Authentication;
-        if (!ClientCertificateLoader.IsClientCertificate(authentication.Mode)) { return false; }
-
         if (context.User.Identity is not ClaimsIdentity identity
             || !identity.IsAuthenticated)
         {
@@ -191,7 +191,7 @@ internal sealed class TunnelAuthenticationCertificate
         }
         if (!(string.Equals(
             identity.AuthenticationType,
-            Microsoft.AspNetCore.Authentication.Certificate.CertificateAuthenticationDefaults.AuthenticationScheme,
+            "Certificate" /* = Microsoft.AspNetCore.Authentication.Certificate.CertificateAuthenticationDefaults.AuthenticationScheme */,
             System.StringComparison.Ordinal))) { return false; }
 
         var validCertificatesByCluster = _ValidCertificatesByCluster;

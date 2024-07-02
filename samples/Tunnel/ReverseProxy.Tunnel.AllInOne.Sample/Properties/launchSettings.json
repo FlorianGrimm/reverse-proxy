@@ -2,7 +2,7 @@
   "profiles": {
     "https": {
       "commandName": "Project",
-      "commandLineArgs": "c",
+      "commandLineArgs": "w",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },

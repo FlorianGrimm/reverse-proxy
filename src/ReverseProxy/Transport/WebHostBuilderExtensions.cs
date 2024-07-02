@@ -22,6 +22,7 @@ public static class WebHostBuilderExtensions
 {
     /// <summary>
     /// Enable the tunnel transport on the backend.
+    /// Foreach tunnel-config connections are opend to URL/_tunnel/RemoteTunnelId or URL/_tunnel/TunnelId
     /// </summary>
     /// <param name="builder">this</param>
     /// <param name="configureTunnelHttp2">configure transport tunnel for Http2.</param>
@@ -30,7 +31,7 @@ public static class WebHostBuilderExtensions
     /// <example>
     ///    builder.Services.AddReverseProxy()
     ///        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-    ///        .UseTunnelTransport();
+    ///        .AddTunnelTransport();
     /// </example>
     public static IReverseProxyBuilder AddTunnelTransport(
         this IReverseProxyBuilder builder,
@@ -97,9 +98,9 @@ public static class WebHostBuilderExtensions
         }
     }
 
-    public static IReverseProxyBuilder AddTunnelTransportAuthenticationCertificate(
+    public static IReverseProxyBuilder ConfigureCertificateConfigOptions(
         this IReverseProxyBuilder builder,
-        Action<CertificateConfigOptions>? configureCertificateConfigOptions = default,
+        Action<CertificateConfigOptions>? configure = default,
         IConfiguration? configuration = default
         )
     {
@@ -119,9 +120,9 @@ public static class WebHostBuilderExtensions
                 });
             }
 
-            if (configureCertificateConfigOptions is { })
+            if (configure is { })
             {
-                _ = optionsBuilder.Configure(configureCertificateConfigOptions);
+                _ = optionsBuilder.Configure(configure);
             }
         }
 

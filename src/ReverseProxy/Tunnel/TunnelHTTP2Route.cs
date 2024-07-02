@@ -5,6 +5,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -42,15 +43,14 @@ internal sealed partial class TunnelHTTP2Route : IDisposable
         _unRegister = _lifetime.ApplicationStopping.Register(() => _cancellationTokenSource.Cancel());
     }
 
-
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute("Map")]
     internal IEndpointConventionBuilder Map(
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
     {
         // TODO: EnableRequestDelegateGenerator does not work - how to do this right for AOT?
-#pragma warning disable IL2026 // Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code
         var conventionBuilder = endpoints.MapPost("_Tunnel/{clusterId}", TunnelHTTP2RoutePost);
-#pragma warning restore IL2026 // Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code
+        //conventionBuilder.AllowAnonymous();
         if (configure is not null)
         {
             configure(conventionBuilder);
@@ -85,8 +85,7 @@ internal sealed partial class TunnelHTTP2Route : IDisposable
 
         if (!_tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster))
         {
-#warning HERE temporary turn off
-            //return Results.StatusCode(401);
+            return Results.StatusCode(401);
         }
 
 

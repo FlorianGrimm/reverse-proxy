@@ -13,4 +13,5 @@ public interface ITunnelAuthenticationService
     void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions);
 
     bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster);
+    string GetAuthenticationName();
 }

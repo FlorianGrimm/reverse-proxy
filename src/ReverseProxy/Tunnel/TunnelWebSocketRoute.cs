@@ -45,6 +45,7 @@ internal sealed class TunnelWebSocketRoute
         _unRegister = _lifetime.ApplicationStopping.Register(() => _cancellationTokenSource.Cancel());
     }
 
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute("Map")]
     internal IEndpointConventionBuilder Map(
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
@@ -60,6 +61,8 @@ internal sealed class TunnelWebSocketRoute
             sub.UseWebSockets().Run(e.RequestDelegate!);
             e.RequestDelegate = sub.Build();
         });
+
+        //conventionBuilder.AllowAnonymous();
 
         if (configure is not null)
         {
@@ -94,8 +97,7 @@ internal sealed class TunnelWebSocketRoute
         }
         if (!_tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster))
         {
-#warning HERE temporary turn off
-            //return Results.StatusCode(401);
+            return Results.StatusCode(401);
         }
 
         using (var ctsRequestAborted = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _cancellationTokenSource.Token))

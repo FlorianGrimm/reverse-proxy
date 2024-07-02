@@ -6,6 +6,8 @@ using System.Collections.Immutable;
 using System.Net.WebSockets;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.Http.Connections.Client;
+
 using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Transport;
@@ -16,16 +18,21 @@ internal sealed class TransportTunnelWebSocketAuthentication(
 {
     public ImmutableArray<ITransportTunnelWebSocketAuthentication> Services { get; set; } = services.ToImmutableArray();
 
-    public async ValueTask<bool> ConfigureClientWebSocketAsync(TransportTunnelConfig config, ClientWebSocket clientWebSocketocket)
+    public void ConfigureWebSocketConnectionOptions(TransportTunnelConfig config, HttpConnectionOptions options)
     {
         var services = Services;
         foreach (var service in services)
         {
-            if (await service.ConfigureClientWebSocketAsync(config, clientWebSocketocket))
-            {
-                return true;
-            }
+            service.ConfigureWebSocketConnectionOptions(config, options);
         }
-        return false;
+    }
+
+    public void ConfigureClientWebSocketAsync(TransportTunnelConfig config, ClientWebSocket clientWebSocketocket)
+    {
+        var services = Services;
+        foreach (var service in services)
+        {
+            service.ConfigureClientWebSocketAsync(config, clientWebSocketocket);
+        }
     }
 }

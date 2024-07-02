@@ -24,6 +24,8 @@ internal sealed class TunnelAuthenticationWindows
         _logger = logger;
     }
 
+    public string GetAuthenticationName() => "Windows";
+
     public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)
     {
         // do nothing
@@ -31,16 +33,16 @@ internal sealed class TunnelAuthenticationWindows
 
     public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
-        var authentication = cluster.Model.Config.Authentication;
-        if (!string.Equals(authentication.Mode, "Windows", StringComparison.OrdinalIgnoreCase))
+        if (context.User is not { } user) { return false; }
+        if (user.Identity is not { } identity) { return false; }
+        if (!identity.IsAuthenticated) { return false; }
+
+        if (!string.Equals(user.Identity.AuthenticationType, "Negotiate", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
-        if (context.User is not { } user) { return false; }
-        if (user.Identity is not { } identity) { return false; }
 
-        _logger.LogInformation("AuthenticationType: {AuthenticationType}", user.Identity.AuthenticationType);
-        if (!string.Equals(user.Identity.AuthenticationType, "Negotiate", StringComparison.OrdinalIgnoreCase)) { return false; }
+        var authentication = cluster.Model.Config.Authentication;
         var userNames = authentication.UserNames;
         if (userNames is null
             || userNames.Length == 0

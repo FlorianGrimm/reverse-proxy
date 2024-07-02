@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
@@ -13,9 +11,9 @@ namespace Yarp.ReverseProxy.Tunnel;
 internal sealed class TunnelAuthenticationAnonymous
     : ITunnelAuthenticationService
 {
-    public TunnelAuthenticationAnonymous()
-    {
-    }
+    public TunnelAuthenticationAnonymous() { }
+
+    public string GetAuthenticationName() => "Anonymous";
 
     public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)
     {
@@ -24,12 +22,7 @@ internal sealed class TunnelAuthenticationAnonymous
 
     public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
-        if (!string.Equals(cluster.Model.Config.Authentication.Mode, "Anonymous", StringComparison.InvariantCultureIgnoreCase))
-        {
-            return false;
-        }
         return true;
-
     }
 }
 

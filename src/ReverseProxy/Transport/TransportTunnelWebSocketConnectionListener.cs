@@ -95,7 +95,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                                 underlyingWebSocket = new ClientWebSocket();
                                 underlyingWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(5);
 
-                                await onConfigureClientWebSocket(underlyingWebSocket);
+                                onConfigureClientWebSocket(underlyingWebSocket);
                                 try
                                 {
                                     await underlyingWebSocket.ConnectAsync(context.Uri, cancellationToken);
@@ -109,6 +109,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                             }
                         };
 
+                        onConfigureWebSocketConnectionOptions(options);
                         var innerConnection = new TransportTunnelWebSocketConnectionContext(options, _logger, null);
                         await innerConnection.StartAsync(TransferFormat.Binary, cancellationToken);
                         innerConnection.underlyingWebSocket = underlyingWebSocket;
@@ -144,18 +145,24 @@ internal sealed class TransportTunnelWebSocketConnectionListener
         }
     }
 
-    private async ValueTask onConfigureClientWebSocket(ClientWebSocket socket)
+    private void onConfigureWebSocketConnectionOptions(HttpConnectionOptions options)
+    {
+        var config = _tunnel.Model.Config;
+        _transportTunnelWebSocketAuthentication.ConfigureWebSocketConnectionOptions(config, options);
+    }
+
+    private void onConfigureClientWebSocket(ClientWebSocket socket)
     {
         // set the socketsHttpHandler.SslOptions based on the tunnel configuration authentication
         var config = _tunnel.Model.Config;
 
-        await _transportTunnelWebSocketAuthentication.ConfigureClientWebSocketAsync(config, socket);
+        _transportTunnelWebSocketAuthentication.ConfigureClientWebSocketAsync(config, socket);
 
-        if (config.Authentication.ClientCertifiacteCollection is { } certificates)
-        {
-            var clientCertificates = socket.Options.ClientCertificates ??= new();
-            clientCertificates.AddRange(certificates);
-        }
+        //if (config.Authentication.ClientCertifiacteCollection is { } certificates)
+        //{
+        //    var clientCertificates = socket.Options.ClientCertificates ??= new();
+        //    clientCertificates.AddRange(certificates);
+        //}
 
         if (_options.ConfigureClientWebSocket is { } configureClientWebSocket)
         {

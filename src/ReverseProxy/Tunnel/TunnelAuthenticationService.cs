@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 using Microsoft.AspNetCore.Http;
@@ -16,12 +17,16 @@ internal sealed class TunnelAuthenticationService
     : ITunnelAuthenticationService
 {
     private readonly List<ITunnelAuthenticationService> _services;
+    private readonly ImmutableDictionary<string, ITunnelAuthenticationService> _servicesByAuthenticationName;
 
     public TunnelAuthenticationService(
         IEnumerable<ITunnelAuthenticationService> listTunnelAuthenticationConfigService)
     {
         _services = listTunnelAuthenticationConfigService.ToList();
+        _servicesByAuthenticationName = _services.ToImmutableDictionary(service => service.GetAuthenticationName(), StringComparer.OrdinalIgnoreCase);
     }
+
+    public string GetAuthenticationName() { throw new NotSupportedException(); }
 
     public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)
     {
@@ -33,11 +38,20 @@ internal sealed class TunnelAuthenticationService
 
     public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
-        foreach (var service in _services)
+        if (cluster.Model.Config.Authentication.Mode is { Length: > 0 } mode
+            && _servicesByAuthenticationName.TryGetValue(mode, out var service))
         {
-            var result = service.CheckTunnelRequestIsAuthenticated(context, cluster);
-            if (result) { return true; }
+            return service.CheckTunnelRequestIsAuthenticated(context, cluster);
         }
-        return false;
+        else
+        {
+            return false;
+        }
+        //foreach (var service in _services)
+        //{
+        //    var result = service.CheckTunnelRequestIsAuthenticated(context, cluster);
+        //    if (result) { return true; }
+        //}
+        //return false;
     }
 }

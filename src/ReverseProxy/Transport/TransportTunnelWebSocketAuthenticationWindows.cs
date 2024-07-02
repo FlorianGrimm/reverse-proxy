@@ -19,6 +19,7 @@ using Microsoft.Extensions.Primitives;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Http.Connections.Client;
 
 namespace Yarp.ReverseProxy.Transport;
 
@@ -34,14 +35,19 @@ internal sealed class TransportTunnelWebSocketAuthenticationWindows
         _logger = logger;
     }
 
-    public ValueTask<bool> ConfigureClientWebSocketAsync(TransportTunnelConfig config, ClientWebSocket clientWebSocketocket)
+    public void ConfigureWebSocketConnectionOptions(TransportTunnelConfig config, HttpConnectionOptions options)
+    {
+        options.Credentials = System.Net.CredentialCache.DefaultCredentials;
+    }
+
+    public void ConfigureClientWebSocketAsync(TransportTunnelConfig config, ClientWebSocket clientWebSocketocket)
     {
         if (!string.Equals(config.Authentication.Mode, "Windows", System.StringComparison.OrdinalIgnoreCase))
         {
-            return new(false);
+            return;
         }
 
         clientWebSocketocket.Options.Credentials = System.Net.CredentialCache.DefaultCredentials;
-        return new(true);
+        return;
     }
 }

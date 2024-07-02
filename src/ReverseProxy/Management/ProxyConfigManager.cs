@@ -803,8 +803,8 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                 var httpClient = _TransportHttpClientFactorySelector.GetForwarderHttpClientFactory(transport, forwarderHttpClientContext)?.CreateClient(forwarderHttpClientContext);
                 if (httpClient is null)
                 {
-                    // TODO: log error or throw an exception?
-                    throw new InvalidOperationException();
+                    // log error or throw an exception?
+                    throw new InvalidOperationException("GetForwarderHttpClientFactory failed.");
                 }
 
                 var newClusterModel = new ClusterModel(incomingCluster, httpClient);

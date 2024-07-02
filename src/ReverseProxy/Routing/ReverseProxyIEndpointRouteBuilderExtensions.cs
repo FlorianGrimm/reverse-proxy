@@ -26,6 +26,7 @@ public static class ReverseProxyIEndpointRouteBuilderExtensions
     /// <summary>
     /// Adds Reverse Proxy routes to the route table using the default processing pipeline.
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute("Map")]
     public static ReverseProxyConventionBuilder MapReverseProxy(
         this IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configureTunnelHTTP2 = default,
@@ -43,6 +44,7 @@ public static class ReverseProxyIEndpointRouteBuilderExtensions
     /// Adds Reverse Proxy routes to the route table with the customized processing pipeline. The pipeline includes
     /// by default the initialization step and the final proxy step, but not LoadBalancingMiddleware or other intermediate components.
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute("Map")]
     public static ReverseProxyConventionBuilder MapReverseProxy(
         this IEndpointRouteBuilder endpoints,
         Action<IReverseProxyApplicationBuilder> configureApp,
