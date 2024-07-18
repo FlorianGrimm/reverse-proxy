@@ -17,4 +17,20 @@
     <MicrosoftBclTimeProviderVersion>8.0.0</MicrosoftBclTimeProviderVersion>
     <MicrosoftDotNetXUnitExtensionsPackageVersion>9.0.0-beta.24360.4</MicrosoftDotNetXUnitExtensionsPackageVersion>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net6.0'">
+    <MicrosoftAspNetCoreHttpConnectionsClient>6.0.31</MicrosoftAspNetCoreHttpConnectionsClient>
+    <MicrosoftAspNetCoreAuthenticationCertificate>6.0.31</MicrosoftAspNetCoreAuthenticationCertificate>
+    <MicrosoftAspNetCoreAuthenticationNegotiate>6.0.31</MicrosoftAspNetCoreAuthenticationNegotiate>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net7.0'">
+    <MicrosoftAspNetCoreHttpConnectionsClient>7.0.20</MicrosoftAspNetCoreHttpConnectionsClient>
+    <MicrosoftAspNetCoreAuthenticationCertificate>7.0.20</MicrosoftAspNetCoreAuthenticationCertificate>
+    <MicrosoftAspNetCoreAuthenticationNegotiate>7.0.20</MicrosoftAspNetCoreAuthenticationNegotiate>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <MicrosoftAspNetCoreHttpConnectionsClient>8.0.6</MicrosoftAspNetCoreHttpConnectionsClient>
+    <MicrosoftAspNetCoreAuthenticationCertificate>8.0.6</MicrosoftAspNetCoreAuthenticationCertificate>
+    <MicrosoftAspNetCoreAuthenticationNegotiate>8.0.6</MicrosoftAspNetCoreAuthenticationNegotiate>
+  </PropertyGroup>
 </Project>
