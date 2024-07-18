@@ -37,14 +37,19 @@ internal class KubernetesConfigProvider : IProxyConfigProvider, IUpdateConfig
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
         public MessageConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
-            : this(routes, clusters, Guid.NewGuid().ToString())
+            : this(routes, clusters, [],Guid.NewGuid().ToString())
         { }
 
         public MessageConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, string revisionId)
+            : this(routes, clusters, [],Guid.NewGuid().ToString())
+        { }
+
+        public MessageConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TransportTunnelConfig> tunnels, string revisionId)
         {
             RevisionId = revisionId ?? throw new ArgumentNullException(nameof(revisionId));
             Routes = routes;
             Clusters = clusters;
+            Tunnels = tunnels;
             ChangeToken = new CancellationChangeToken(_cts.Token);
         }
 
@@ -53,6 +58,8 @@ internal class KubernetesConfigProvider : IProxyConfigProvider, IUpdateConfig
         public IReadOnlyList<RouteConfig> Routes { get; }
 
         public IReadOnlyList<ClusterConfig> Clusters { get; }
+
+        public IReadOnlyList<TransportTunnelConfig> Tunnels { get; }
 
         public IChangeToken ChangeToken { get; }
 

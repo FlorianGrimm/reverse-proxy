@@ -21,4 +21,6 @@ public interface IConfigValidator
     /// Validates a cluster and returns all errors.
     /// </summary>
     ValueTask<IList<Exception>> ValidateClusterAsync(ClusterConfig cluster);
+
+    ValueTask<IList<Exception>> ValidateTunnelAsync(TransportTunnelConfig tunnel);
 }

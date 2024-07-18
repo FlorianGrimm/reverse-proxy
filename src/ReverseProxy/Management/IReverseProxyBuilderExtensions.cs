@@ -1,13 +1,16 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.Linq;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Server.HttpSys;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Configuration.ClusterValidators;
 using Yarp.ReverseProxy.Configuration.RouteValidators;
+using Yarp.ReverseProxy.Configuration.TunnelValidators;
 using Yarp.ReverseProxy.Delegation;
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Health;
@@ -44,6 +47,8 @@ internal static class IReverseProxyBuilderExtensions
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterValidator, SessionAffinityValidator>());
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterValidator, ProxyHttpClientValidator>());
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterValidator, ProxyHttpRequestValidator>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterValidator, TransportValidator>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelValidator, TunnelUrlValidator>());
         builder.Services.TryAddSingleton<IRandomFactory, RandomFactory>();
         builder.AddTransformFactory<ForwardedTransformFactory>();
         builder.AddTransformFactory<HttpMethodTransformFactory>();
@@ -72,12 +77,16 @@ internal static class IReverseProxyBuilderExtensions
     {
         builder.Services.TryAddSingleton<ProxyConfigManager>();
         builder.Services.TryAddSingleton<IProxyStateLookup>(sp => sp.GetRequiredService<ProxyConfigManager>());
+        builder.Services.TryAddSingleton<ILazyRequiredServiceResolver<ProxyConfigManager>, ProxyConfigManager.LazyProxyConfigManager>();
+        
         return builder;
     }
 
     public static IReverseProxyBuilder AddProxy(this IReverseProxyBuilder builder)
     {
         builder.Services.TryAddSingleton<IForwarderHttpClientFactory, ForwarderHttpClientFactory>();
+        builder.Services.TryAddSingleton<TransportHttpClientFactorySelector>();
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportHttpClientFactorySelector, TransportForwarderHttpClientFactory>());
 
         builder.Services.AddHttpForwarder();
         return builder;
@@ -144,6 +153,7 @@ internal static class IReverseProxyBuilderExtensions
         builder.Services.AddSingleton<HttpSysDelegator>();
         builder.Services.TryAddSingleton<IHttpSysDelegator>(p => p.GetRequiredService<HttpSysDelegator>());
         builder.Services.AddSingleton<IClusterChangeListener>(p => p.GetRequiredService<HttpSysDelegator>());
+        builder.Services.AddSingleton<ILazyServiceResolver<IServerDelegationFeature>, LazyResolveIServerDelegationFeature>();
 
         return builder;
     }

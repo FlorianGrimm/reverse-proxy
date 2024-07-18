@@ -4,6 +4,9 @@
 using System;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Forwarder;
+using Microsoft.Extensions.DependencyInjection;
+using Yarp.ReverseProxy.Management;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.AspNetCore.Http;
 
@@ -80,4 +83,11 @@ public static class HttpContextFeaturesExtensions
         };
         context.Features.Set<IReverseProxyFeature>(newFeature);
     }
+
+    public static bool TryGetTransportTunnelByUrl(this HttpContext context, [MaybeNullWhenAttribute(false)] out TunnelState tunnel)
+    {
+        return context.RequestServices.GetRequiredService<ProxyConfigManager>()
+            .TryGetTransportTunnelByUrl(context.Request.Host.Host, out tunnel);
+    }
+
 }

@@ -1,0 +1,17 @@
+{
+  "profiles": {
+    "https": {
+      "commandName": "Project",
+      "commandLineArgs": "h2-w authwin test",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "dotnetRunMessages": true,
+      "x-launchBrowser": true,
+      "x-launchUrl": "swagger",
+      "x-applicationUrl": "https://localhost:5001",
+      "hotReloadEnabled": false
+    }
+  },
+  "$schema": "http://json.schemastore.org/launchsettings.json"
+}

@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using System;
+
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Yarp.ReverseProxy.Management;

@@ -19,16 +19,34 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
     /// <summary>
     /// Creates a new instance.
     /// </summary>
+    public InMemoryConfigProvider(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TransportTunnelConfig> tunnels)
+    {
+        _config = new InMemoryConfig(routes, clusters, tunnels);
+    }
+
+    /// <summary>
+    /// Creates a new instance.
+    /// </summary>
     public InMemoryConfigProvider(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
-        : this(routes, clusters, Guid.NewGuid().ToString())
-    { }
+    {
+        _config = new InMemoryConfig(routes, clusters, []);
+    }
 
     /// <summary>
     /// Creates a new instance, specifying a revision id of the configuration.
     /// </summary>
     public InMemoryConfigProvider(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, string revisionId)
     {
-        _config = new InMemoryConfig(routes, clusters, revisionId);
+        _config = new InMemoryConfig(routes, clusters, [], revisionId);
+    }
+
+
+    /// <summary>
+    /// Creates a new instance, specifying a revision id of the configuration.
+    /// </summary>
+    public InMemoryConfigProvider(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TransportTunnelConfig> tunnels, string revisionId)
+    {
+        _config = new InMemoryConfig(routes, clusters, tunnels, revisionId);
     }
 
     /// <summary>
@@ -42,7 +60,7 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
     /// </summary>
     public void Update(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
     {
-        var newConfig = new InMemoryConfig(routes, clusters);
+        var newConfig = new InMemoryConfig(routes, clusters, []);
         UpdateInternal(newConfig);
     }
 
@@ -51,7 +69,7 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
     /// </summary>
     public void Update(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, string revisionId)
     {
-        var newConfig = new InMemoryConfig(routes, clusters, revisionId);
+        var newConfig = new InMemoryConfig(routes, clusters, [], revisionId);
         UpdateInternal(newConfig);
     }
 
@@ -69,15 +87,16 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
         // Used to implement the change token for the state
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
-        public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
-            : this(routes, clusters, Guid.NewGuid().ToString())
+        public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TransportTunnelConfig> tunnels)
+            : this(routes, clusters, [], Guid.NewGuid().ToString())
         { }
 
-        public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, string revisionId)
+        public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TransportTunnelConfig> tunnels, string revisionId)
         {
             RevisionId = revisionId ?? throw new ArgumentNullException(nameof(revisionId));
             Routes = routes;
             Clusters = clusters;
+            Tunnels = tunnels;
             ChangeToken = new CancellationChangeToken(_cts.Token);
         }
 
@@ -93,6 +112,8 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
         /// A snapshot of the list of Clusters which are collections of interchangable destination endpoints
         /// </summary>
         public IReadOnlyList<ClusterConfig> Clusters { get; }
+
+        public IReadOnlyList<TransportTunnelConfig> Tunnels { get; }
 
         /// <summary>
         /// Fired to indicate the the proxy state has changed, and that this snapshot is now stale

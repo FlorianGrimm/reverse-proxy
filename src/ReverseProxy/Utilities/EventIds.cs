@@ -70,4 +70,36 @@ internal static class EventIds
     public static readonly EventId TimeoutNotApplied = new(64, nameof(TimeoutNotApplied));
     public static readonly EventId DelegationQueueNoLongerExists = new(65, nameof(DelegationQueueNoLongerExists));
     public static readonly EventId ForwardingRequestCancelled = new(66, nameof(ForwardingRequestCancelled));
+    public static readonly EventId TunnelAdded = new EventId(67, "TunnelAdded");
+    public static readonly EventId TunnelChanged = new EventId(68, "TunnelChanged");
+    public static readonly EventId TunnelRemoved = new EventId(69, "TunnelRemoved");
+    public static readonly EventId ParameterNotValid = new EventId(70, "ParameterNotValid");
+    public static readonly EventId ClusterNotFound = new EventId(71, "ClusterNotFound");
+    public static readonly EventId TunnelConnectionChannelNotFound = new EventId(72, "TunnelConnectionChannelNotFound");
+    public static readonly EventId TunnelCreateHttpMessageInvoker = new EventId(73, "TunnelCreateHttpMessageInvoker");
+    public static readonly EventId TunnelCannotConnectTunnel = new EventId(74, "TunnelCannotConnectTunnel");
+    public static readonly EventId TunnelResumeConnectTunnel = new EventId(75, "TunnelResumeConnectTunnel");
+    public static readonly EventId MissingOrInvalidCertificateFile = new EventId(76, "MissingOrInvalidCertificateFile");
+    public static readonly EventId MissingOrInvalidCertificateKeyFile = new EventId(77, "MissingOrInvalidCertificateKeyFile");
+
+    public static readonly EventId DirectoryDoesNotExist = new EventId(78, "DirectoryDoesNotExist");
+    public static readonly EventId UnknownFile = new EventId(79, "UnknownFile");
+    public static readonly EventId UnknownObserver = new EventId(80, "UnknownObserver");
+    public static readonly EventId CreatedDirectoryWatcher = new EventId(81, "CreatedDirectoryWatcher");
+    public static readonly EventId CreatedFileWatcher = new EventId(82, "CreatedFileWatcher");
+    public static readonly EventId RemovedDirectoryWatcher = new EventId(83, "RemovedDirectoryWatcher");
+    public static readonly EventId RemovedFileWatcher = new EventId(84, "RemovedFileWatcher");
+    public static readonly EventId LastModifiedTimeError = new EventId(85, "LastModifiedTimeError");
+    public static readonly EventId UntrackedFileEvent = new EventId(86, "UntrackedFileEvent");
+    public static readonly EventId ReusedObserver = new EventId(87, "ReusedObserver");
+    public static readonly EventId AddedObserver = new EventId(88, "AddedObserver");
+    public static readonly EventId RemovedObserver = new EventId(89, "RemovedObserver");
+    public static readonly EventId ObserverCount = new EventId(90, "ObserverCount");
+    public static readonly EventId FileCount = new EventId(90, "FileCount");
+    public static readonly EventId EventWithoutFile = new EventId(91, "EventWithoutFile");
+    public static readonly EventId EventWithoutFileCallback = new EventId(92, "EventWithoutFileCallback");
+    public static readonly EventId TransportWebSocketAcceptFailed = new EventId(93, "TransportWebSocketAcceptFailed");
+    public static readonly EventId TransportHttp2AcceptFailed = new EventId(94, "TransportHttp2AcceptFailed");
+    public static readonly EventId ClusterAuthenticationSuccess = new EventId(95, "ClusterAuthenticationSuccess");
+    public static readonly EventId ClusterAuthenticationFailed = new EventId(96, "ClusterAuthenticationFailed");
 }
