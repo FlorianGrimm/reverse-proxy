@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31804.322
@@ -99,6 +99,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Prometheus", "Prometheus", "{78A83196-53F3-444B-84BF-F0FDC2CD0466}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HttpLoadApp", "samples\Prometheus\HttpLoadApp\HttpLoadApp.csproj", "{BD73A038-8F3D-4BB2-A5C4-C8D077969DED}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tunnel", "Tunnel", "{8F5D651C-B441-4B54-A383-5A4614D6834D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -369,6 +371,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{8F5D651C-B441-4B54-A383-5A4614D6834D} = {149C61A2-D9F8-49B9-9F9B-3C953FEF53AA}
 		{568EF8AE-7624-490D-A19F-C25D076FF091} = {6CBE18D4-64E9-492B-BB02-58CD57126C10}
 		{3B188E4C-C926-4BED-94F3-0E83668FBAB0} = {0631147E-34BB-456D-B214-5B202C516D5C}
 		{11D098B2-7116-4F37-817A-E496B8F15C76} = {149C61A2-D9F8-49B9-9F9B-3C953FEF53AA}
