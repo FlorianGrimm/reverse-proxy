@@ -15,5 +15,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\ReverseProxy\Yarp.ReverseProxy.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="LogFiles\" />
+  </ItemGroup>
 
 </Project>
