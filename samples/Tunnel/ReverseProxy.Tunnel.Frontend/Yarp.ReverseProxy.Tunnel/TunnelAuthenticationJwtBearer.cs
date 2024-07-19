@@ -1,16 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Claims;
-using System.Text;
-using System.Threading.Tasks;
 
-using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.Options;
 
 using Yarp.ReverseProxy.Model;
 
@@ -18,6 +10,18 @@ namespace Yarp.ReverseProxy.Tunnel;
 internal sealed class TunnelAuthenticationJwtBearer
     : ITunnelAuthenticationService
 {
+    private readonly TunnelAuthenticationJwtBearerOptions _options;
+    private readonly ILogger _logger;
+
+    public TunnelAuthenticationJwtBearer(
+        IOptions<TunnelAuthenticationJwtBearerOptions> options,
+        ILogger<TunnelAuthenticationJwtBearer> logger
+        )
+    {
+        _options = options.Value;
+        _logger = logger;
+    }
+
     public string GetAuthenticationName() => "JwtBearer";
 
     public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)
@@ -30,55 +34,35 @@ internal sealed class TunnelAuthenticationJwtBearer
 
     public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
-
-        var oid = context.User.FindFirst("oid")?.Value;
-        var sub = context.User.FindFirst("sub")?.Value;
-        var isAppOnly = oid != null && sub != null && oid == sub;
-#warning TODO: here
-        return true;
+        if (context.User.Identity is ClaimsIdentity { IsAuthenticated: true} identity) {
+            var appid = identity.Claims.FirstOrDefault(c => c.Type == "appid")?.Value;
+            var appidacr = identity.Claims.FirstOrDefault(c => c.Type == "appidacr")?.Value;
+            if (appid == _options.ClientId && appidacr == "1")
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
-    public static void ConfigureBearerToken(JwtBearerOptions options)
+    public static void ConfigureBearerToken(
+        JwtBearerOptions jwtBearerOptions,
+        TunnelAuthenticationJwtBearerOptions options)
     {
-        options.Events ??= new JwtBearerEvents();
-        options.Events.OnMessageReceived = async context =>
-        {
-            System.Console.Out.WriteLine($"---------- MessageReceived {context.Token}");
-            await Task.CompletedTask;
-        };
-        options.Events.OnTokenValidated = async context =>
-        {
-            //context.
-            //var claims = new List<Claim>
-            //{
-            //    new Claim("oid", context.Principal.FindFirst("oid")?.Value ?? ""),
-            //    new Claim("sub", context.Principal.FindFirst("sub")?.Value ?? ""),
-            //};
-            //var appIdentity = new ClaimsIdentity(claims, "app");
-            //context.Principal.AddIdentity(appIdentity);
-            var securityToken = context.SecurityToken;
-            System.Console.Out.WriteLine($"---------- Id:{securityToken.Id} Issuer:{securityToken.Issuer}");
-            if (context.Principal is ClaimsPrincipal claimsPrincipal)
-            {
-                System.Console.Out.WriteLine("-------------- ClaimsPrincipal");
-            }
-            else
-            {
-                System.Console.Out.WriteLine("-------------- NOT ClaimsPrincipal");
-            }
-            
-            await Task.CompletedTask;
-        };
-        //((BearerTokenEvents)options.Events).OnTokenValidated = context =>
-        //    {
-        //        var claims = new List<Claim>
-        //        {
-        //            new Claim("oid", context.Principal.FindFirst("oid")?.Value ?? ""),
-        //            new Claim("sub", context.Principal.FindFirst("sub")?.Value ?? ""),
-        //        };
-        //        var appIdentity = new ClaimsIdentity(claims, "app");
-        //        context.Principal.AddIdentity(appIdentity);
-        //        return Task.CompletedTask;
-        //    };
+        var tenantId = options.TenantId;
+        var clientId = options.ClientId;
+        var audience = options.Audience;
+        jwtBearerOptions.Audience = audience;
+        jwtBearerOptions.Authority = $"https://login.microsoftonline.com/{tenantId}/v2.0";
+        jwtBearerOptions.UseSecurityTokenValidators = false;
+        jwtBearerOptions.TokenValidationParameters.ValidAudiences = [
+            $"api://{clientId}",
+            clientId
+            ];
+        jwtBearerOptions.TokenValidationParameters.ValidIssuers = [
+            $"https://login.microsoftonline.com/{tenantId}/v2.0",
+            $"https://sts.windows.net/{tenantId}/v2.0",
+            $"https://sts.windows.net/{tenantId}/"
+            ];
     }
 }

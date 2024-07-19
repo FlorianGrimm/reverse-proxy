@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -16,16 +17,19 @@ internal class TransportTunnelHttp2AuthenticationJwtBearer
 {
     private readonly ConfidentialClientApplicationOptions _options;
     private readonly IConfidentialClientApplication _confidentialClientApplication;
-    private IAccount? _account;
+    private readonly ConcurrentDictionary<string, Item> _accountByUrl = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ILogger _logger;
 
     public TransportTunnelHttp2AuthenticationJwtBearer(
-        IOptions<Microsoft.Identity.Client.ConfidentialClientApplicationOptions> options
+        IOptions<Microsoft.Identity.Client.ConfidentialClientApplicationOptions> options,
+        ILogger<TransportTunnelHttp2AuthenticationJwtBearer> logger
         )
     {
         _options = options.Value;
         _confidentialClientApplication = Microsoft.Identity.Client.ConfidentialClientApplicationBuilder
             .CreateWithApplicationOptions(_options)
             .Build();
+        _logger = logger;
     }
 
     public string GetAuthenticationName() => "JwtBearer";
@@ -35,24 +39,62 @@ internal class TransportTunnelHttp2AuthenticationJwtBearer
 
     public async ValueTask ConfigureHttpRequestMessageAsync(TunnelState tunnel, HttpRequestMessage requestMessage)
     {
-        // is a quick AcquireTokenSilent possible?
-        if (_account is { }) {
-            try
+        while (true)
+        {
+            if (_accountByUrl.TryGetValue(tunnel.Model.Config.Url, out var item))
             {
-                var authenticationResult = await _confidentialClientApplication.AcquireTokenSilent([], _account).ExecuteAsync();
-                requestMessage.Headers.Add("Authorization", authenticationResult.CreateAuthorizationHeader());
+                await item.ConfigureHttpRequestMessageAsync(tunnel, requestMessage);
                 return;
             }
-            catch
+            else
             {
+                _accountByUrl.TryAdd(tunnel.Model.Config.Url, new Item(this));
             }
         }
+    }
+    internal class Item(
+        TransportTunnelHttp2AuthenticationJwtBearer owner
+        )
+    {
+        private readonly TransportTunnelHttp2AuthenticationJwtBearer _owner = owner;
+        private IAccount? _account;
 
-        // do the full AcquireTokenForClient
+        public async ValueTask ConfigureHttpRequestMessageAsync(TunnelState tunnel, HttpRequestMessage requestMessage)
         {
-            var authenticationResult = await _confidentialClientApplication.AcquireTokenForClient(new string[] { ".default" }).ExecuteAsync();
-            requestMessage.Headers.Add("Authorization", authenticationResult.CreateAuthorizationHeader());
-            _account = authenticationResult.Account;
+            try
+            {
+                var clientId = _owner._options.ClientId;
+                var url = tunnel.Model.Config.Url;
+                var scopes = new string[] { $"api://{clientId}/.default" };
+
+                // is a quick AcquireTokenSilent possible?
+                if (_account is { })
+                {
+                    try
+                    {
+                        var authenticationResult = await _owner._confidentialClientApplication.AcquireTokenSilent(scopes, _account).ExecuteAsync();
+                        requestMessage.Headers.Add("Authorization", authenticationResult.CreateAuthorizationHeader());
+                        _owner._logger.LogInformation($"AcquireTokenSilent for {url} succeeded");
+                        return;
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                // do the full AcquireTokenForClient
+                {
+                    var authenticationResult = await _owner._confidentialClientApplication.AcquireTokenForClient(scopes).ExecuteAsync();
+                    requestMessage.Headers.Add("Authorization", authenticationResult.CreateAuthorizationHeader());
+                    _account = authenticationResult.Account;
+                    _owner._logger.LogInformation($"AcquireTokenForClient for {url} succeeded");
+                }
+            }
+            catch (Exception ex)
+            {
+                _owner._logger.LogError(ex, "Failed to acquire token for {url}", tunnel.Model.Config.Url);
+                throw;
+            }
         }
     }
 }
