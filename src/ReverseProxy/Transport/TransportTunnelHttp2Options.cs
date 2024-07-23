@@ -15,6 +15,12 @@ namespace Yarp.ReverseProxy.Transport;
 public sealed class TransportTunnelHttp2Options
 {
     /// <summary>
+    /// Enables or disables the transport.
+    /// Enable has the effect that the KestrelServerOptions.Listen is called.
+    /// </summary>
+    public bool IsEnabled { get; set; } = true;
+
+    /// <summary>
     /// Maximum number of connections to the (frontend) proxy.
     /// </summary>
     public int MaxConnectionCount { get; set; } = 10;

@@ -14,10 +14,6 @@ public sealed class CertificateConfigOptions
 {
     public const string SectionName = "CertificateConfig";
 
-    /// <summary>
-    /// This path is the base of certificates.
-    /// Magic Placeholders %Assembly% and %ContentRootPath%
-    /// </summary>
     public string? CertificateRoot { get; set; }
 
     public Func<CertificateConfig, string?>? CertificatePassword { get; set; }

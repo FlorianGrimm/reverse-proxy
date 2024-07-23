@@ -43,7 +43,7 @@ internal sealed class TunnelAuthenticationService
         throw new NotSupportedException("call the real ITunnelAuthenticationService - service.");
     }
 
-    public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
+    public IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
         if (cluster.Model.Config.Authentication.Mode is { Length: > 0 } mode
             && _servicesByAuthenticationName.TryGetValue(mode, out var service))
@@ -52,7 +52,7 @@ internal sealed class TunnelAuthenticationService
         }
         else
         {
-            return false;
+            return default;
         }
     }
 

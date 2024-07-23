@@ -21,6 +21,12 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
+/*
+    The Windows Authentication is not supported by the HTTP/2 protocol.
+    The Windows Authentication is supported by the HTTP/1.1 protocol.
+    So the authentication is done by the HTTP/1.1 protocol (and a cookie "YarpTunnelAuth" is set)
+    and then the HTTP/2 protocol is used for the data (and the cookie is used for authn).
+*/
 internal sealed class TunnelAuthenticationWindows
     : ITunnelAuthenticationService
 {
@@ -37,7 +43,7 @@ internal sealed class TunnelAuthenticationWindows
     }
 
     public const string AuthenticationName = "Windows";
-
+    public const string CookieName = "YarpTunnelAuth";
     private static readonly string[] AuthenticationTypes = ["NTLM", "Kerberos", "Kerberos2"];
     private readonly ILazyRequiredServiceResolver<ProxyConfigManager> _proxyConfigManagerLazy;
     private readonly ITunnelAuthenticationCookieService _cookieService;
@@ -63,46 +69,58 @@ internal sealed class TunnelAuthenticationWindows
 
     public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
     {
+        // add a second endpoint for the same pattern but for GET not POST.
         endpoints.MapGet(pattern, MapGetAuth).RequireAuthorization(PolicyName);
-
-        async Task MapGetAuth(HttpContext context)
-        {
-            var identity = context.User.Identity;
-            if (identity is { IsAuthenticated: true }
-                && identity.Name is { Length: > 0 } name
-                && AuthenticationTypes.Contains(identity.AuthenticationType, StringComparer.OrdinalIgnoreCase)
-                && context.GetRouteValue("clusterId") is string clusterId
-                && _proxyConfigManagerLazy.GetService().TryGetCluster(clusterId, out var cluster)
-                && cluster.Model.Config.IsTunnelTransport
-                && IsWindowsAuthenticated(context, cluster)
-                )
-            {
-                context.Response.StatusCode = 200;
-                
-                ClaimsPrincipal principal = new(new ClaimsIdentity(((ClaimsIdentity)identity).Claims, identity.AuthenticationType));
-                var auth = _cookieService.NewCookie(principal);
-                context.Response.Cookies.Append("YarpTunnelAuth", auth, new CookieOptions()
-                {
-                    Domain = context.Request.Host.Host,
-                    Path = context.Request.Path,
-                    IsEssential = true,
-                    HttpOnly = true,
-                    SameSite = SameSiteMode.Strict
-                });
-                await context.Response.WriteAsync("OK");
-            }
-            else
-            {
-                context.Response.StatusCode = 401;
-                await context.Response.WriteAsync("Unauthorized");
-            }
-            await context.Response.CompleteAsync();
-        }
     }
 
-    public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
+    /*
+        Get and validate the Windows authenticated User
+        and add cookie "YarpTunnelAuth" in the response.
+     */
+    private async Task MapGetAuth(HttpContext context)
     {
-        if (context.Request.Cookies.TryGetValue("YarpTunnelAuth", out var auth)
+        var identity = context.User.Identity;
+        if (identity is { IsAuthenticated: true }
+            && identity.Name is { Length: > 0 } name
+            && AuthenticationTypes.Contains(identity.AuthenticationType, StringComparer.OrdinalIgnoreCase)
+            && context.GetRouteValue("clusterId") is string clusterId
+            && _proxyConfigManagerLazy.GetService().TryGetCluster(clusterId, out var cluster)
+            && cluster.Model.Config.IsTunnelTransport
+            && IsWindowsAuthenticated(context, cluster)
+            )
+        {
+            context.Response.StatusCode = 200;
+
+            ClaimsPrincipal principal = new(new ClaimsIdentity(((ClaimsIdentity)identity).Claims, identity.AuthenticationType));
+            var auth = _cookieService.NewCookie(principal);
+            context.Response.Cookies.Append(CookieName, auth, new CookieOptions()
+            {
+                Domain = context.Request.Host.Host,
+                Path = context.Request.Path,
+                IsEssential = true,
+                HttpOnly = true,
+                SameSite = SameSiteMode.Strict
+            });
+            await context.Response.WriteAsync("OK");
+        }
+        else
+        {
+            context.Response.StatusCode = 401;
+            await context.Response.WriteAsync("Unauthorized");
+        }
+        await context.Response.CompleteAsync();
+    }
+
+    /// <summary>
+    /// Check if the outer tunnel request is authenticated.
+    /// This checks the cookie "YarpTunnelAuth" in the request.
+    /// </summary>
+    /// <param name="context">http</param>
+    /// <param name="cluster">current cluster</param>
+    /// <returns>true ok - false 401 response.</returns>
+    public IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
+    {
+        if (context.Request.Cookies.TryGetValue(CookieName, out var auth)
             && auth is { Length: > 0 }
             && _cookieService.ValidateCookie(auth, out var principal)
             && principal.Identity?.Name is { Length: > 0 } identityName
@@ -110,15 +128,22 @@ internal sealed class TunnelAuthenticationWindows
             )
         {
             Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, AuthenticationName, identityName);
-            return true;
+            return default;
         }
         else
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "no YarpTunnelAuth");
-            return false;
+            return Results.Challenge(null, ["Negotiate"]);
         }
     }
 
+    /// <summary>
+    /// Checks if the Windows authenticated User is valid.
+    /// Used to check the first GET request.
+    /// </summary>
+    /// <param name="context">context</param>
+    /// <param name="cluster">cluster</param>
+    /// <returns>true ok - false 401 response.</returns>
     private bool IsWindowsAuthenticated(HttpContext context, ClusterState cluster)
     {
         if (context.User is not { } user)
@@ -156,6 +181,7 @@ internal sealed class TunnelAuthenticationWindows
         return result;
     }
 
+    // Checks if the identity the one that is configured.
     private static bool IsIdentityValid(string identityName, ClusterTunnelAuthenticationConfig authentication)
     {
         var userNames = authentication.UserNames;

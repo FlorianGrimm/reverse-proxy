@@ -1,25 +1,14 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Net.WebSockets;
-
-using Yarp.ReverseProxy.Configuration;
-
-
-using System;
-using System.Collections.Concurrent;
-using System.Linq;
 using System.Net.Http;
-using System.Security.Cryptography.X509Certificates;
+using System.Net.WebSockets;
 using System.Threading.Tasks;
 
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
-
-using Yarp.ReverseProxy.Model;
-using Yarp.ReverseProxy.Utilities;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Http.Connections.Client;
+using Microsoft.Extensions.Logging;
+
+using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Transport;
 

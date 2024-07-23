@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="LogFiles\" />
+    <Compile Include="..\..\Common\LocalFileLogger.cs" Link="LocalFileLogger.cs" />
   </ItemGroup>
 
 </Project>

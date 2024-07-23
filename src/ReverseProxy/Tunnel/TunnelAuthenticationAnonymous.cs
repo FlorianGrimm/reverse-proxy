@@ -21,6 +21,6 @@ internal sealed class TunnelAuthenticationAnonymous
 
     public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern) { }
 
-    public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster) => true;
+    public IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster) => default;
 }
 

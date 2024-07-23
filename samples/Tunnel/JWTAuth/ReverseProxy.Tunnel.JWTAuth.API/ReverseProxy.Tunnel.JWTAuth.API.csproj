@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="LogFiles\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Common\LocalFileLogger.cs" Link="LocalFileLogger.cs" />
+  </ItemGroup>
+
+</Project>

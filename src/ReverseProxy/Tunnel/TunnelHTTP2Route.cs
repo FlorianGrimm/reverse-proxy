@@ -54,9 +54,12 @@ internal sealed partial class TunnelHTTP2Route : IDisposable
         foreach (var tunnelAuthentication in tunnelAuthenticationService.GetTunnelAuthenticationServices())
         {
             var authenticationName = tunnelAuthentication.GetAuthenticationName();
-            // TODO: EnableRequestDelegateGenerator does not work - how to do this right for AOT?
+
             var pattern = $"_Tunnel/H2/{authenticationName}/{{clusterId}}";
             var conventionBuilder = endpoints.MapPost(pattern, TunnelHTTP2RoutePost);
+#if NET8_0_OR_GREATER
+            conventionBuilder.WithHttpLogging(Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.RequestHeaders|Microsoft.AspNetCore.HttpLogging.HttpLoggingFields.RequestPath);
+#endif
             if (configure is not null)
             {
                 configure(conventionBuilder);
@@ -90,11 +93,11 @@ internal sealed partial class TunnelHTTP2Route : IDisposable
             return Results.StatusCode(504);
         }
 
-#warning HERE
-        if (!_tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster))
+        var result = _tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster);
+        if (result is { })
         {
-            return Results.Challenge();
-            //return Results.StatusCode(401);
+            // return Results.Challenge(); does not work if you have more than one and the tunnel auth is not the default/challange one
+            return result;
         }
 
 
@@ -124,7 +127,7 @@ internal sealed partial class TunnelHTTP2Route : IDisposable
                 {
                     using (var reg = ctsRequestAborted.Token.Register(() =>
                     {
-                        _logger.LogInformation("Tunnel connection aborted");
+                        _logger.LogDebug("Tunnel connection aborted");
                         stream.Abort();
                     }))
                     {

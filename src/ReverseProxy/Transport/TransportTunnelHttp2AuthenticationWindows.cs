@@ -3,41 +3,23 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
 
 using Yarp.ReverseProxy.Model;
-using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
+
 /*
-    I toke me a few days to learn that the Windows authentication is not supported over HTTP/2.
-    So Websocket is the option for Windows authentication.
-    If you live in a VPN-Hell, you may like to use the Windows authentication.
-    I saw only few companies that have an own PKI infrastructure so ClientSecret is not for everyone.
-    I saw more successfull OAuth2 Applications. But they need internet access.
-    A JWT Auth is also expensive - validation. So a cookie auth with JWT may be an option.
-    In the same way, the cookie with Windows authentication is an option.
-
-    I saw service user with disabled password.
-    And certicates that run out of life - Even big ones that made it into the news..
-
-    Brain fart? Or a good idea?
-
-    GET /_tunnelH2/{clusterId} HTTP/1.1 - Returns the cookie
-    POST /_tunnelH2/{clusterId} HTTP/2 - with the given cookie to establish the tunnel connection
-
-    GET /_tunnelJWT/{clusterId} HTTP/* - Returns the cookie
-    POST /_tunnelJWT/{clusterId} HTTP/2 - with the given cookie to establish the tunnel connection
- */
+    The Windows Authentication is not supported by the HTTP/2 protocol.
+    The Windows Authentication is supported by the HTTP/1.1 protocol.
+    So the authentication is done by the HTTP/1.1 protocol (and a cookie is set)
+    and then the HTTP/2 protocol is used for the data (and the cookie is used for authn).
+*/
 internal sealed class TransportTunnelHttp2AuthenticationWindows
     : ITransportTunnelHttp2Authentication
 {
@@ -68,67 +50,46 @@ internal sealed class TransportTunnelHttp2AuthenticationWindows
             }
         }
     }
+
     public async ValueTask<HttpMessageInvoker?> ConfigureSocketsHttpHandlerAsync(TunnelState tunnel, SocketsHttpHandler socketsHttpHandler)
     {
-        return await GetPerTunnel(tunnel.TunnelId).ConfigureSocketsHttpHandlerAsync(tunnel, socketsHttpHandler);
+        var perTunnel = GetPerTunnel(tunnel.TunnelId);
+        return await perTunnel.ConfigureSocketsHttpHandlerAsync(socketsHttpHandler);
     }
 
     public async ValueTask ConfigureHttpRequestMessageAsync(TunnelState tunnel, HttpRequestMessage requestMessage)
     {
         var perTunnel = GetPerTunnel(tunnel.TunnelId);
-        await perTunnel.ConfigureHttpRequestMessageAsync(tunnel, requestMessage);
+        await perTunnel.ConfigureHttpRequestMessageAsync(requestMessage);
     }
 
     internal sealed class PerTunnel(ILogger logger)
     {
         private readonly ILogger _logger = logger;
         private readonly CookieContainer _cookieContainer = new();
-        
-        public ValueTask<HttpMessageInvoker?> ConfigureSocketsHttpHandlerAsync(TunnelState tunnel, SocketsHttpHandler socketsHttpHandler)
+
+        public ValueTask<HttpMessageInvoker?> ConfigureSocketsHttpHandlerAsync(SocketsHttpHandler socketsHttpHandler)
         {
             socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
             socketsHttpHandler.CookieContainer = _cookieContainer;
             return new(default(HttpMessageInvoker));
         }
-        public async ValueTask ConfigureHttpRequestMessageAsync(TunnelState tunnel, HttpRequestMessage requestMessage)
+
+        public async ValueTask ConfigureHttpRequestMessageAsync(HttpRequestMessage requestMessage)
         {
-            try
+            using SocketsHttpHandler socketsHttpHandlerAuth = new();
+            socketsHttpHandlerAuth.Credentials = System.Net.CredentialCache.DefaultCredentials;
+            socketsHttpHandlerAuth.CookieContainer = _cookieContainer;
+            using var requestMessageAuth = new HttpRequestMessage()
             {
-                using SocketsHttpHandler socketsHttpHandlerAuth = new();
-                socketsHttpHandlerAuth.Credentials = System.Net.CredentialCache.DefaultCredentials;
-                socketsHttpHandlerAuth.CookieContainer = _cookieContainer;
-                using var requestMessageAuth = new HttpRequestMessage()
-                {
-                    Version = new Version(1, 1),
-                    RequestUri = requestMessage.RequestUri!,
-                    Method = HttpMethod.Get
-                };
-                using var httpMessageInvokerAuth = new HttpMessageInvoker(socketsHttpHandlerAuth);
-                using var responseMessage = await httpMessageInvokerAuth.SendAsync(requestMessageAuth, CancellationToken.None);
-                responseMessage.EnsureSuccessStatusCode();
-                var response = await responseMessage.Content.ReadAsStringAsync();
-                if (string.Equals(response, "OK"))
-                {
-                }
-                else {
-#warning HERE
-                    throw new Exception();
-                }
-                //var cookie = new Cookie()
-                //{
-                //    Name = "Auth",
-                //    Value = auth,
-                //    Domain = requestMessage.RequestUri!.Host,
-                //    Path = requestMessage.RequestUri!.AbsolutePath,
-                //    HttpOnly = true,
-                //    Secure = true
-                //};
-                //_cookieContainer.Add(requestMessage.RequestUri!, cookie);
-            }
-            catch (Exception error){
-                _logger.LogError(error, "TODO");
-                throw;
-            }
+                Version = new Version(1, 1),
+                RequestUri = requestMessage.RequestUri!,
+                Method = HttpMethod.Get
+            };
+            using var httpMessageInvokerAuth = new HttpMessageInvoker(socketsHttpHandlerAuth);
+            using var responseMessage = await httpMessageInvokerAuth.SendAsync(requestMessageAuth, CancellationToken.None);
+            responseMessage.EnsureSuccessStatusCode();
+            _ = await responseMessage.Content.ReadAsStringAsync();
         }
     }
 }

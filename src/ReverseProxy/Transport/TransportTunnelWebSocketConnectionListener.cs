@@ -124,7 +124,6 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                                 return underlyingWebSocket;
                             }
                         };
-
                         _transportTunnelWebSocketAuthentication.ConfigureWebSocketConnectionOptions(config, options);
 
                         var innerConnection = new TransportTunnelWebSocketConnectionContext(options, _logger, null);

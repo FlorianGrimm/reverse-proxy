@@ -123,10 +123,13 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
                 {
                     if (OperatingSystem.IsWindows())
                     {
+                        Log.SuccessfullyLoadedCertificateKey(_logger, certificateKeyPath);
                         return (PersistKey(certificate), fullChain);
                     }
-
-                    return (certificate, fullChain);
+                    else {
+                        Log.SuccessfullyLoadedCertificateKey(_logger, certificateKeyPath);
+                        return (certificate, fullChain);
+                    }
                 }
 
                 Log.FailedToLoadCertificateKey(_logger, certificateKeyPath);
@@ -136,7 +139,9 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
             // fallback
             {
                 var password = _getCertificatePassword(certInfo);
-                return (new X509Certificate2(certificatePath, password), fullChain);
+                var certificate = new X509Certificate2(certificatePath, password);
+                Log.SuccessfullyLoadedCertificateKey(_logger, certificatePath);
+                return (certificate, fullChain);
             }
         }
         else if (certInfo.IsStoreCert)
@@ -275,6 +280,17 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
         public static void FailedToLoadCertificateKey(ILogger logger, string certificateKeyFilePath, Exception? error = default)
         {
             _failedToLoadCertificateKey(logger, certificateKeyFilePath, error);
+        }
+
+
+        private static readonly Action<ILogger, string, Exception?> _successfullyLoadedCertificateKey = LoggerMessage.Define<string>(
+            LogLevel.Debug,
+            EventIds.SuccessfullyLoadedCertificateKey,
+            "The certificate key file at '{CertificateKeyFilePath}' was loaded.");
+
+        public static void SuccessfullyLoadedCertificateKey(ILogger logger, string certificateKeyFilePath, Exception? error = default)
+        {
+            _successfullyLoadedCertificateKey(logger, certificateKeyFilePath, error);
         }
     }
 }

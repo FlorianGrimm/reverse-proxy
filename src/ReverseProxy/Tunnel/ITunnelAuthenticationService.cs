@@ -43,5 +43,5 @@ public interface ITunnelAuthenticationService
     /// <param name="context">The request context</param>
     /// <param name="cluster">The cluster</param>
     /// <returns>true ok - false 401 response.</returns>
-    bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster);
+    IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster);
 }

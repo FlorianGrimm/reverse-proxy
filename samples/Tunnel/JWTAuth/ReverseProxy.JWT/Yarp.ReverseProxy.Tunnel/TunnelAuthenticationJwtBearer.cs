@@ -32,17 +32,17 @@ internal sealed class TunnelAuthenticationJwtBearer
     {
     }
 
-    public bool CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
+    public IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
         if (context.User.Identity is ClaimsIdentity { IsAuthenticated: true} identity) {
             var appid = identity.Claims.FirstOrDefault(c => c.Type == "appid")?.Value;
             var appidacr = identity.Claims.FirstOrDefault(c => c.Type == "appidacr")?.Value;
             if (appid == _options.ClientId && appidacr == "1")
             {
-                return true;
+                return Results.StatusCode(401);
             }
         }
-        return false;
+        return default;
     }
 
     public static void ConfigureBearerToken(

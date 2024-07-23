@@ -358,3 +358,13 @@ MigrationBackup/
 
 # nohup
 nohup.out
+/samples/Tunnel/ReverseProxy.Tunnel.AllInOne.Sample/LogFiles/
+/samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.Backend/LogFiles/
+/samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.Frontend/LogFiles/
+/samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.API/LogFiles/
+/samples/Tunnel/CertificateAuth/ReverseProxy.Tunnel.CertificateAuth.API/LogFiles/
+/samples/Tunnel/CertificateAuth/ReverseProxy.Tunnel.CertificateAuth.Backend/LogFiles/
+/samples/Tunnel/CertificateAuth/ReverseProxy.Tunnel.CertificateAuth.Frontend/LogFiles/
+/samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.JWTAuth.API/LogFiles/
+/samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.JWTAuth.Backend/LogFiles/
+/samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.JWTAuth.Frontend/LogFiles/

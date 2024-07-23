@@ -182,12 +182,14 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         var result = await _transportTunnelHttp2Authentication.ConfigureSocketsHttpHandlerAsync(_tunnel, socketsHttpHandler);
 
         // allow the user to configure the handler
-        if (_options.ConfigureSocketsHttpHandlerAsync is { } configure)
+        if (_options.ConfigureSocketsHttpHandlerAsync is { } configureSocketsHttpHandlerAsync)
         {
-            await configure(config, socketsHttpHandler);
+            await configureSocketsHttpHandlerAsync(config, socketsHttpHandler);
         }
 
-        result ??= new HttpMessageInvoker(socketsHttpHandler);
+        if (result is null) {
+            result = new HttpMessageInvoker(socketsHttpHandler);
+        }
         Log.TunnelCreateHttpMessageInvoker(_logger, config.TunnelId, config.Url);
         return result;
     }

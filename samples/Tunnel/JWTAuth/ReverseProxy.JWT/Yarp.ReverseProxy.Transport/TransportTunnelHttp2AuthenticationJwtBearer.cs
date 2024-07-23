@@ -17,8 +17,9 @@ internal class TransportTunnelHttp2AuthenticationJwtBearer
 {
     private readonly ConfidentialClientApplicationOptions _options;
     private readonly IConfidentialClientApplication _confidentialClientApplication;
-    private readonly ConcurrentDictionary<string, Item> _accountByUrl = new(StringComparer.OrdinalIgnoreCase);
     private readonly ILogger _logger;
+    private readonly SemaphoreSlim _asyncLock = new SemaphoreSlim(1, 1);
+    private IAccount? _account;
 
     public TransportTunnelHttp2AuthenticationJwtBearer(
         IOptions<Microsoft.Identity.Client.ConfidentialClientApplicationOptions> options,
@@ -39,42 +40,24 @@ internal class TransportTunnelHttp2AuthenticationJwtBearer
 
     public async ValueTask ConfigureHttpRequestMessageAsync(TunnelState tunnel, HttpRequestMessage requestMessage)
     {
-        while (true)
-        {
-            if (_accountByUrl.TryGetValue(tunnel.Model.Config.Url, out var item))
-            {
-                await item.ConfigureHttpRequestMessageAsync(tunnel, requestMessage);
-                return;
-            }
-            else
-            {
-                _accountByUrl.TryAdd(tunnel.Model.Config.Url, new Item(this));
-            }
-        }
-    }
-    internal class Item(
-        TransportTunnelHttp2AuthenticationJwtBearer owner
-        )
-    {
-        private readonly TransportTunnelHttp2AuthenticationJwtBearer _owner = owner;
-        private IAccount? _account;
 
-        public async ValueTask ConfigureHttpRequestMessageAsync(TunnelState tunnel, HttpRequestMessage requestMessage)
+        try
         {
+            var clientId = _options.ClientId;
+            var url = tunnel.Model.Config.Url;
+            var scopes = new string[] { $"api://{clientId}/.default" };
+
+            await _asyncLock.WaitAsync();
             try
             {
-                var clientId = _owner._options.ClientId;
-                var url = tunnel.Model.Config.Url;
-                var scopes = new string[] { $"api://{clientId}/.default" };
-
                 // is a quick AcquireTokenSilent possible?
                 if (_account is { })
                 {
                     try
                     {
-                        var authenticationResult = await _owner._confidentialClientApplication.AcquireTokenSilent(scopes, _account).ExecuteAsync();
+                        var authenticationResult = await _confidentialClientApplication.AcquireTokenSilent(scopes, _account).ExecuteAsync();
                         requestMessage.Headers.Add("Authorization", authenticationResult.CreateAuthorizationHeader());
-                        _owner._logger.LogInformation($"AcquireTokenSilent for {url} succeeded");
+                        // _logger.LogTrace($"AcquireTokenSilent for {url} succeeded");
                         return;
                     }
                     catch
@@ -84,17 +67,22 @@ internal class TransportTunnelHttp2AuthenticationJwtBearer
 
                 // do the full AcquireTokenForClient
                 {
-                    var authenticationResult = await _owner._confidentialClientApplication.AcquireTokenForClient(scopes).ExecuteAsync();
+                    var authenticationResult = await _confidentialClientApplication.AcquireTokenForClient(scopes).ExecuteAsync();
                     requestMessage.Headers.Add("Authorization", authenticationResult.CreateAuthorizationHeader());
                     _account = authenticationResult.Account;
-                    _owner._logger.LogInformation($"AcquireTokenForClient for {url} succeeded");
+                    // _logger.LogTrace($"AcquireTokenForClient for {url} succeeded");
                 }
             }
-            catch (Exception ex)
+            finally
             {
-                _owner._logger.LogError(ex, "Failed to acquire token for {url}", tunnel.Model.Config.Url);
-                throw;
+                _asyncLock.Release();
             }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to acquire token for {url}", tunnel.Model.Config.Url);
+            throw;
         }
     }
 }
+

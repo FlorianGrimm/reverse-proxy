@@ -26,6 +26,8 @@ public class Program
 
         var app = builder.Build();
 
+        // app.UseHttpsRedirection() will redirect if the request is a tunnel request;
+        // which means that the borwser is redirected to https://{tunnelId}/... which is not what we want.
         app.UseWhen(
             static context => !context.TryGetTransportTunnelByUrl(out var _),
             app => app.UseHttpsRedirection()

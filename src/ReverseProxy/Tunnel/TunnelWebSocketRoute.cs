@@ -66,14 +66,11 @@ internal sealed class TunnelWebSocketRoute
                 e.RequestDelegate = sub.Build();
             });
 
-#warning TODO:Auth Policy
-
-            //conventionBuilder.AllowAnonymous();
-
             if (configure is not null)
             {
                 configure(conventionBuilder);
             }
+            tunnelAuthentication.MapAuthentication(endpoints, conventionBuilder, pattern);
 
         }
     }
@@ -101,9 +98,11 @@ internal sealed class TunnelWebSocketRoute
             Log.TunnelConnectionChannelNotFound(_logger, clusterId);
             return Results.BadRequest();
         }
-        if (!_tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster))
+        var result = _tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster);
+        if (result is { })
         {
-            return Results.StatusCode(401);
+            // return Results.Challenge(); does not work if you have more than one and the tunnel auth is not the default/challange one
+            return result;
         }
 
         using (var ctsRequestAborted = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted, _cancellationTokenSource.Token))

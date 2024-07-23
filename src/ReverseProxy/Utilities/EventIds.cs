@@ -81,7 +81,8 @@ internal static class EventIds
     public static readonly EventId TunnelResumeConnectTunnel = new EventId(75, "TunnelResumeConnectTunnel");
     public static readonly EventId MissingOrInvalidCertificateFile = new EventId(76, "MissingOrInvalidCertificateFile");
     public static readonly EventId MissingOrInvalidCertificateKeyFile = new EventId(77, "MissingOrInvalidCertificateKeyFile");
-
+    public static readonly EventId SuccessfullyLoadedCertificateKey = new EventId(97, "SuccessfullyLoadedCertificateKey");
+    
     public static readonly EventId DirectoryDoesNotExist = new EventId(78, "DirectoryDoesNotExist");
     public static readonly EventId UnknownFile = new EventId(79, "UnknownFile");
     public static readonly EventId UnknownObserver = new EventId(80, "UnknownObserver");

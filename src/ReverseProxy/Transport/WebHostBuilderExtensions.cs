@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Management;
@@ -25,7 +27,56 @@ public static class WebHostBuilderExtensions
     /// Enable the tunnel transport on the backend.
     /// Foreach tunnel-config connections are opend to URL/_tunnel/RemoteTunnelId or URL/_tunnel/TunnelId
     /// </summary>
+    /// <remarks>
+    /// Request/Response flow:
+    /// <code>
+    /// --------------------------------
+    /// | Browser                      |
+    /// --------------------------------
+    ///             |(2)        ^
+    ///             |           |
+    ///             v           | (7)
+    /// --------------------------------
+    /// | Frontend                     |
+    /// | AddTunnelServices            |
+    /// --------------------------------
+    ///         |     ||(3)  /\
+    ///         |     ||     ||
+    ///         ^ (1) \/     || (6)
+    /// --------------------------------
+    /// | Backend                      |
+    /// | AddTunnelTransport           |
+    /// --------------------------------
+    ///              (4) |  ^
+    ///                  |  |
+    ///                  v  | (5)
+    /// --------------------------------
+    /// | API                          |
+    /// | ASP.Net Core Middleware      |
+    /// --------------------------------
+    ///
+    /// 1) @Backend: Start the tunnel transport connections in a Kestrel IConnectionListener
+    /// 2) @Browser: Request to the Frontend
+    /// 3) @Frontend: Use the Yarp.ReverseProxy to forward the request to the Backend via the tunnel
+    /// 4) @Backend: Use the Yarp.ReverseProxy to forward the request to the API
+    /// 5) @API: Handle the request with the normal ASP.Net Core Middleware
+    /// 6) @Backend: Use the tunnel connection response to send the response back to the Frontend.
+    /// 7) @Frontend: Copy the response  the httpContext.Response
+    /// </code>
+    /// 3+6 the inner tunnel transport uses HTTP not HTTPS.
+    /// The outer tunnel transport uses HTTPS - if you use it - and I hope so.
+    /// Theirfor the requests through the tunnel conflict with the UseHttpsRedirection.
+    /// app.UseHttpsRedirection() will redirect if the request is a tunnel request;
+    /// which means that the borwser is redirected to https://{tunnelId}/... which is not what we want.
+    /// <code>
+    /// app.UseWhen(
+    ///     static context => !context.TryGetTransportTunnelByUrl(out var _),
+    ///     app => app.UseHttpsRedirection()
+    ///     );
+    /// </code>
+    /// </remarks>
     /// <param name="builder">this</param>
+    /// <param name="options"></param>
     /// <param name="configureTunnelHttp2">configure transport tunnel for Http2.</param>
     /// <param name="configureTunnelWebSocket">configure transport tunnel for WebSocket.</param>
     /// <returns></returns>
@@ -33,9 +84,17 @@ public static class WebHostBuilderExtensions
     ///    builder.Services.AddReverseProxy()
     ///        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
     ///        .AddTunnelTransport();
+    ///
+    ///    var app = builder.Build();
+    ///
+    ///    app.UseWhen(
+    ///        static context => !context.TryGetTransportTunnelByUrl(out var _),
+    ///        app => app.UseHttpsRedirection()
+    ///        );
     /// </example>
     public static IReverseProxyBuilder AddTunnelTransport(
         this IReverseProxyBuilder builder,
+        TransportTunnelOptions? options = default,
         Action<TransportTunnelHttp2Options>? configureTunnelHttp2 = default,
         Action<TransportTunnelWebSocketOptions>? configureTunnelWebSocket = default
         )
@@ -46,18 +105,32 @@ public static class WebHostBuilderExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelHttp2ConnectionListenerFactory>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelWebSocketConnectionListenerFactory>());
 
-        services.AddSingleton<TransportTunnelHttp2Authentication>()
-            .TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationAnonymous>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationCertificate>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationWindows>());
+        services.AddSingleton<TransportTunnelHttp2Authentication>();
+        services.AddSingleton<TransportTunnelWebSocketAuthentication>();
+        if (options is not null && options.TunnelAuthenticationAnonymous)
+        {
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationAnonymous>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationAnonymous>());
+        }
 
-        services.AddSingleton<TransportTunnelWebSocketAuthentication>()
-            .TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationAnonymous>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationCertificate>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationWindows>());
+        if (options is null || options.TunnelAuthenticationCertificate)
+        {
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationCertificate>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationCertificate>());
 
-        services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
-        services.TryAddSingleton<CertificatePathWatcher>();
+            services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
+            services.TryAddSingleton<CertificatePathWatcher>();
+
+            services.AddOptions<CertificateConfigOptions>()
+                .PostConfigure<IHostEnvironment>(static (options, hostEnvironment) => options.PostConfigure(hostEnvironment));
+
+        }
+
+        if (options is null || options.TunnelAuthenticationWindows)
+        {
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationWindows>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationWindows>());
+        }
 
         if (configureTunnelHttp2 is not null)
         {
@@ -77,9 +150,14 @@ public static class WebHostBuilderExtensions
     private static void ConfigureTransportTunnels(KestrelServerOptions options)
     {
         var proxyConfigManager = options.ApplicationServices.GetRequiredService<ProxyConfigManager>();
+        var tunnels = proxyConfigManager.GetTransportTunnels();
+
+        var transportTunnelHttp2Options = options.ApplicationServices.GetRequiredService<IOptions<TransportTunnelHttp2Options>>().Value;
+        var transportTunnelWebSocketOptions = options.ApplicationServices.GetRequiredService<IOptions<TransportTunnelWebSocketOptions>>().Value;
+
         var listAuthenticationNameH2 = options.ApplicationServices.GetRequiredService<TransportTunnelHttp2Authentication>().GetAuthenticationNames();
         var listAuthenticationNameWS = options.ApplicationServices.GetRequiredService<TransportTunnelWebSocketAuthentication>().GetAuthenticationNames();
-        var tunnels = proxyConfigManager.GetTransportTunnels();
+
         foreach (var tunnel in tunnels)
         {
             var cfg = tunnel.Model.Config;
@@ -92,6 +170,11 @@ public static class WebHostBuilderExtensions
 
             if (transport == TransportMode.TunnelHTTP2)
             {
+                if (!transportTunnelHttp2Options.IsEnabled)
+                {
+                    throw new NotSupportedException($"Tunnel HTTP2 is disabled.");
+                }
+
                 if (listAuthenticationNameH2.FirstOrDefault(n => string.Equals(n, cfgAuthenticationMode)) is { } authenticationMode)
                 {
                     var uriTunnel = new Uri($"{host}/_Tunnel/H2/{authenticationMode}/{remoteTunnelId}");
@@ -103,8 +186,13 @@ public static class WebHostBuilderExtensions
                     throw new NotSupportedException($"Authentication {cfgAuthenticationMode} is unknown");
                 }
             }
+
             if (transport == TransportMode.TunnelWebSocket)
             {
+                if (!transportTunnelWebSocketOptions.IsEnabled)
+                {
+                    throw new NotSupportedException($"Tunnel WebSocket is disabled.");
+                }
                 if (listAuthenticationNameH2.FirstOrDefault(n => string.Equals(n, cfgAuthenticationMode)) is { } authenticationMode)
                 {
                     var uriTunnel = new Uri($"{host}/_Tunnel/WS/{authenticationMode}/{remoteTunnelId}");
@@ -131,7 +219,7 @@ public static class WebHostBuilderExtensions
             {
                 _ = optionsBuilder.Configure((options) =>
                 {
-                    options.Bind(configuration.GetSection(CertificateConfigOptions.SectionName));
+                    options.Bind(configuration);
                 });
             }
 

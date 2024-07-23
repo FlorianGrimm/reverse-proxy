@@ -761,7 +761,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                 // NOTE 1: Remove is safe to do within the `foreach` loop on ConcurrentDictionary
                 //
 
-                // TODO: remove the tunnel - how to remove the endpoint?
+                // TODO: remove the tunnel - how to remove the kestrel listen endpoint?
                 Log.TunnelRemoved(_logger, existingTunnel.TunnelId);
                 var removed = _tunnels.TryRemove(existingTunnel.TunnelId, out var _);
                 Debug.Assert(removed);
@@ -848,8 +848,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                 var httpClient = factory?.CreateClient(forwarderHttpClientContext);
                 if (httpClient is null)
                 {
-                    // TODO: log error or throw an exception?
-                    throw new InvalidOperationException();
+                    throw new InvalidOperationException("Cannot create a HttpClient");
                 }
 
                 newClusterState.Model = new ClusterModel(incomingCluster, httpClient);

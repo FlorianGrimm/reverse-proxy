@@ -161,12 +161,13 @@ internal sealed class TransportTunnelHttp2AuthenticationCertificate
                 };
                 socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback = (sender, certificate, chain, error) =>
                 {
+                    _logger.LogInformation("RemoteCertificateValidation: {issuer} {error}", certificate?.Issuer, error);
                     return true;
                 };
             }
 
             //
-            return new(default(HttpMessageInvoker));
+            return new(new HttpMessageInvoker(socketsHttpHandler, true));
         }
         catch (System.Exception error)
         {
