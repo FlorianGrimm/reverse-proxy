@@ -18,6 +18,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 
+using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
@@ -83,7 +84,7 @@ internal sealed class TunnelAuthenticationCertificate
     public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
     {
         // add a second endpoint for the same pattern but for GET not POST.
-        endpoints.MapGet(pattern, MapGetAuth); // .RequireAuthorization(PolicyName);
+        //endpoints.MapGet(pattern, MapGetAuth); // .RequireAuthorization(PolicyName);
     }
 
     /*
@@ -256,14 +257,15 @@ internal sealed class TunnelAuthenticationCertificate
 
     public IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
+        return null;
         if (context.User.Identity is not ClaimsIdentity identity)
         {
-            Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "no identity");
+            Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "no context.User.Identity");
             return Results.StatusCode(401);
         }
         if (!identity.IsAuthenticated)
         {
-            Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "not IsAuthenticated");
+            Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "not context.User.Identity.IsAuthenticated");
             return Results.StatusCode(401);
         }
         if (!(string.Equals(

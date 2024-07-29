@@ -65,7 +65,7 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
                 AllowAutoRedirect = false,
                 AutomaticDecompression = DecompressionMethods.None,
                 UseCookies = false,
-                EnableMultipleHttp2Connections = true,
+                EnableMultipleHttp2Connections = false,
                 ActivityHeadersPropagator = new ReverseProxyPropagator(DistributedContextPropagator.Current),
                 ConnectTimeout = TimeSpan.FromSeconds(15),
 

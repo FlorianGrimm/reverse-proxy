@@ -368,4 +368,4 @@ nohup.out
 /samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.JWTAuth.API/LogFiles/
 /samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.JWTAuth.Backend/LogFiles/
 /samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.JWTAuth.Frontend/LogFiles/
-/LogFiles/server4_20240724.txt
+/LogFiles/

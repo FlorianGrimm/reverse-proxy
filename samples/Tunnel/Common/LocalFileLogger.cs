@@ -25,14 +25,17 @@ namespace Microsoft.Extensions.Logging
             IConfiguration configuration,
             IHostEnvironment hostEnvironment)
         {
+            builder.Services.AddSingleton<LocalFileLoggerProvider>();
             builder.Services
                 .AddSingleton<IConfigureOptions<LocalFileLoggerOptions>>(
                     new LocalFileLoggerConfigureOptions(
                         configuration: configuration.GetSection("Logging:LocalFile"),
                         hostEnvironment: hostEnvironment))
                 .AddSingleton<IOptionsChangeTokenSource<LocalFileLoggerOptions>>(
-                implementationInstance: new ConfigurationChangeTokenSource<LocalFileLoggerOptions>(configuration))
-                .TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, LocalFileLoggerProvider>());
+                    implementationInstance: new ConfigurationChangeTokenSource<LocalFileLoggerOptions>(configuration))
+                //.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, LocalFileLoggerProvider>())
+                .AddSingleton<ILoggerProvider>((sp) => sp.GetRequiredService<LocalFileLoggerProvider>());
+            ;
             LoggerProviderOptions.RegisterProviderOptions<LocalFileLoggerOptions, LocalFileLoggerProvider>(builder.Services);
 
             return builder;
@@ -239,16 +242,19 @@ namespace Brimborium.Extensions.Logging.LocalFile
         private readonly string _fileName;
         private readonly int? _maxFileSize;
         private readonly int? _maxRetainedFiles;
-        private readonly List<LogMessage> _currentBatch = new List<LogMessage>();
         private readonly TimeSpan _interval;
         private readonly int? _queueSize;
         private readonly int? _batchSize;
         private readonly IDisposable? _optionsChangeToken;
-
+        private readonly TimeSpan _flushPeriod;
+        private readonly SemaphoreSlim _semaphoreProcessMessageQueueWrite = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _semaphoreProcessMessageQueueIdle = new SemaphoreSlim(1, 1);
+        private readonly List<LogMessage> _currentBatch = new(1024);
+        private long _processMessageQueueWatchDog = 10;
         private int _messagesDropped;
         private BlockingCollection<LogMessage>? _messageQueue;
         private Task? _outputTask;
-        private CancellationTokenSource? _cancellationTokenSource;
+        private CancellationTokenSource? _stopTokenSource;
         private IExternalScopeProvider? _scopeProvider;
 
         /// <summary>
@@ -256,7 +262,8 @@ namespace Brimborium.Extensions.Logging.LocalFile
         /// </summary>
         /// <param name="options">The options to use when creating a provider.</param>
         [SuppressMessage("ApiDesign", "RS0022:Constructor make noninheritable base class inheritable", Justification = "Required for backwards compatibility")]
-        public LocalFileLoggerProvider(IOptionsMonitor<LocalFileLoggerOptions> options)
+        public LocalFileLoggerProvider(
+            IOptionsMonitor<LocalFileLoggerOptions> options)
         {
             var loggerOptions = options.CurrentValue;
             if (loggerOptions.BatchSize <= 0)
@@ -277,9 +284,16 @@ namespace Brimborium.Extensions.Logging.LocalFile
             _interval = loggerOptions.FlushPeriod;
             _batchSize = loggerOptions.BatchSize;
             _queueSize = loggerOptions.BackgroundQueueSize;
+            _flushPeriod = loggerOptions.FlushPeriod;
 
             _optionsChangeToken = options.OnChange(UpdateOptions);
             UpdateOptions(options.CurrentValue);
+        }
+
+        public void HandleHostApplicationLifetime(IHostApplicationLifetime lifetime)
+        {
+            lifetime.ApplicationStopping.Register(() => Flush());
+            lifetime.ApplicationStopped.Register(() => Dispose());
         }
 
         private async Task WriteMessagesAsync(IEnumerable<LogMessage> messages, CancellationToken cancellationToken)
@@ -411,6 +425,7 @@ namespace Brimborium.Extensions.Logging.LocalFile
             IncludeEventId = options.IncludeEventId;
             JsonWriterOptions = options.JsonWriterOptions;
 
+
             IncludeScopes = options.IncludeScopes;
 
             if (oldIsEnabled != IsEnabled)
@@ -429,14 +444,61 @@ namespace Brimborium.Extensions.Logging.LocalFile
 
         private async Task ProcessLogQueue()
         {
-            if (_cancellationTokenSource is null) { throw new ArgumentException("_cancellationTokenSource is null"); }
+            if (_stopTokenSource is null) { throw new ArgumentException("_stopTokenSource is null"); }
             if (_messageQueue is null) { throw new ArgumentException("_messageQueue is null"); }
 
-            while (!_cancellationTokenSource.IsCancellationRequested)
+            try
             {
+                _processMessageQueueWatchDog = 0;
+                while (!_stopTokenSource.IsCancellationRequested)
+                {
+                    if (await FlushAsync(_stopTokenSource.Token))
+                    {
+                        //
+                        _processMessageQueueWatchDog = 10;
+                    }
+                    else
+                    {
+                        if (_stopTokenSource.IsCancellationRequested) { return; }
+                        _processMessageQueueWatchDog--;
+                        if (_processMessageQueueWatchDog > 0)
+                        {
+                            await IntervalAsync(_flushPeriod, _stopTokenSource.Token).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            try
+                            {
+                                await _semaphoreProcessMessageQueueIdle.WaitAsync(_stopTokenSource.Token).ConfigureAwait(false);
+                            }
+                            catch { }
+                        }
+                    }
+                }
+            }
+            catch (Exception error)
+            {
+                System.Console.Error.WriteLine(error.ToString());
+            }
+            finally
+            {
+                using (_stopTokenSource)
+                {
+                    _stopTokenSource = null;
+                }
+            }
+        }
+
+        public async Task<bool> FlushAsync(CancellationToken cancellationToken)
+        {
+            await _semaphoreProcessMessageQueueWrite.WaitAsync();
+            try
+            {
+                if (!(_messageQueue is { } messageQueue)) { return false; }
+
                 var limit = _batchSize ?? int.MaxValue;
 
-                while (limit > 0 && _messageQueue.TryTake(out var message))
+                while (limit > 0 && messageQueue.TryTake(out var message))
                 {
                     _currentBatch.Add(message);
                     limit--;
@@ -445,26 +507,30 @@ namespace Brimborium.Extensions.Logging.LocalFile
                 var messagesDropped = Interlocked.Exchange(ref _messagesDropped, 0);
                 if (messagesDropped != 0)
                 {
-                    _currentBatch.Add(new LogMessage(DateTimeOffset.Now, $"{messagesDropped} message(s) dropped because of queue size limit. Increase the queue size or decrease logging verbosity to avoid this.{Environment.NewLine}"));
+                    _currentBatch.Add(new LogMessage(DateTimeOffset.UtcNow, $"{messagesDropped} message(s) dropped because of queue size limit. Increase the queue size or decrease logging verbosity to avoid {Environment.NewLine}"));
                 }
 
                 if (_currentBatch.Count > 0)
                 {
                     try
                     {
-                        await WriteMessagesAsync(_currentBatch, _cancellationTokenSource.Token).ConfigureAwait(false);
+                        await WriteMessagesAsync(_currentBatch, cancellationToken).ConfigureAwait(false);
+                        _currentBatch.Clear();
                     }
                     catch
                     {
                         // ignored
                     }
-
-                    _currentBatch.Clear();
+                    return true;
                 }
                 else
                 {
-                    await IntervalAsync(_interval, _cancellationTokenSource.Token).ConfigureAwait(false);
+                    return false;
                 }
+            }
+            finally
+            {
+                _semaphoreProcessMessageQueueWrite.Release();
             }
         }
 
@@ -490,9 +556,9 @@ namespace Brimborium.Extensions.Logging.LocalFile
                     if (!_messageQueue.TryAdd(
                        item: new LogMessage(timestamp, message),
                         millisecondsTimeout: 0,
-                        cancellationToken: (_cancellationTokenSource is null)
+                        cancellationToken: (_stopTokenSource is null)
                         ? CancellationToken.None
-                        : _cancellationTokenSource.Token))
+                        : _stopTokenSource.Token))
                     {
                         Interlocked.Increment(ref _messagesDropped);
                     }
@@ -510,13 +576,13 @@ namespace Brimborium.Extensions.Logging.LocalFile
                 new BlockingCollection<LogMessage>(new ConcurrentQueue<LogMessage>()) :
                 new BlockingCollection<LogMessage>(new ConcurrentQueue<LogMessage>(), _queueSize.Value);
 
-            _cancellationTokenSource = new CancellationTokenSource();
+            _stopTokenSource = new CancellationTokenSource();
             _outputTask = Task.Run(ProcessLogQueue);
         }
 
         private void Stop()
         {
-            _cancellationTokenSource?.Cancel();
+            _stopTokenSource?.Cancel();
             _messageQueue?.CompleteAdding();
 
             try
@@ -537,8 +603,28 @@ namespace Brimborium.Extensions.Logging.LocalFile
             _optionsChangeToken?.Dispose();
             if (IsEnabled)
             {
+                _messageQueue?.CompleteAdding();
+
+                try
+                {
+                    _outputTask?.Wait(_flushPeriod);
+                }
+                catch (TaskCanceledException)
+                {
+                }
+                catch (AggregateException ex) when (ex.InnerExceptions.Count == 1 && ex.InnerExceptions[0] is TaskCanceledException)
+                {
+                }
+
                 Stop();
             }
+        }
+
+        public void Flush()
+        {
+            FlushAsync(CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
         }
 
         /// <summary>
@@ -561,28 +647,28 @@ namespace Brimborium.Extensions.Logging.LocalFile
     [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     internal sealed class LocalFileLogger : ILogger
     {
-        private static readonly byte[] crlf = new byte[] { 13, 10 };
-        private static readonly ObjectPool<StringBuilder> _StringBuilderPool = (new Microsoft.Extensions.ObjectPool.DefaultObjectPoolProvider()).CreateStringBuilderPool();
+        private static readonly byte[] _crlf = new byte[] { 13, 10 };
+        private static readonly ObjectPool<StringBuilder> _stringBuilderPool = (new Microsoft.Extensions.ObjectPool.DefaultObjectPoolProvider()).CreateStringBuilderPool();
 
-        private readonly LocalFileLoggerProvider _Provider;
-        private readonly string _Category;
+        private readonly LocalFileLoggerProvider _provider;
+        private readonly string _category;
 
         public LocalFileLogger(LocalFileLoggerProvider loggerProvider, string categoryName)
         {
-            _Provider = loggerProvider;
-            _Category = categoryName;
+            _provider = loggerProvider;
+            _category = categoryName;
         }
 
         public IDisposable BeginScope<TState>(TState state)
             where TState : notnull
-            => _Provider.ScopeProvider?.Push(state) ?? NullScope.Instance;
+            => _provider.ScopeProvider?.Push(state) ?? NullScope.Instance;
 
-        public bool IsEnabled(LogLevel logLevel) => (_Provider.IsEnabled) && (logLevel != LogLevel.None);
+        public bool IsEnabled(LogLevel logLevel) => (_provider.IsEnabled) && (logLevel != LogLevel.None);
 
         public void Log<TState>(
             LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter
             ) => Log(
-                timestamp: _Provider.UseUtcTimestamp ? DateTimeOffset.UtcNow : DateTimeOffset.Now,
+                timestamp: _provider.UseUtcTimestamp ? DateTimeOffset.UtcNow : DateTimeOffset.Now,
                 logLevel: logLevel, eventId: eventId, state: state, exception: exception, formatter: formatter);
 
         public void Log<TState>(DateTimeOffset timestamp, LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
@@ -592,7 +678,7 @@ namespace Brimborium.Extensions.Logging.LocalFile
                 return;
             }
 
-            if (_Provider.UseJSONFormat)
+            if (_provider.UseJSONFormat)
             {
                 //string message = formatter(state, exception);
                 //if (exception == null && message == null) {
@@ -606,17 +692,17 @@ namespace Brimborium.Extensions.Logging.LocalFile
                 var DefaultBufferSize = 1024 + message.Length;
                 using (var output = new PooledByteBufferWriter(DefaultBufferSize))
                 {
-                    using (var writer = new Utf8JsonWriter(output, _Provider.JsonWriterOptions))
+                    using (var writer = new Utf8JsonWriter(output, _provider.JsonWriterOptions))
                     {
                         writer.WriteStartObject();
-                        var timestampFormat = _Provider.TimestampFormat ?? "u"; //"yyyy-MM-dd HH:mm:ss.fff zzz";
+                        var timestampFormat = _provider.TimestampFormat ?? "u"; //"yyyy-MM-dd HH:mm:ss.fff zzz";
                                                                                 //if (timestampFormat != null) {
-                                                                                //DateTimeOffset dateTimeOffset = this._provider.UseUtcTimestamp ? DateTimeOffset.UtcNow : DateTimeOffset.Now;
+                                                                                //DateTimeOffset dateTimeOffset = _provider.UseUtcTimestamp ? DateTimeOffset.UtcNow : DateTimeOffset.Now;
                         writer.WriteString("Timestamp", timestamp.ToString(timestampFormat));
                         //}
                         writer.WriteNumber("EventId", eventId.Id);
                         writer.WriteString("LogLevel", GetLogLevelString(logLevel));
-                        writer.WriteString("Category", _Category);
+                        writer.WriteString("Category", _category);
                         if (!string.IsNullOrEmpty(message))
                         {
                             writer.WriteString("Message", message);
@@ -625,7 +711,7 @@ namespace Brimborium.Extensions.Logging.LocalFile
                         if (exception != null)
                         {
                             var exceptionMessage = exception.ToString();
-                            if (!_Provider.JsonWriterOptions.Indented)
+                            if (!_provider.JsonWriterOptions.Indented)
                             {
                                 exceptionMessage = exceptionMessage.Replace(Environment.NewLine, " ");
                             }
@@ -663,30 +749,30 @@ namespace Brimborium.Extensions.Logging.LocalFile
                             }
                             writer.WriteEndObject();
                         }
-                        WriteScopeInformation(writer, _Provider.ScopeProvider);
+                        WriteScopeInformation(writer, _provider.ScopeProvider);
                         writer.WriteEndObject();
                         writer.Flush();
                         //if ((output.WrittenCount + 2) < output.Capacity) { }
-                        output.Write(new ReadOnlySpan<byte>(crlf));
+                        output.Write(new ReadOnlySpan<byte>(_crlf));
                     }
                     message = Encoding.UTF8.GetString(output.WrittenMemory.Span);
                 }
-                _Provider.AddMessage(timestamp, message);
+                _provider.AddMessage(timestamp, message);
             }
             else
             {
 
                 //var builder = new StringBuilder(1024);
-                var builder = _StringBuilderPool.Get();
-                var timestampFormat = _Provider.TimestampFormat ?? "yyyy-MM-dd HH:mm:ss.fff zzz";
+                var builder = _stringBuilderPool.Get();
+                var timestampFormat = _provider.TimestampFormat ?? "yyyy-MM-dd HH:mm:ss.fff zzz";
                 builder.Append(timestamp.ToString(timestampFormat /*"yyyy-MM-dd HH:mm:ss.fff zzz"*/, CultureInfo.InvariantCulture));
                 builder.Append(" [");
                 //builder.Append(logLevel.ToString());
                 builder.Append(GetLogLevelString(logLevel));
                 builder.Append("] ");
-                builder.Append(_Category);
+                builder.Append(_category);
 
-                var scopeProvider = _Provider.ScopeProvider;
+                var scopeProvider = _provider.ScopeProvider;
                 if (scopeProvider != null)
                 {
                     scopeProvider.ForEachScope((scope, stringBuilder) =>
@@ -702,7 +788,7 @@ namespace Brimborium.Extensions.Logging.LocalFile
                     builder.Append(": ");
                 }
 
-                if (_Provider.IncludeEventId)
+                if (_provider.IncludeEventId)
                 {
                     builder.Append(eventId.Id.ToString("d6"));
                     builder.Append(": ");
@@ -720,10 +806,10 @@ namespace Brimborium.Extensions.Logging.LocalFile
                 builder.Replace("\r", "; ");
                 builder.Replace("\n", "; ");
                 builder.AppendLine();
-                _Provider.AddMessage(timestamp, builder.ToString());
+                _provider.AddMessage(timestamp, builder.ToString());
 
                 builder.Clear();
-                _StringBuilderPool.Return(builder);
+                _stringBuilderPool.Return(builder);
             }
         }
 
@@ -743,7 +829,7 @@ namespace Brimborium.Extensions.Logging.LocalFile
 
         private void WriteScopeInformation(Utf8JsonWriter writer, IExternalScopeProvider? scopeProvider)
         {
-            if (_Provider.IncludeScopes && scopeProvider != null)
+            if (_provider.IncludeScopes && scopeProvider != null)
             {
                 writer.WriteStartArray("Scopes");
                 scopeProvider.ForEachScope((scope, state) =>

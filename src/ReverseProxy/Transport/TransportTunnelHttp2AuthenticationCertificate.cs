@@ -150,10 +150,11 @@ internal sealed class TransportTunnelHttp2AuthenticationCertificate
             }
             if (socketsHttpHandler.SslOptions.ClientCertificates is { Count: > 0 } clientCertificates)
             {
+                socketsHttpHandler.SslOptions.TargetHost = config.Url;
                 socketsHttpHandler.SslOptions.CertificateRevocationCheckMode = X509RevocationMode.NoCheck;
                 if (socketsHttpHandler.SslOptions.EnabledSslProtocols == System.Security.Authentication.SslProtocols.None)
                 {
-                    socketsHttpHandler.SslOptions.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+                    socketsHttpHandler.SslOptions.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
                 }
                 socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback = (sender, host, localCertificates, remoteCertificate, acceptableIssuers) =>
                 {

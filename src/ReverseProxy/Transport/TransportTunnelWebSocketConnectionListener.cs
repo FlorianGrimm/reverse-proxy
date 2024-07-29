@@ -101,7 +101,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
 
                                 if (_options.ConfigureClientWebSocket is { } configureClientWebSocket)
                                 {
-                                    configureClientWebSocket(_tunnel.Model.Config, underlyingWebSocket);
+                                    configureClientWebSocket(_tunnel.Model.Config, underlyingWebSocket, _transportTunnelWebSocketAuthentication);
                                 }
 
                                 try
@@ -109,7 +109,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
 #if NET6_0
                                     if (httpMessageInvoker is { })
                                     {
-                                        throw new NotSupportedException("HttpMessageInvoker");
+                                        throw new NotSupportedException("Not availible for .Net 6");
                                     }
                                     await underlyingWebSocket.ConnectAsync(context.Uri, cancellationToken);
 #else
@@ -119,6 +119,13 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                                 catch (Exception error) when (error is not OperationCanceledException)
                                 {
                                     Log.AcceptFailed(_logger, context.Uri, error);
+                                    if (error.InnerException is { } innerException) {
+                                        Log.AcceptFailed(_logger, context.Uri, innerException);
+                                        if (innerException.InnerException is { } innerInnerException)
+                                        {
+                                            Log.AcceptFailed(_logger, context.Uri, innerInnerException);
+                                        }
+                                    }
                                     throw;
                                 }
                                 return underlyingWebSocket;

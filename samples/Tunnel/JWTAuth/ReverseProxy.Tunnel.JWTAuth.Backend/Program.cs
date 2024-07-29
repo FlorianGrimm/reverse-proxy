@@ -18,8 +18,8 @@ public class Program
         var reverseProxyBuilder = builder.Services.AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
             .AddTunnelTransport(
-                configureTunnelHttp2: options => { options.MaxConnectionCount = 2; },
-                configureTunnelWebSocket: options => { options.MaxConnectionCount = 2; }
+                configureTunnelHttp2: options => { options.MaxConnectionCount = 10; },
+                configureTunnelWebSocket: options => { options.MaxConnectionCount = 10; }
             ) /* for the servers that starts the tunnel transport connections */
             .AddTunnelTransportAuthenticationJwtBearer()
             ;

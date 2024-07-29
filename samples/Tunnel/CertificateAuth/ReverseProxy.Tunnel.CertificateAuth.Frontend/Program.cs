@@ -1,15 +1,4 @@
 #if README
-Create a AppRegistration in Azure AD and update the configuration in appsettings.json or user secrets.
-You need the Application ID URI. It should be in the format `api://{ClientId}`.
-{
-  "AzureAd": {
-    "Instance": "https://login.microsoftonline.com/",
-    "ClientId": "....",
-    "TenantId": "....",
-    "Audience": "api://{ClientId}",
-    "ClientSecret": "...."
-  }
-}
 
 --------------------------------
 | Browser                      |

@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\Common\LocalFileLogger.cs" Link="LocalFileLogger.cs" />
     <Compile Include="..\JWTAuth\ReverseProxy.JWT\Yarp.ReverseProxy.Transport\TransportTunnelAuthenticationJwtBearerExtension.cs" Link="Yarp.ReverseProxy.Transport\TransportTunnelAuthenticationJwtBearerExtension.cs" />
     <Compile Include="..\JWTAuth\ReverseProxy.JWT\Yarp.ReverseProxy.Transport\TransportTunnelHttp2AuthenticationJwtBearer.cs" Link="Yarp.ReverseProxy.Transport\TransportTunnelHttp2AuthenticationJwtBearer.cs" />
     <Compile Include="..\JWTAuth\ReverseProxy.JWT\Yarp.ReverseProxy.Transport\TransportTunnelWebSocketAuthenticationJwtBearer.cs" Link="Yarp.ReverseProxy.Transport\TransportTunnelWebSocketAuthenticationJwtBearer.cs" />

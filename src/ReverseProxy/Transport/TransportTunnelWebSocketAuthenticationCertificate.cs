@@ -60,6 +60,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
     {
         if (!ClientCertificateLoader.IsClientCertificate(config.Authentication.Mode))
         {
+            _logger.LogWarning("ClientCertificate authentication mode expected");
             return ValueTask.FromResult<HttpMessageInvoker?>(default);
         }
 
@@ -156,13 +157,17 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
                     }
                 }
 
-                var sslClientCertificates = clientWebSocket.Options.ClientCertificates ??= [];
-                sslClientCertificates.AddRange(srcClientCertifiacteCollection);
+                if (srcClientCertifiacteCollection is { Count: > 0 }) {
+                    _logger.LogTrace("Certifactes added by config {TunnelId}", config.TunnelId);
+                    var sslClientCertificates = clientWebSocket.Options.ClientCertificates ??= [];
+                    sslClientCertificates.AddRange(srcClientCertifiacteCollection);
+                }
             }
 
             {
-                if (config.Authentication.ClientCertifiacteCollection is { } srcClientCertifiacteCollection)
+                if (config.Authentication.ClientCertifiacteCollection is { Count:>0 } srcClientCertifiacteCollection)
                 {
+                    _logger.LogTrace("Certifactes added by config collection {TunnelId}", config.TunnelId);
                     var sslClientCertificates = clientWebSocket.Options.ClientCertificates ??= [];
                     sslClientCertificates.AddRange(srcClientCertifiacteCollection);
                 }
@@ -185,6 +190,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
         if (certificate is null)
         {
             // TODO: no idea
+            _logger.LogWarning("RemoteCertificateValidation: No certificate");
             return false;
         }
         var certHash = certificate.GetCertHash();
@@ -192,9 +198,11 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
         {
             if (certHash.SequenceEqual(clientCertificate.GetCertHash()))
             {
+                _logger.LogInformation("RemoteCertificateValidation: Certificate found");
                 return true;
             }
         }
+        _logger.LogInformation("RemoteCertificateValidation: Certificate no match");
         return false;
     }
 

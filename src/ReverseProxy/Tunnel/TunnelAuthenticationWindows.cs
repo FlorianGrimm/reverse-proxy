@@ -133,7 +133,8 @@ internal sealed class TunnelAuthenticationWindows
         else
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "no YarpTunnelAuth");
-            return Results.Challenge(null, ["Negotiate"]);
+            //return Results.Challenge(null, ["Negotiate"]);
+            return Results.StatusCode(401);
         }
     }
 

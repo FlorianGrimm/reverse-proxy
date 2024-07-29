@@ -177,7 +177,7 @@ public static class WebHostBuilderExtensions
 
                 if (listAuthenticationNameH2.FirstOrDefault(n => string.Equals(n, cfgAuthenticationMode)) is { } authenticationMode)
                 {
-                    var uriTunnel = new Uri($"{host}/_Tunnel/H2/{authenticationMode}/{remoteTunnelId}");
+                    var uriTunnel = new Uri($"{host}/_Tunnel/H2/{authenticationMode}/{remoteTunnelId}", UriKind.Absolute);
                     options.Listen(new UriEndPointHttp2(uriTunnel, tunnel.TunnelId));
                     continue;
                 }
@@ -195,7 +195,7 @@ public static class WebHostBuilderExtensions
                 }
                 if (listAuthenticationNameH2.FirstOrDefault(n => string.Equals(n, cfgAuthenticationMode)) is { } authenticationMode)
                 {
-                    var uriTunnel = new Uri($"{host}/_Tunnel/WS/{authenticationMode}/{remoteTunnelId}");
+                    var uriTunnel = new Uri($"{host}/_Tunnel/WS/{authenticationMode}/{remoteTunnelId}", UriKind.Absolute);
                     options.Listen(new UriWebSocketEndPoint(uriTunnel, tunnel.TunnelId));
                     continue;
                 }

@@ -82,45 +82,48 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         {
             try
             {
-                if (_httpMessageInvoker is null)
-                {
-                    await _createHttpMessageInvokerLock.WaitAsync(cancellationToken);
-                    try
-                    {
-                        _httpMessageInvoker ??= await CreateHttpMessageInvoker();
-                    }
-                    finally
-                    {
-                        _ = _createHttpMessageInvokerLock.Release();
-                    }
-                }
-
                 while (true)
                 {
-                    if (cancellationToken.IsCancellationRequested || _isDisposed)
+                    if (_httpMessageInvoker is null)
                     {
-                        return null;
-                    }
-
-                    var requestMessage = new HttpRequestMessage(
-                        HttpMethod.Post, _endPoint.Uri!)
-                    {
-                        Version = new Version(2, 0)
-                    };
-
-                    {
-                        await _transportTunnelHttp2Authentication.ConfigureHttpRequestMessageAsync(_tunnel, requestMessage);
-                        if (_options.ConfigureHttpRequestMessageAsync is { } configure)
+                        await _createHttpMessageInvokerLock.WaitAsync(cancellationToken);
+                        try
                         {
-                            await configure(config, requestMessage);
+                            _httpMessageInvoker ??= await CreateHttpMessageInvoker();
+                        }
+                        finally
+                        {
+                            _ = _createHttpMessageInvokerLock.Release();
                         }
                     }
+
 
                     TransportTunnelHttp2ConnectionContext? innerConnection = null;
                     HttpContent? httpContent = null;
                     HttpResponseMessage? response = null;
+                    var requestMessage = new HttpRequestMessage(
+                            HttpMethod.Post, _endPoint.Uri!)
+                    {
+                        Version = new Version(2, 0)
+                    };
+
                     try
                     {
+
+                        if (cancellationToken.IsCancellationRequested || _isDisposed)
+                        {
+                            return null;
+                        }
+
+                        {
+                            await _transportTunnelHttp2Authentication.ConfigureHttpRequestMessageAsync(_tunnel, requestMessage);
+                            if (_options.ConfigureHttpRequestMessageAsync is { } configure)
+                            {
+                                await configure(config, requestMessage);
+                            }
+                        }
+
+
                         (innerConnection, httpContent) = TransportTunnelHttp2ConnectionContext.Create(_logger);
                         requestMessage.Content = httpContent;
                         response = await _httpMessageInvoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
@@ -139,6 +142,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                     }
                     catch (Exception error)
                     {
+                        _logger.LogWarning(error, "Failed to connect to tunnel '{TunnelId}' at '{RemoteUrl}' {Transport}.", config.TunnelId, config.Url, config.Transport);
                         if (requestMessage is not null) { requestMessage.Dispose(); }
                         if (innerConnection is not null) { await innerConnection.DisposeAsync(); }
                         if (httpContent is not null) { httpContent.Dispose(); }
@@ -184,10 +188,11 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         // allow the user to configure the handler
         if (_options.ConfigureSocketsHttpHandlerAsync is { } configureSocketsHttpHandlerAsync)
         {
-            await configureSocketsHttpHandlerAsync(config, socketsHttpHandler);
+            await configureSocketsHttpHandlerAsync(config, socketsHttpHandler, _transportTunnelHttp2Authentication);
         }
 
-        if (result is null) {
+        if (result is null)
+        {
             result = new HttpMessageInvoker(socketsHttpHandler);
         }
         Log.TunnelCreateHttpMessageInvoker(_logger, config.TunnelId, config.Url);
