@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "ReverseProxy.Tunnel.Backend": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:52193;http://localhost:52194"
+    }
+  }
+}
