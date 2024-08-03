@@ -40,24 +40,24 @@ internal sealed class ForwarderMiddleware
 
         var route = context.GetRouteModel();
         var cluster = route.Cluster!;
+        var clusterModel = reverseProxyFeature.Cluster;
 
         var activity = context.GetYarpActivity();
         activity?.AddTag("proxy.route_id", route.Config.RouteId);
         activity?.AddTag("proxy.cluster_id", cluster.ClusterId);
 
-        if (cluster.Model.Config.IsTunnelTransport)
+        if (clusterModel.Config.IsTunnelTransport())
         {
             try
             {
                 cluster.ConcurrencyCounter.Increment();
                 ForwarderTelemetry.Log.ForwarderInvoke(cluster.ClusterId, route.Config.RouteId, "Tunnel");
 
-                var clusterConfig = reverseProxyFeature.Cluster;
                 var result = await _forwarder.SendAsync(
                     context,
                     $"http://{cluster.ClusterId}",
-                    clusterConfig.HttpClient,
-                    clusterConfig.Config.HttpRequest ?? ForwarderRequestConfig.Empty,
+                    clusterModel.HttpClient,
+                    clusterModel.Config.HttpRequest ?? ForwarderRequestConfig.Empty,
                     route.Transformer);
 
                 activity?.SetStatus((result == ForwarderError.None) ? ActivityStatusCode.Ok : ActivityStatusCode.Error);

@@ -18,7 +18,7 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 internal sealed class TunnelWebSocketHttpClientFactory
-    : ITransportHttpClientFactorySelector
+    : ITransportForwarderHttpClientFactorySelector
 {
     private readonly ConcurrentDictionary<string, TunnelWebSocketHttpClientFactoryForCluster> _tunnelWebSocketHttpClientFactoryBoundByClusterId = new();
     private readonly ILazyRequiredServiceResolver<ProxyConfigManager> _proxyConfigManagerLazy;
@@ -35,13 +35,9 @@ internal sealed class TunnelWebSocketHttpClientFactory
         _logger = logger;
     }
 
-    public TransportMode GetTransportMode() => TransportMode.TunnelWebSocket;
+    public string GetTransportMode() => "TunnelWebSocket";
 
-    public int GetOrder() => 0;
-
-    public IForwarderHttpClientFactory? GetForwarderHttpClientFactory(
-        TransportMode transportMode,
-        ForwarderHttpClientContext context)
+    public IForwarderHttpClientFactory? GetForwarderHttpClientFactory(ForwarderHttpClientContext context)
     {
         while (true)
         {

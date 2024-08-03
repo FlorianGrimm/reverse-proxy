@@ -18,7 +18,7 @@ public sealed record TransportTunnelAuthenticationConfig
     /// <summary>
     /// for in-memory configuration
     /// </summary>
-    public X509CertificateCollection? ClientCertifiacteCollection { get; init; }
+    public X509CertificateCollection? ClientCertificateCollection { get; init; }
 
     /// <inheritdoc/>
     public bool Equals(TransportTunnelAuthenticationConfig? other)
@@ -58,18 +58,18 @@ public sealed record TransportTunnelAuthenticationConfig
         }
 
         {
-            if (ClientCertifiacteCollection is null && other.ClientCertifiacteCollection is null)
+            if (ClientCertificateCollection is null && other.ClientCertificateCollection is null)
             {
             }
 
-            if (ClientCertifiacteCollection is null || other.ClientCertifiacteCollection is null)
+            if (ClientCertificateCollection is null || other.ClientCertificateCollection is null)
             {
                 return false;
             }
 
             for (var index = 0; index < ClientCertificates.Count; index++)
             {
-                if (!ClientCertifiacteCollection[index].Equals(other.ClientCertifiacteCollection[index]))
+                if (!ClientCertificateCollection[index].Equals(other.ClientCertificateCollection[index]))
                 {
                     return false;
                 }
@@ -91,9 +91,9 @@ public sealed record TransportTunnelAuthenticationConfig
         {
             hash.Add(ClientCertificate);
         }
-        if (ClientCertifiacteCollection is { })
+        if (ClientCertificateCollection is { })
         {
-            foreach (var certificate in ClientCertifiacteCollection)
+            foreach (var certificate in ClientCertificateCollection)
             {
                 hash.Add(certificate.GetSerialNumber());
             }

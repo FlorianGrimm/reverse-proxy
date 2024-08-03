@@ -7,10 +7,10 @@ public sealed record TransportTunnelConfig
     public string TunnelId { get; init; } = default!;
     public string Url { get; init; } = default!;
     public string RemoteTunnelId { get; init; } = default!;
-    public TransportMode Transport { get; init; } = default!;
+    public string Transport { get; init; } = default!;
     public TransportTunnelAuthenticationConfig Authentication { get; init; } = new TransportTunnelAuthenticationConfig();
 
-    public bool IsTunnelTransport => Transport == TransportMode.TunnelHTTP2 || Transport == TransportMode.TunnelWebSocket;
+    public bool IsTunnelTransport => string.IsNullOrEmpty(Transport) ? false : Transport.StartsWith("Tunnel");
     public string GetRemoteTunnelId() => RemoteTunnelId is { Length: > 0 } value ? value : TunnelId;
 
     public bool Equals(TransportTunnelConfig? other)

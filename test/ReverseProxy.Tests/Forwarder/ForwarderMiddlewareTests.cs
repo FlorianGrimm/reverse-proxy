@@ -43,7 +43,7 @@ public class ForwarderMiddlewareTests : TestAutoMockBase
             VersionPolicy = HttpVersionPolicy.RequestVersionExact,
         };
         var cluster1 = new ClusterState(clusterId: "cluster1");
-        var clusterModel = new ClusterModel(new ClusterConfig() { HttpRequest = httpRequestOptions },
+        var clusterModel = new ClusterModel( new ClusterConfig() { HttpRequest = httpRequestOptions },
             httpClient);
         var destination1 = cluster1.Destinations.GetOrAdd(
             "destination1",

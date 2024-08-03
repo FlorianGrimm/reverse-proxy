@@ -85,7 +85,7 @@ internal sealed class TunnelAuthenticationWindows
             && AuthenticationTypes.Contains(identity.AuthenticationType, StringComparer.OrdinalIgnoreCase)
             && context.GetRouteValue("clusterId") is string clusterId
             && _proxyConfigManagerLazy.GetService().TryGetCluster(clusterId, out var cluster)
-            && cluster.Model.Config.IsTunnelTransport
+            && cluster.Model.Config.IsTunnelTransport()
             && IsWindowsAuthenticated(context, cluster)
             )
         {

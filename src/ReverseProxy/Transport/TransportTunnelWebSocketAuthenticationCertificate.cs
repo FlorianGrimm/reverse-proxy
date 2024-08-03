@@ -94,7 +94,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
 
                                         ClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
 
-                                        if (certificateConfig.IsFileCert)
+                                        if (certificateConfig.IsFileCert())
                                         {
                                             lock (_allCertificateConfig)
                                             {
@@ -124,7 +124,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
 
                                         ClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
 
-                                        if (certificateConfig.IsFileCert)
+                                        if (certificateConfig.IsFileCert())
                                         {
                                             lock (_allCertificateConfig)
                                             {
@@ -143,7 +143,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
                             }
                             if (_clientCertifiacteCollectionByTunnelId.TryAdd(config.TunnelId, srcClientCertifiacteCollection))
                             {
-                                _logger.LogTrace("Certifactes loaded {TunnelId}", config.TunnelId);
+                                _logger.LogTrace("Certificates loaded {TunnelId}", config.TunnelId);
                             }
                             else
                             {
@@ -165,7 +165,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
             }
 
             {
-                if (config.Authentication.ClientCertifiacteCollection is { Count:>0 } srcClientCertifiacteCollection)
+                if (config.Authentication.ClientCertificateCollection is { Count:>0 } srcClientCertifiacteCollection)
                 {
                     _logger.LogTrace("Certifactes added by config collection {TunnelId}", config.TunnelId);
                     var sslClientCertificates = clientWebSocket.Options.ClientCertificates ??= [];

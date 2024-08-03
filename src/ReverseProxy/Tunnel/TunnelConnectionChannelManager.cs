@@ -23,7 +23,7 @@ public sealed class TunnelConnectionChannelManager
     {
         public void OnClusterAdded(ClusterState cluster)
         {
-            if (cluster.Model.Config.IsTunnelTransport)
+            if (cluster.Model.Config.IsTunnelTransport())
             {
                 manager.RegisterConnectionChannel(cluster.ClusterId);
             }
@@ -31,7 +31,7 @@ public sealed class TunnelConnectionChannelManager
 
         public void OnClusterChanged(ClusterState cluster)
         {
-            if (cluster.Model.Config.IsTunnelTransport)
+            if (cluster.Model.Config.IsTunnelTransport())
             {
                 manager.RegisterConnectionChannel(cluster.ClusterId);
             }
@@ -39,7 +39,7 @@ public sealed class TunnelConnectionChannelManager
 
         public void OnClusterRemoved(ClusterState cluster)
         {
-            if (cluster.Model.Config.IsTunnelTransport)
+            if (cluster.Model.Config.IsTunnelTransport())
             {
                 manager.UnregisterConnectionChannel(cluster.ClusterId);
             }

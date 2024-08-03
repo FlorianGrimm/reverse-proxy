@@ -96,7 +96,7 @@ internal sealed class TunnelAuthenticationCertificate
         var identity = context.User.Identity;
         if (context.GetRouteValue("clusterId") is string clusterId
             && _proxyConfigManagerLazy.GetService().TryGetCluster(clusterId, out var cluster)
-            && cluster.Model.Config.IsTunnelTransport
+            && cluster.Model.Config.IsTunnelTransport()
             )
         {
             context.Response.StatusCode = 200;
@@ -257,7 +257,6 @@ internal sealed class TunnelAuthenticationCertificate
 
     public IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
-        return null;
         if (context.User.Identity is not ClaimsIdentity identity)
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "no context.User.Identity");

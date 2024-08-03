@@ -99,8 +99,14 @@ public static class WebHostBuilderExtensions
         Action<TransportTunnelWebSocketOptions>? configureTunnelWebSocket = default
         )
     {
+
         var services = builder.Services
-            .AddSingleton<ITunnelChangeListener, TransportTunnelConnectionChangeListener>();
+            .AddSingleton<ITunnelChangeListener, TransportTunnelConnectionChangeListener>()
+            .AddSingleton<TransportTunnelFactory>()
+            ;
+
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelFactory, TransportTunnelHttp2Factory>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelFactory, TransportTunnelWebSocketFactory>());
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelHttp2ConnectionListenerFactory>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelWebSocketConnectionListenerFactory>());
@@ -152,6 +158,8 @@ public static class WebHostBuilderExtensions
         var proxyConfigManager = options.ApplicationServices.GetRequiredService<ProxyConfigManager>();
         var tunnels = proxyConfigManager.GetTransportTunnels();
 
+        var transportTunnelFactory = options.ApplicationServices.GetRequiredService<TransportTunnelFactory>();
+
         var transportTunnelHttp2Options = options.ApplicationServices.GetRequiredService<IOptions<TransportTunnelHttp2Options>>().Value;
         var transportTunnelWebSocketOptions = options.ApplicationServices.GetRequiredService<IOptions<TransportTunnelWebSocketOptions>>().Value;
 
@@ -168,41 +176,12 @@ public static class WebHostBuilderExtensions
 
             var cfgAuthenticationMode = cfg.Authentication.Mode;
 
-            if (transport == TransportMode.TunnelHTTP2)
+            if (transportTunnelFactory.TryGetTransportTunnelFactory(cfg.Transport, out var factory))
             {
-                if (!transportTunnelHttp2Options.IsEnabled)
-                {
-                    throw new NotSupportedException($"Tunnel HTTP2 is disabled.");
-                }
-
-                if (listAuthenticationNameH2.FirstOrDefault(n => string.Equals(n, cfgAuthenticationMode)) is { } authenticationMode)
-                {
-                    var uriTunnel = new Uri($"{host}/_Tunnel/H2/{authenticationMode}/{remoteTunnelId}", UriKind.Absolute);
-                    options.Listen(new UriEndPointHttp2(uriTunnel, tunnel.TunnelId));
-                    continue;
-                }
-                else
-                {
-                    throw new NotSupportedException($"Authentication {cfgAuthenticationMode} is unknown");
-                }
+                factory.Listen(tunnel, options);
             }
-
-            if (transport == TransportMode.TunnelWebSocket)
-            {
-                if (!transportTunnelWebSocketOptions.IsEnabled)
-                {
-                    throw new NotSupportedException($"Tunnel WebSocket is disabled.");
-                }
-                if (listAuthenticationNameH2.FirstOrDefault(n => string.Equals(n, cfgAuthenticationMode)) is { } authenticationMode)
-                {
-                    var uriTunnel = new Uri($"{host}/_Tunnel/WS/{authenticationMode}/{remoteTunnelId}", UriKind.Absolute);
-                    options.Listen(new UriWebSocketEndPoint(uriTunnel, tunnel.TunnelId));
-                    continue;
-                }
-                else
-                {
-                    throw new NotSupportedException($"Authentication {cfgAuthenticationMode} is unknown");
-                }
+            else {
+                throw new Exception($"Transport {cfg.Transport} is unknow");
             }
         }
     }

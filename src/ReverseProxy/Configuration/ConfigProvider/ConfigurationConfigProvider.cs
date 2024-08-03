@@ -166,15 +166,16 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         };
     }
 
-    private TransportMode ConvertTransportMode(string? value)
+    private string ConvertTransportMode(string? value)
     {
-        if (string.IsNullOrEmpty(value)) { return TransportMode.Forwarder; }
-
-        if (string.Equals(value, nameof(TransportMode.TunnelHTTP2), StringComparison.InvariantCultureIgnoreCase)) { return TransportMode.TunnelHTTP2; }
-        if (string.Equals(value, nameof(TransportMode.TunnelWebSocket), StringComparison.InvariantCultureIgnoreCase)) { return TransportMode.TunnelWebSocket; }
-        if (string.Equals(value, nameof(TransportMode.Forwarder), StringComparison.InvariantCultureIgnoreCase)) { return TransportMode.Forwarder; }
-
-        return TransportMode.Invalid;
+        if (string.IsNullOrEmpty(value))
+        {
+            return "Forwarder";
+        }
+        else
+        {
+            return value;
+        }
     }
 
     private ClusterTunnelAuthenticationConfig CreateClusterTunnelAuthenticationConfig(IConfigurationSection section)
@@ -182,23 +183,22 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         //
         return new ClusterTunnelAuthenticationConfig()
         {
-            Mode = section[nameof(ClusterTunnelAuthenticationConfig.Mode)],
+            Mode = section[nameof(ClusterTunnelAuthenticationConfig.Mode)] ?? "Invalid",
             ClientCertificate = CreateClientCertificateConfig(section.GetSection(nameof(ClusterTunnelAuthenticationConfig.ClientCertificate))),
             UserNames = CreateUserNamesConfig(section.GetSection(nameof(ClusterTunnelAuthenticationConfig.UserNames)))
         };
     }
 
-    private CertificateConfig? CreateClientCertificateConfig(IConfigurationSection configSection)
+    private CertificateConfig CreateClientCertificateConfig(IConfigurationSection configSection)
     {
-        if (!configSection.Exists()) { return null; }
         return new CertificateConfig()
         {
-            Path = configSection[nameof(CertificateConfig.Path)],
-            KeyPath = configSection[nameof(CertificateConfig.KeyPath)],
-            Password = configSection[nameof(CertificateConfig.Password)],
-            Subject = configSection[nameof(CertificateConfig.Subject)],
-            Store = configSection[nameof(CertificateConfig.Store)],
-            Location = configSection[nameof(CertificateConfig.Location)],
+            Path = configSection[nameof(CertificateConfig.Path)] ?? string.Empty,
+            KeyPath = configSection[nameof(CertificateConfig.KeyPath)] ?? string.Empty,
+            Password = configSection[nameof(CertificateConfig.Password)] ?? string.Empty,
+            Subject = configSection[nameof(CertificateConfig.Subject)] ?? string.Empty,
+            Store = configSection[nameof(CertificateConfig.Store)] ?? string.Empty,
+            Location = configSection[nameof(CertificateConfig.Location)] ?? string.Empty,
             AllowInvalid = bool.TryParse(configSection[nameof(CertificateConfig.AllowInvalid)], out var value) && value
         };
     }

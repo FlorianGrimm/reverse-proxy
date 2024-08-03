@@ -6,11 +6,14 @@ using System.Diagnostics;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 
+using Brimborium.Extensions.Logging.LocalFile;
+
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
+using Microsoft.Extensions.Options;
 
 using Yarp.ReverseProxy.Transport;
 using Yarp.ReverseProxy.Tunnel;
@@ -64,7 +67,7 @@ internal class Program
     {
         if (args.Length == 0)
         {
-            System.Console.Out.WriteLine("Syntax: [h2-a|h2-c|h2-j|h2-w|h2ws-a|h2ws-w|ws-a|ws-c|ws-w] [browser-anonymous|browser-windows|browser-oauth] [1][2][3][4][5][6] [test] [meassure] [stop]");
+            System.Console.Out.WriteLine("Syntax: [h2-a|h2-c|h2-j|h2-w|h2ws-a|h2ws-w|ws-a|ws-c|ws-w] [browser-anonymous|browser-windows|browser-oauth] [1][2][3][4][5][6] [test] [measure] [stop]");
             System.Console.Out.WriteLine("Tunnel protocol-authentication");
             System.Console.Out.WriteLine("  h2-: HTTP/2");
             System.Console.Out.WriteLine("  ws-: WebSocket");
@@ -77,13 +80,20 @@ internal class Program
             System.Console.Out.WriteLine("browser-windows: browser wants windows auth");
             System.Console.Out.WriteLine("[1][2][3][4][5][6] which server to start none specified means all");
             System.Console.Out.WriteLine("test:     do some tests");
-            System.Console.Out.WriteLine("meassure: do some request and meassure the time");
-            System.Console.Out.WriteLine("stop:     after test and/or meassure stop and don't wait for CTRL-C.");
+            System.Console.Out.WriteLine("measure: do some request and measure the time");
+            System.Console.Out.WriteLine("stop:     after test and/or measure stop and don't wait for CTRL-C.");
         }
 
         var hsArgs = args.ToHashSet();
         var appsettingsFolder = ParseArgs(hsArgs);
+        var (s1, s2, s3, s4, s5, s6) = (hsArgs.Remove("1"), hsArgs.Remove("2"), hsArgs.Remove("3"), hsArgs.Remove("4"), hsArgs.Remove("5"), hsArgs.Remove("6"));
+        var (test, measure, wait) = (hsArgs.Remove("test"), hsArgs.Remove("measure"), !hsArgs.Remove("stop"));
 
+        if (0 < hsArgs.Count)
+        {
+            System.Console.WriteLine($"Unknown args {string.Join(" ", hsArgs)}");
+            return 1;
+        }
         try
         {
             Console.Out.WriteLine("Starting Servers");
@@ -94,23 +104,30 @@ internal class Program
 
             Task taskRunServer;
             {
-                var (s1, s2, s3, s4, s5, s6) = (hsArgs.Remove("1"), hsArgs.Remove("2"), hsArgs.Remove("3"), hsArgs.Remove("4"), hsArgs.Remove("5"), hsArgs.Remove("6"));
-                var sall = !s1 && !s2 && !s3 && !s4 && !s5 && !s6;
-                if (sall || s1) { listWebApplication.Add(ServerFrontend(args, appsettingsFolder, "appsettings.server1FE.json")); }
-                if (sall || s2) { listWebApplication.Add(ServerFrontend(args, appsettingsFolder, "appsettings.server2FE.json")); }
-                if (sall || s3) { listWebApplication.Add(ServerBackend(args, appsettingsFolder, "appsettings.server3BE.json")); }
-                if (sall || s4) { listWebApplication.Add(ServerBackend(args, appsettingsFolder, "appsettings.server4BE.json")); }
-                if (sall || s5) { listWebApplication.Add(ServerAPI(args, appsettingsFolder, "appsettings.server5API.json")); }
-                if (sall || s6) { listWebApplication.Add(ServerAPI(args, appsettingsFolder, "appsettings.server6API.json")); }
+                var allServers = !s1 && !s2 && !s3 && !s4 && !s5 && !s6;
 
-                var listTaskRun = listWebApplication.Select(app => app.RunAsync()).ToList();
+                if (allServers || s5) { listWebApplication.Add(ServerAPI(args, appsettingsFolder, "appsettings.server5API.json")); }
+                if (allServers || s6) { listWebApplication.Add(ServerAPI(args, appsettingsFolder, "appsettings.server6API.json")); }
+
+                if (allServers || s1) { listWebApplication.Add(ServerFrontend(args, appsettingsFolder, "appsettings.server1FE.json")); }
+                if (allServers || s2) { listWebApplication.Add(ServerFrontend(args, appsettingsFolder, "appsettings.server2FE.json")); }
+
+                if (allServers || s3) { listWebApplication.Add(ServerBackend(args, appsettingsFolder, "appsettings.server3BE.json")); }
+                if (allServers || s4) { listWebApplication.Add(ServerBackend(args, appsettingsFolder, "appsettings.server4BE.json")); }
+
+                var listTaskRun = new List<Task>();
+                foreach (var webApplication in listWebApplication)
+                {
+                    var task = webApplication.RunAsync();
+                    await Task.Delay(50);
+                    listTaskRun.Add(task);
+                }
                 taskRunServer = listTaskRun.Count > 0 ? Task.WhenAll(listTaskRun) : Task.CompletedTask;
 
                 // give the servers some time to start and establish the tunnels
-                await Task.Delay(500);
+                await Task.Delay(200);
             }
 
-            var (test, meassure, wait) = (hsArgs.Remove("test"), hsArgs.Remove("meassure"), !hsArgs.Remove("stop"));
             if (test)
             {
                 System.Console.Out.WriteLine("Starting Tests.");
@@ -121,11 +138,11 @@ internal class Program
                 System.Console.Out.WriteLine("Done Tests.");
             }
 
-            if (meassure)
+            if (measure)
             {
-                System.Console.Out.WriteLine("Starting meassure.");
-                await RunMeassurement();
-                System.Console.Out.WriteLine("Done meassure.");
+                System.Console.Out.WriteLine("Starting measure.");
+                await RunMeasurement();
+                System.Console.Out.WriteLine("Done measure.");
             }
 
             if (wait)
@@ -133,7 +150,7 @@ internal class Program
                 System.Console.Error.WriteLine("Hit CTRL-C to exit.");
                 await taskRunServer;
             }
-            foreach(var app in listWebApplication)
+            foreach (var app in listWebApplication)
             {
                 await app.Services.GetRequiredService<Brimborium.Extensions.Logging.LocalFile.LocalFileLoggerProvider>().FlushAsync(CancellationToken.None);
             }
@@ -175,14 +192,14 @@ internal class Program
 
         // browser authentication
         {
-            var browserwindows = hsArgs.Remove("browser-windows");
-            var browseranonymous = hsArgs.Remove("browser-anonymous");
+            var browserWindows = hsArgs.Remove("browser-windows");
+            var browserAnonymous = hsArgs.Remove("browser-anonymous");
 
-            if (browserwindows)
+            if (browserWindows)
             {
                 browserAuthentication = BrowserAuthentication.Windows;
             }
-            else if (browseranonymous)
+            else if (browserAnonymous)
             {
                 browserAuthentication = BrowserAuthentication.Anonymous;
             }
@@ -266,13 +283,18 @@ internal class Program
     {
         try
         {
-            var appsettingsFullname = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
+            var appsettingsFullName = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
+
 
             var builder = WebApplication.CreateBuilder(args);
-            builder.Configuration.AddJsonFile(appsettingsFullname, false, true);
+            builder.Configuration.AddJsonFile(appsettingsFullName, false, true);
             builder.Configuration.AddUserSecrets("ReverseProxy");
+            
             builder.Logging.ClearProviders();
             builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
+            builder.Services.AddOptions<LocalFileLoggerOptions>().Configure(options => {
+                options.LogDirectory = System.IO.Path.Combine(System.AppContext.BaseDirectory, "LogFiles");
+            });
 
             builder.Services.AddAuthorization()
                 .AddRouting()
@@ -395,7 +417,7 @@ internal class Program
             app.Services.GetRequiredService<Brimborium.Extensions.Logging.LocalFile.LocalFileLoggerProvider>().HandleHostApplicationLifetime(app.Services.GetRequiredService<IHostApplicationLifetime>());
 
             // app.UseHttpsRedirection() will redirect if the request is a tunnel request;
-            // which means that the borwser is redirected to https://{tunnelId}/... which is not what we want.
+            // which means that the browser is redirected to https://{tunnelId}/... which is not what we want.
             app.UseWhen(
                 static context => !context.TryGetTransportTunnelByUrl(out var _),
                 app => app.UseHttpsRedirection()
@@ -450,14 +472,17 @@ internal class Program
     {
         try
         {
-            var appsettingsFullname = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
+            var appsettingsFullName = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
 
             var builder = WebApplication.CreateBuilder(args);
 
-            builder.Configuration.AddJsonFile(appsettingsFullname, false, true);
+            builder.Configuration.AddJsonFile(appsettingsFullName, false, true);
+            builder.Configuration.AddUserSecrets("ReverseProxy");
             builder.Logging.ClearProviders();
             builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
-            builder.Configuration.AddUserSecrets("ReverseProxy");
+            builder.Services.AddOptions<LocalFileLoggerOptions>().Configure(options => {
+                options.LogDirectory = System.IO.Path.Combine(System.AppContext.BaseDirectory, "LogFiles");
+            });
 
             builder.Services.AddControllers()
                 .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
@@ -487,9 +512,9 @@ internal class Program
                         options.IsEnabled = enableTunnelH2;
                         options.ConfigureSocketsHttpHandlerAsync = (transportTunnelConfig, socketsHttpHandler, transportTunnelHttp2Authentication) =>
                         {
-                            socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback = (object sender, string? targetHost, X509CertificateCollection localCertificates, X509Certificate? target, string[] acceptableIssuers) =>
+                            socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback = (object sender, string targetHost, X509CertificateCollection localCertificates, X509Certificate? target, string[] acceptableIssuers) =>
                             {
-                                return localCertificates[0];
+                                return 0 < localCertificates.Count ? localCertificates[0] : null!;
                             };
                             socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback = (object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors) =>
                             {
@@ -562,7 +587,7 @@ internal class Program
             app.Services.GetRequiredService<Brimborium.Extensions.Logging.LocalFile.LocalFileLoggerProvider>().HandleHostApplicationLifetime(app.Services.GetRequiredService<IHostApplicationLifetime>());
 
             // app.UseHttpsRedirection() will redirect if the request is a tunnel request;
-            // which means that the borwser is redirected to https://{tunnelId}/... which is not what we want.
+            // which means that the browser is redirected to https://{tunnelId}/... which is not what we want.
             app.UseWhen(
                 static context => !context.TryGetTransportTunnelByUrl(out var _),
                 app => app.UseHttpsRedirection()
@@ -591,13 +616,16 @@ internal class Program
     {
         try
         {
-            var appsettingsFullname = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
+            var appsettingsFullName = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
 
             var builder = WebApplication.CreateBuilder(args);
 
-            builder.Configuration.AddJsonFile(appsettingsFullname, false, true);
+            builder.Configuration.AddJsonFile(appsettingsFullName, false, true);
             builder.Logging.ClearProviders();
             builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
+            builder.Services.AddOptions<LocalFileLoggerOptions>().Configure(options => {
+                options.LogDirectory = System.IO.Path.Combine(System.AppContext.BaseDirectory, "LogFiles");
+            });
 
             builder.Services.AddControllers()
                 .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
@@ -653,69 +681,10 @@ internal class Program
         // Try to access Url directly
         try
         {
-            // https://localhost:5001/Frontend
-            {
-                var socketsHttpHandler = CreateSocketsHttpHandler();
-                using HttpClient httpClient = new(socketsHttpHandler, true);
-                var url = "https://localhost:5001/Frontend";
-                Console.Out.WriteLine($"Sending request to {url}");
-                var request = new HttpRequestMessage(HttpMethod.Get, url);
-                using var response = await httpClient.SendAsync(request);
-                response.EnsureSuccessStatusCode();
-                var result = await response.Content.ReadAsStringAsync();
-                if (result.StartsWith("Frontend https://localhost:5001/ - localhost:5001 -"))
-                {
-                    Console.Out.WriteLine($"Success: {result}");
-                }
-                else
-                {
-                    Console.Out.WriteLine($"Failed: {result}");
-                    return 1;
-                }
-            }
+            await TestRequestGet("https://localhost:5001/Frontend", "Frontend https://localhost:5001/ - localhost:5001 -");
+            await TestRequestGet("https://localhost:5003/Backend", "Backend https://localhost:5003/ - localhost:5003 -");
+            await TestRequestGet("https://localhost:5005/API", "API https://localhost:5005/ - localhost:5005 -");
 
-            // https://localhost:5003/Backend
-            {
-                var socketsHttpHandler = CreateSocketsHttpHandler();
-                using HttpClient httpClient = new(socketsHttpHandler, true);
-                var url = "https://localhost:5003/Backend";
-                Console.Out.WriteLine($"Sending request to {url}");
-                var request = new HttpRequestMessage(HttpMethod.Get, url);
-                using var response = await httpClient.SendAsync(request);
-                response.EnsureSuccessStatusCode();
-                var result = await response.Content.ReadAsStringAsync();
-                if (result.StartsWith("Backend https://localhost:5003/ - localhost:5003 -"))
-                {
-                    Console.Out.WriteLine($"Success: {result}");
-                }
-                else
-                {
-                    Console.Out.WriteLine($"Failed: {result}");
-                    return 1;
-                }
-            }
-
-            // https://localhost:5005/API
-            {
-                var socketsHttpHandler = CreateSocketsHttpHandler();
-
-                using HttpClient httpClient = new(socketsHttpHandler, true);
-                var url = "https://localhost:5005/API";
-                Console.Out.WriteLine($"Sending request to {url}");
-                var request = new HttpRequestMessage(HttpMethod.Get, url);
-                using var response = await httpClient.SendAsync(request);
-                response.EnsureSuccessStatusCode();
-                var result = await response.Content.ReadAsStringAsync();
-                if (result.StartsWith("API https://localhost:5005/ - localhost:5005 -"))
-                {
-                    Console.Out.WriteLine($"Success: {result}");
-                }
-                else
-                {
-                    Console.Out.WriteLine($"Failed: {result}");
-                    return 1;
-                }
-            }
             //
         }
         catch (Exception error)
@@ -734,27 +703,7 @@ internal class Program
         // try tunnel - forward
         try
         {
-            // https://localhost:5001/API
-            {
-                var socketsHttpHandler = CreateSocketsHttpHandler(); ;
-
-                using HttpClient httpClient = new(socketsHttpHandler, true);
-                var url = "https://localhost:5001/API";
-                Console.Out.WriteLine($"Sending request to {url}");
-                var request = new HttpRequestMessage(HttpMethod.Get, url);
-                using var response = await httpClient.SendAsync(request);
-                response.EnsureSuccessStatusCode();
-                var result = await response.Content.ReadAsStringAsync();
-                if (result.Contains("API https://localhost:5005/ - localhost:5005 -"))
-                {
-                    Console.Out.WriteLine($"Success: {result}");
-                }
-                else
-                {
-                    Console.Out.WriteLine($"Failed: {result}");
-                    return 1;
-                }
-            }
+            await TestRequestGet("https://localhost:5001/API", "API https://localhost:5005/ - localhost:5005 -");
         }
         catch (Exception error)
         {
@@ -767,7 +716,7 @@ internal class Program
         }
         //
 
-        if (modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationCertificate)
+        if (false && modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationCertificate)
         {
             System.Console.WriteLine(System.DateTime.Now.ToString("s"));
             // localhostclient1.pfx - the right one
@@ -843,14 +792,41 @@ internal class Program
                 }
             }
         }
+        //
+
         return 0;
     }
 
-    private static async Task RunMeassurement()
+    private static async Task TestRequestGet(string url, string expectedContent)
+    {
+        var socketsHttpHandler = new SocketsHttpHandler();
+        socketsHttpHandler.ConnectTimeout = TimeSpan.FromSeconds(2);
+        socketsHttpHandler.ResponseDrainTimeout = TimeSpan.FromSeconds(2);
+
+        using var httpClient = new HttpClient(socketsHttpHandler, true);
+        Console.Out.WriteLine($"Sending request to {url}");
+        var request = new HttpRequestMessage(HttpMethod.Get, url);
+
+        using var response = await httpClient.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadAsStringAsync();
+        if (result.StartsWith(expectedContent))
+        {
+            Console.Out.WriteLine($"Success: {result}");
+        }
+        else
+        {
+            Console.Out.WriteLine($"Failed: {result}");
+            throw new Exception($"Failed: {result}");
+        }
+    }
+
+
+    private static async Task RunMeasurement()
     {
         System.Console.WriteLine(System.DateTime.Now.ToString("s"));
 
-        // little bit of speed meassurment
+        // little bit of speed measurment
         try
         {
             {

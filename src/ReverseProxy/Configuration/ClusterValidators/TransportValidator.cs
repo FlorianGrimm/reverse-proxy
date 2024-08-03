@@ -8,7 +8,7 @@ internal class TransportValidator : IClusterValidator
 {
     public ValueTask ValidateAsync(ClusterConfig cluster, IList<Exception> errors)
     {
-        if (!cluster.IsTunnelTransport) { return ValueTask.CompletedTask; }
+        if (!cluster.IsTunnelTransport()) { return ValueTask.CompletedTask; }
 
         var clusterId = cluster.ClusterId;
         if (string.IsNullOrEmpty(clusterId))

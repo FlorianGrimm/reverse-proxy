@@ -1,9 +1,9 @@
-using Yarp.ReverseProxy.Configuration;
-
 namespace Yarp.ReverseProxy.Forwarder;
 
-internal sealed class TransportForwarderHttpClientFactory : ITransportHttpClientFactorySelector
+internal sealed class TransportForwarderHttpClientFactory : ITransportForwarderHttpClientFactorySelector
 {
+    public const string TransportMode = "Forwarder";
+
     private readonly IForwarderHttpClientFactory _forwarderHttpClientFactory;
 
     public TransportForwarderHttpClientFactory(
@@ -13,11 +13,9 @@ internal sealed class TransportForwarderHttpClientFactory : ITransportHttpClient
         _forwarderHttpClientFactory = forwarderHttpClientFactory;
     }
 
-    public TransportMode GetTransportMode() => TransportMode.Forwarder;
+    public string GetTransportMode() => TransportMode;
 
-    public int GetOrder() => 0;
-
-    public IForwarderHttpClientFactory? GetForwarderHttpClientFactory(TransportMode transportMode, ForwarderHttpClientContext context)
+    public IForwarderHttpClientFactory? GetForwarderHttpClientFactory(ForwarderHttpClientContext context)
     {
         return _forwarderHttpClientFactory;
     }

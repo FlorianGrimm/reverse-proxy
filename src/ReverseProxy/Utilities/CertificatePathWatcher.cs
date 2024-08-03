@@ -135,7 +135,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
     /// </remarks>
     private void AddWatchUnsynchronized(CertificateConfig certificateConfig)
     {
-        Debug.Assert(certificateConfig.IsFileCert, "AddWatch called on non-file cert");
+        Debug.Assert(certificateConfig.IsFileCert(), "AddWatch called on non-file cert");
 
         var path = Path.Combine(_contentRootDir, certificateConfig.Path);
         var dir = Path.GetDirectoryName(path)!;
@@ -246,7 +246,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
     /// </remarks>
     private void RemoveWatchUnsynchronized(CertificateConfig certificateConfig)
     {
-        Debug.Assert(certificateConfig.IsFileCert, "RemoveWatch called on non-file cert");
+        Debug.Assert(certificateConfig.IsFileCert(), "RemoveWatch called on non-file cert");
 
         var path = Path.Combine(_contentRootDir, certificateConfig.Path);
         var dir = Path.GetDirectoryName(path)!;

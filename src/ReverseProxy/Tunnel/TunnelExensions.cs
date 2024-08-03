@@ -35,17 +35,17 @@ public static class TunnelExensions
     {
         services.TryAddSingleton<TunnelConnectionChannelManager>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterChangeListener, TunnelConnectionChannelManager.ClusterChangeListener>());
-        services.TryAddSingleton<TransportHttpClientFactorySelector>();
+        services.TryAddSingleton<TransportForwarderHttpClientFactorySelector>();
 
         if (options is null || options.TunnelHTTP2)
         {
             services.TryAddSingleton<TunnelHTTP2Route>();
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportHttpClientFactorySelector, TunnelHTTP2HttpClientFactory>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportForwarderHttpClientFactorySelector, TunnelHTTP2HttpClientFactory>());
         }
         if (options is null || options.TunnelWebSocket)
         {
             services.TryAddSingleton<TunnelWebSocketRoute>();
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportHttpClientFactorySelector, TunnelWebSocketHttpClientFactory>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportForwarderHttpClientFactorySelector, TunnelWebSocketHttpClientFactory>());
         }
         if (options is not null && !options.TunnelHTTP2 && !options.TunnelWebSocket)
         {

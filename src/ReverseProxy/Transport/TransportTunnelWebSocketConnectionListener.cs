@@ -237,22 +237,22 @@ internal sealed class TransportTunnelWebSocketConnectionListener
             _tunnelCreateHttpMessageInvoker(logger, tunnelId, url, null);
         }
 
-        private static readonly Action<ILogger, string, string, TransportMode, Exception?> _tunnelCannotConnectTunnel = LoggerMessage.Define<string, string, TransportMode>(
+        private static readonly Action<ILogger, string, string, string, Exception?> _tunnelCannotConnectTunnel = LoggerMessage.Define<string, string, string>(
             LogLevel.Error,
             EventIds.TunnelCannotConnectTunnel,
             "Tunnel '{TunnelId}' cannot connect to '{RemoteUrl}' {Transport}.");
 
-        internal static void TunnelCannotConnectTunnel(ILogger logger, string tunnelId, string url, TransportMode transport, Exception? error)
+        internal static void TunnelCannotConnectTunnel(ILogger logger, string tunnelId, string url, string transport, Exception? error)
         {
             _tunnelCannotConnectTunnel(logger, tunnelId, url, transport, error);
         }
 
-        private static readonly Action<ILogger, string, string, TransportMode, Exception?> _tunnelResumeConnectTunnel = LoggerMessage.Define<string, string, TransportMode>(
+        private static readonly Action<ILogger, string, string, string, Exception?> _tunnelResumeConnectTunnel = LoggerMessage.Define<string, string, string>(
             LogLevel.Warning,
             EventIds.TunnelResumeConnectTunnel,
             "Tunnel '{TunnelId}' (resumed) connect to '{RemoteUrl}' {Transport}.");
 
-        internal static void TunnelResumeConnectTunnel(ILogger logger, string tunnelId, string url, TransportMode transport, Exception? error)
+        internal static void TunnelResumeConnectTunnel(ILogger logger, string tunnelId, string url, string transport, Exception? error)
         {
             _tunnelResumeConnectTunnel(logger, tunnelId, url, transport, error);
         }

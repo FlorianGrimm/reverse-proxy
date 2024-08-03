@@ -18,7 +18,8 @@
         "Metadata": null
       }
     },
-    "Metadata": null
+    "Metadata": null,
+    "Authentication": {}
   },
   {
     "ClusterId": "the-service.ns-two:http",
@@ -39,6 +40,7 @@
         "Metadata": null
       }
     },
-    "Metadata": null
+    "Metadata": null,
+    "Authentication": {}
   }
 ]

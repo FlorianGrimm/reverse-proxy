@@ -9,7 +9,7 @@ public sealed record ClusterTunnelAuthenticationConfig
 {
     public string? Mode { get; init; }
 
-    public CertificateConfig? ClientCertificate { get; init; }
+    public CertificateConfig ClientCertificate { get; init; } = default!;
 
     public string[]? UserNames { get; init; }
 

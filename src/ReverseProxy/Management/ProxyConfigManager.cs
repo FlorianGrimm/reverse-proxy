@@ -50,7 +50,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     private readonly ConcurrentDictionary<string, RouteState> _routes = new(StringComparer.OrdinalIgnoreCase);
     private readonly IProxyConfigFilter[] _filters;
     private readonly IConfigValidator _configValidator;
-    private readonly TransportHttpClientFactorySelector _TransportHttpClientFactorySelector;
+    private readonly TransportForwarderHttpClientFactorySelector _TransportHttpClientFactorySelector;
     private readonly ProxyEndpointFactory _proxyEndpointFactory;
     private readonly ITransformBuilder _transformBuilder;
     private readonly List<Action<EndpointBuilder>> _conventions;
@@ -74,7 +74,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         IConfigValidator configValidator,
         ProxyEndpointFactory proxyEndpointFactory,
         ITransformBuilder transformBuilder,
-        TransportHttpClientFactorySelector transportHttpClientFactorySelector,
+        TransportForwarderHttpClientFactorySelector transportHttpClientFactorySelector,
         IActiveHealthCheckMonitor activeHealthCheckMonitor,
         IClusterDestinationsUpdater clusterDestinationsUpdater,
         IEnumerable<IConfigChangeListener> configChangeListeners,
@@ -529,7 +529,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         static void ReloadConfig(object? state)
         {
             var manager = (ProxyConfigManager)state!;
-            _ = manager.ReloadConfigAsync();
+            manager.ReloadConfigAsync().GetAwaiter().GetResult();
         }
     }
 
@@ -1130,9 +1130,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         List<ClusterState> result = new();
         foreach (var (_, cluster) in _clusters)
         {
-            var transport = cluster.Model.Config.Transport;
-            if ((transport == TransportMode.TunnelHTTP2)
-                || (transport == TransportMode.TunnelWebSocket))
+            if (cluster.Model.Config.IsTunnelTransport())
             {
                 result.Add(cluster);
             }

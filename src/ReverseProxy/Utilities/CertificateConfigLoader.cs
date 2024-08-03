@@ -47,11 +47,11 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
             return (null, null);
         }
 
-        if (certInfo.IsFileCert && certInfo.IsStoreCert)
+        if (certInfo.IsFileCert() && certInfo.IsStoreCert())
         {
             throw new InvalidOperationException($"Multiple CertificateSources ({name})");
         }
-        else if (certInfo.IsFileCert && certInfo.Path is { Length: > 0 } certInfoPath)
+        else if (certInfo.IsFileCert() && certInfo.Path is { Length: > 0 } certInfoPath)
         {
             var certificatePath = Path.Combine(_certificateRoot, certInfoPath);
             if (!File.Exists(certificatePath))
@@ -65,7 +65,7 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
             var password = _getCertificatePassword(certInfo);
             return (new X509Certificate2(certificatePath, password), fullChain);
         }
-        else if (certInfo.IsStoreCert)
+        else if (certInfo.IsStoreCert())
         {
             return (LoadFromStoreCert(certInfo, false), null);
         }
@@ -81,11 +81,11 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
             return (null, null);
         }
 
-        if (certInfo.IsFileCert && certInfo.IsStoreCert)
+        if (certInfo.IsFileCert() && certInfo.IsStoreCert())
         {
             throw new InvalidOperationException($"Multiple CertificateSources ({name})");
         }
-        else if (certInfo.IsFileCert && certInfo.Path is { Length: > 0 } certInfoPath)
+        else if (certInfo.IsFileCert() && certInfo.Path is { Length: > 0 } certInfoPath)
         {
             var certificatePath = Path.Combine(_certificateRoot, certInfoPath);
             if (!File.Exists(certificatePath))
@@ -144,7 +144,7 @@ internal sealed partial class CertificateConfigLoader : ICertificateConfigLoader
                 return (certificate, fullChain);
             }
         }
-        else if (certInfo.IsStoreCert)
+        else if (certInfo.IsStoreCert())
         {
             return (LoadFromStoreCert(certInfo, true), null);
         }

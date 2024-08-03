@@ -13,7 +13,7 @@ using Yarp.ReverseProxy.Utilities;
 namespace Yarp.ReverseProxy.Tunnel;
 
 internal sealed class TunnelHTTP2HttpClientFactory
-    : ITransportHttpClientFactorySelector
+    : ITransportForwarderHttpClientFactorySelector
 {
     private readonly ConcurrentDictionary<string, TunnelHTTP2HttpClientFactoryForCluster> _tunnelHTTP2HttpClientFactoryBoundByClusterId = new();
     private readonly ILazyRequiredServiceResolver<ProxyConfigManager> _proxyConfigManagerLazy;
@@ -30,13 +30,9 @@ internal sealed class TunnelHTTP2HttpClientFactory
         _logger = logger;
     }
 
-    public TransportMode GetTransportMode() => TransportMode.TunnelHTTP2;
+    public string GetTransportMode() => "TunnelHTTP2";
 
-    public int GetOrder() => 0;
-
-    public IForwarderHttpClientFactory? GetForwarderHttpClientFactory(
-        TransportMode transportMode,
-        ForwarderHttpClientContext context)
+    public IForwarderHttpClientFactory? GetForwarderHttpClientFactory(ForwarderHttpClientContext context)
     {
         while (true)
         {

@@ -35,7 +35,7 @@ internal sealed class LoadBalancingMiddleware
     {
         var proxyFeature = context.GetReverseProxyFeature();
 
-        if (proxyFeature.Cluster.Config.IsTunnelTransport)
+        if (proxyFeature.Cluster.Config.IsTunnelTransport())
         {
             return _next(context);
         }

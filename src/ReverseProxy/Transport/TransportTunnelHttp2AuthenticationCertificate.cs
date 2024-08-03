@@ -87,7 +87,7 @@ internal sealed class TransportTunnelHttp2AuthenticationCertificate
 
                                         ClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
 
-                                        if (certificateConfig.IsFileCert)
+                                        if (certificateConfig.IsFileCert())
                                         {
                                             _certificatePathWatcher.AddWatch(certificateConfig);
                                         }
@@ -111,7 +111,7 @@ internal sealed class TransportTunnelHttp2AuthenticationCertificate
 
                                         ClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
 
-                                        if (certificateConfig.IsFileCert)
+                                        if (certificateConfig.IsFileCert())
                                         {
                                             _certificatePathWatcher.AddWatch(certificateConfig);
                                         }
@@ -142,7 +142,7 @@ internal sealed class TransportTunnelHttp2AuthenticationCertificate
             }
 
             {
-                if (config.Authentication.ClientCertifiacteCollection is { } srcClientCertifiacteCollection)
+                if (config.Authentication.ClientCertificateCollection is { } srcClientCertifiacteCollection)
                 {
                     var sslClientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= [];
                     sslClientCertificates.AddRange(srcClientCertifiacteCollection);

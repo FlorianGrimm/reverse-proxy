@@ -54,11 +54,14 @@ public sealed record ClusterConfig
     /// </summary>
     public IReadOnlyDictionary<string, string>? Metadata { get; init; }
 
-    public TransportMode Transport { get; init; }
+    /// <summary>
+    /// Forwarder, TunnelHTTP2, TunnelWebSocket
+    /// </summary>
+    public string Transport { get; init; } = default!;
 
     public ClusterTunnelAuthenticationConfig Authentication { get; init; } = new();
 
-    public bool IsTunnelTransport => Transport == TransportMode.TunnelHTTP2 || Transport == TransportMode.TunnelWebSocket;
+    public bool IsTunnelTransport() => string.IsNullOrEmpty(Transport) ? false : Transport.StartsWith("Tunnel");
 
     public bool Equals(ClusterConfig? other)
     {
@@ -85,7 +88,7 @@ public sealed record ClusterConfig
             && HealthCheck == other.HealthCheck
             && HttpClient == other.HttpClient
             && HttpRequest == other.HttpRequest
-            && Transport == other.Transport
+            && string.Equals(Transport, other.Transport, StringComparison.OrdinalIgnoreCase)
             && Authentication == other.Authentication
             && CaseSensitiveEqualHelper.Equals(Metadata, other.Metadata);
     }
