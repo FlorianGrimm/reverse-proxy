@@ -336,6 +336,7 @@ internal class Program
 
             if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate)
             {
+#warning TODO the CertificateAuthenticationHandler does not work with windows auth (or I'm too stupid for it.) so split and copy the magic ... I don't like this situation
                 authenticationBuilder
                    .AddCertificate(options =>
                    {
@@ -511,17 +512,10 @@ internal class Program
                         options.DefaultScheme = NegotiateDefaults.AuthenticationScheme;
                     }
                 });
-
+#warning broken because of the split - TODO
             var reverseProxyBuilder = builder.Services.AddReverseProxy()
                 .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
                 .AddTunnelTransport(
-                    options: new TransportTunnelOptions()
-                    {
-                        // This is dangerous - please read the documentation of TransportTunnelOptions and configure a proper authentication.
-                        TunnelAuthenticationAnonymous = _modeTunnelAuthentication == TunnelAuthentication.AuthenticationAnonymous,
-                        TunnelAuthenticationCertificate = _modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate,
-                        TunnelAuthenticationWindows = _modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows
-                    },
                     configureTunnelHttp2: options =>
                     {
                         options.MaxConnectionCount = 10;
@@ -568,7 +562,14 @@ internal class Program
                 .ConfigureCertificateConfigOptions(options =>
                 {
                     options.CertificateRoot = System.AppContext.BaseDirectory;
-                });
+                })
+                .AddTunnelTransportAnonymous()
+                .AddTunnelTransportNegotiate()
+                .AddTunnelTransportCertificate(
+#warning TODO add options?
+                )
+#warning TODO .AddTunnelTransportJWT()
+                ;
 
             /*
                 .ConfigureCertificateConfigOptions(

@@ -21,13 +21,13 @@ internal sealed class TransportTunnelHttp2ConnectionListenerFactory
 #endif
 {
     private readonly TransportTunnelHttp2Options _options;
-    private readonly ILazyRequiredServiceResolver<ProxyConfigManager> _proxyConfigManagerLazy;
+    private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
     private readonly TransportTunnelHttp2Authentication _transportTunnelHttp2Authentication;
     private readonly ILogger _logger;
 
     public TransportTunnelHttp2ConnectionListenerFactory(
         IOptions<TransportTunnelHttp2Options> options,
-        ILazyRequiredServiceResolver<ProxyConfigManager> proxyConfigManagerLazy,
+        ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
         TransportTunnelHttp2Authentication transportTunnelHttp2Authentication,
         ILogger<TransportTunnelHttp2ConnectionListener> logger
         )

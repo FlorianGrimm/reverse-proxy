@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Yarp.ReverseProxy.Utilities;
 
-internal interface ILazyRequiredServiceResolver<T> where T : notnull
+public interface ILazyRequiredServiceResolver<T> where T : notnull
 {
     T GetService();
 }

@@ -45,6 +45,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\src\ReverseProxy.Tunnel.Anonymous\Yarp.ReverseProxy.Tunnel.Anonymous.csproj" />
+    <ProjectReference Include="..\..\..\src\ReverseProxy.Tunnel.Certificate\Yarp.ReverseProxy.Tunnel.Certificate.csproj" />
+    <ProjectReference Include="..\..\..\src\ReverseProxy.Tunnel.JWT\Yarp.ReverseProxy.Tunnel.JWT.csproj" />
+    <ProjectReference Include="..\..\..\src\ReverseProxy.Tunnel.Negotiate\Yarp.ReverseProxy.Tunnel.Negotiate.csproj" />
     <ProjectReference Include="..\..\..\src\ReverseProxy\Yarp.ReverseProxy.csproj" />
   </ItemGroup>
 

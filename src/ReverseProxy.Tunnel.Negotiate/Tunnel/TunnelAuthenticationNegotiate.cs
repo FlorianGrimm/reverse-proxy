@@ -21,16 +21,27 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
+    /// <summary>
+    /// Enables or disables the Windows authentication for the tunnel.
+    /// A Windows account is required for the tunnel.
+    /// This might be useful for a corporate environment with firewall or inner VPNs.
+    /// You have to configure the authentication, e.g.
+    /// <code>
+    ///     builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
+    ///         .AddNegotiate();
+    /// </code>
+    /// </summary>
+
 /*
     The Windows Authentication is not supported by the HTTP/2 protocol.
     The Windows Authentication is supported by the HTTP/1.1 protocol.
     So the authentication is done by the HTTP/1.1 protocol (and a cookie "YarpTunnelAuth" is set)
     and then the HTTP/2 protocol is used for the data (and the cookie is used for authn).
 */
-internal sealed class TunnelAuthenticationWindows
+internal sealed class TunnelAuthenticationNegotiate
     : ITunnelAuthenticationService
 {
-    public const string PolicyName = "YarpTunnelWindows";
+    public const string PolicyName = "YarpTunnelNegotiate";
 
     internal static void ConfigureAuthorizationPolicy(AuthorizationOptions options)
     {
@@ -45,14 +56,14 @@ internal sealed class TunnelAuthenticationWindows
     public const string AuthenticationName = "Windows";
     public const string CookieName = "YarpTunnelAuth";
     private static readonly string[] AuthenticationTypes = ["NTLM", "Kerberos", "Kerberos2"];
-    private readonly ILazyRequiredServiceResolver<ProxyConfigManager> _proxyConfigManagerLazy;
+    private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
     private readonly ITunnelAuthenticationCookieService _cookieService;
     private readonly ILogger _logger;
 
-    public TunnelAuthenticationWindows(
-        ILazyRequiredServiceResolver<ProxyConfigManager> proxyConfigManagerLazy,
+    public TunnelAuthenticationNegotiate(
+        ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
         ITunnelAuthenticationCookieService cookieService,
-        ILogger<TunnelAuthenticationWindows> logger
+        ILogger<TunnelAuthenticationNegotiate> logger
         )
     {
         _proxyConfigManagerLazy = proxyConfigManagerLazy;

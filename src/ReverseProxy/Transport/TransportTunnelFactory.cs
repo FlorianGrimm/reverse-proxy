@@ -19,7 +19,7 @@ public interface ITransportTunnelFactory
     void Listen(TunnelState tunnel, Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerOptions options);
 }
 
-internal sealed class TransportTunnelFactory
+public sealed class TransportTunnelFactory
 {
     private readonly ImmutableDictionary<string, ITransportTunnelFactory> _TransportTunnelFactoryByTransport;
 

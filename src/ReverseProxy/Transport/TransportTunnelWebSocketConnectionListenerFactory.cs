@@ -21,13 +21,13 @@ internal sealed class TransportTunnelWebSocketConnectionListenerFactory
 #endif
 {
     private readonly TransportTunnelWebSocketOptions _options;
-    private readonly ILazyRequiredServiceResolver<ProxyConfigManager> _proxyConfigManagerLazy;
+    private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
     private readonly TransportTunnelWebSocketAuthentication _transportTunnelWebSocketAuthentication;
     private readonly ILogger<TransportTunnelWebSocketConnectionListener> _logger;
 
     public TransportTunnelWebSocketConnectionListenerFactory(
         IOptions<TransportTunnelWebSocketOptions> options,
-        ILazyRequiredServiceResolver<ProxyConfigManager> proxyConfigManagerLazy,
+        ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
         TransportTunnelWebSocketAuthentication transportTunnelWebSocketAuthentication,
         ILogger<TransportTunnelWebSocketConnectionListener> logger
         )

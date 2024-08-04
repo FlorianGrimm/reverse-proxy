@@ -20,7 +20,7 @@ using Yarp.ReverseProxy.Tunnel;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
-public static class TunnelExensions
+public static class TunnelExtensions
 {
     /// <summary>
     /// Adds the services required for tunneling.
@@ -53,33 +53,6 @@ public static class TunnelExensions
         }
 
         services.TryAddSingleton<TunnelAuthenticationService>();
-
-        if (options is not null && options.TunnelAuthenticationAnonymous)
-        {
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationAnonymous>());
-        }
-
-        if (options is null || options.TunnelAuthenticationCertificate)
-        {
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationCertificate>());
-            services.TryAddSingleton<CertificatePathWatcher>();
-            services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
-
-            services.AddOptions<CertificateConfigOptions>()
-                .PostConfigure<IHostEnvironment>(static (options, hostEnvironment) => options.PostConfigure(hostEnvironment));
-
-        }
-
-        if (options is null || options.TunnelAuthenticationWindows)
-        {
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationWindows>());
-
-            services.AddAuthorization(
-                options =>
-                {
-                    TunnelAuthenticationWindows.ConfigureAuthorizationPolicy(options);
-                });
-        }
 
         _ = services.Configure<KestrelServerOptions>(kestrelServerOptions =>
         {
@@ -168,29 +141,5 @@ public static class TunnelExensions
         {
             tunnelWebSocketRoute.Map(endpoints, configureTunnelWebSocket);
         }
-    }
-
-    public static IReverseProxyBuilder ConfigureTunnelAuthenticationCertificateOptions(
-        this IReverseProxyBuilder builder,
-        Action<TunnelAuthenticationCertificateOptions>? configure = default,
-        IConfiguration? configuration = default
-        )
-    {
-        {
-            var optionsBuilder = builder.Services.AddOptions<TunnelAuthenticationCertificateOptions>();
-            if (configuration is { })
-            {
-                optionsBuilder.Configure((options) =>
-                {
-                    options.Bind(configuration.GetSection(TunnelAuthenticationCertificateOptions.SectionName));
-                });
-            }
-            if (configure is { })
-            {
-                optionsBuilder.Configure(configure);
-            }
-        }
-
-        return builder;
     }
 }

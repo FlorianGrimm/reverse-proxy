@@ -21,7 +21,7 @@ namespace Yarp.ReverseProxy.Tunnel;
 
 internal sealed partial class TunnelHTTP2Route : IDisposable
 {
-    private readonly ILazyRequiredServiceResolver<ProxyConfigManager> _proxyConfigManagerLazy;
+    private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
     private readonly TunnelAuthenticationService _tunnelAuthenticationConfigService;
     private readonly IHostApplicationLifetime _lifetime;
@@ -30,7 +30,7 @@ internal sealed partial class TunnelHTTP2Route : IDisposable
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
     public TunnelHTTP2Route(
-        ILazyRequiredServiceResolver<ProxyConfigManager> proxyConfigManagerLazy,
+        ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
         TunnelConnectionChannelManager tunnelConnectionChannelManager,
         TunnelAuthenticationService tunnelAuthenticationConfigService,
         IHostApplicationLifetime lifetime,

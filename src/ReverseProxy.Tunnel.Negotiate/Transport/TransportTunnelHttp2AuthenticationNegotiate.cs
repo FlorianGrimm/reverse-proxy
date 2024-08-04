@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http;
+using System.Net.Security;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -20,20 +21,20 @@ namespace Yarp.ReverseProxy.Transport;
     So the authentication is done by the HTTP/1.1 protocol (and a cookie is set)
     and then the HTTP/2 protocol is used for the data (and the cookie is used for authn).
 */
-internal sealed class TransportTunnelHttp2AuthenticationWindows
+internal sealed class TransportTunnelHttp2AuthenticationNegotiate
     : ITransportTunnelHttp2Authentication
 {
     private readonly ConcurrentDictionary<string, PerTunnel> _perTunnel = new(StringComparer.CurrentCultureIgnoreCase);
-    private readonly ILogger<TransportTunnelHttp2AuthenticationWindows> _logger;
+    private readonly ILogger<TransportTunnelHttp2AuthenticationNegotiate> _logger;
 
-    public TransportTunnelHttp2AuthenticationWindows(
-        ILogger<TransportTunnelHttp2AuthenticationWindows> logger
+    public TransportTunnelHttp2AuthenticationNegotiate(
+        ILogger<TransportTunnelHttp2AuthenticationNegotiate> logger
         )
     {
         _logger = logger;
     }
-
-    public string GetAuthenticationName() => "Windows";
+    
+    public string GetAuthenticationName() => "Negotiate";
 
     private PerTunnel GetPerTunnel(string key)
     {

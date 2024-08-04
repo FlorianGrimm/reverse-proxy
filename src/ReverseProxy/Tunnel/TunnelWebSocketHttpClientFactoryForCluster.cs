@@ -23,19 +23,19 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
     , IDisposable
 {
     private ObjectPool<TunnelConnectionRequest> _poolTunnelConnectionRequest;
-    private readonly ProxyConfigManager _proxyConfigManager;
+    //private readonly ProxyConfigManager _proxyConfigManager;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
     private readonly string _clusterId;
     private readonly ILogger _logger;
     private bool _isDisposed;
 
     public TunnelWebSocketHttpClientFactoryForCluster(
-        ProxyConfigManager proxyConfigManager,
+        //ProxyConfigManager proxyConfigManager,
         TunnelConnectionChannelManager tunnelConnectionChannelManager,
         string clusterId,
         ILogger logger)
     {
-        _proxyConfigManager = proxyConfigManager;
+        //_proxyConfigManager = proxyConfigManager;
         _tunnelConnectionChannelManager = tunnelConnectionChannelManager;
         _clusterId = clusterId;
         _logger = logger;

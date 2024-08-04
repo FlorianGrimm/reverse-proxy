@@ -21,12 +21,12 @@ internal sealed class TunnelWebSocketHttpClientFactory
     : ITransportForwarderHttpClientFactorySelector
 {
     private readonly ConcurrentDictionary<string, TunnelWebSocketHttpClientFactoryForCluster> _tunnelWebSocketHttpClientFactoryBoundByClusterId = new();
-    private readonly ILazyRequiredServiceResolver<ProxyConfigManager> _proxyConfigManagerLazy;
+    private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
     private readonly ILogger _logger;
 
     public TunnelWebSocketHttpClientFactory(
-        ILazyRequiredServiceResolver<ProxyConfigManager> proxyConfigManagerLazy,
+        ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
         TunnelConnectionChannelManager tunnelConnectionChannelManager,
         ILogger<TunnelWebSocketHttpClientFactory> logger)
     {
@@ -44,7 +44,7 @@ internal sealed class TunnelWebSocketHttpClientFactory
             if (!_tunnelWebSocketHttpClientFactoryBoundByClusterId.TryGetValue(context.ClusterId, out var result))
             {
                 result = new TunnelWebSocketHttpClientFactoryForCluster(
-                    _proxyConfigManagerLazy.GetService(),
+                    //_proxyConfigManagerLazy.GetService(),
                     _tunnelConnectionChannelManager,
                     context.ClusterId,
                     _logger);

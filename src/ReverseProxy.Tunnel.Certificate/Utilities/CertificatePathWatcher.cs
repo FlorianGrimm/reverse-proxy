@@ -73,7 +73,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
 
     /// <summary>
     /// Returns a token that will fire when any watched <see cref="CertificateConfig"/> is changed on disk.
-    /// The affected <see cref="CertificateConfig"/> will have <see cref="CertificateConfig.FileHasChanged"/>
+    /// The affected <see cref="CertificateConfig"/> will have <see cref="CertificateConfig.GetFileHasChanged()"/>
     /// set to <code>true</code>.
     /// </summary>
     public IChangeToken GetChangeToken()
@@ -217,7 +217,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
             var configs = fileMetadata.Configs;
             foreach (var config in configs)
             {
-                config.FileHasChanged = true;
+                config.SetFileHasChanged(true);
             }
 
             Log.FlaggedObservers(_logger, path, configs.Count);

@@ -1307,9 +1307,8 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         }
     }
 
-    // ILazyRequiredServiceResolver<ProxyConfigManager>,LazyProxyConfigManager
     internal sealed class LazyProxyConfigManager(IServiceProvider serviceProvider)
-        : LazyRequiredServiceResolver<ProxyConfigManager>(serviceProvider)
+        : LazyRequiredServiceResolver<IProxyStateLookup>(serviceProvider)
     { }
 }
 

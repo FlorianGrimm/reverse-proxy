@@ -25,6 +25,24 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
+
+
+/// <summary>
+/// Enables or disables the client certificate tunnel authentication.
+/// A client certificate is required for the tunnel.
+/// You have to configure the authentication, e.g.
+/// <code>
+///    builder.Services.AddAuthentication()
+///        .AddCertificate(options =>
+///        {
+///            options.AllowedCertificateTypes = CertificateTypes.Chained;
+///            options.RevocationMode = ....;
+///        });
+/// </code>
+/// </summary>
+///
+
+
 internal sealed class TunnelAuthenticationCertificate
     : ITunnelAuthenticationService
     , IClusterChangeListener
@@ -35,7 +53,7 @@ internal sealed class TunnelAuthenticationCertificate
     public const string CookieName = "YarpTunnelAuth";
 
     private readonly TunnelAuthenticationCertificateOptions _options;
-    private readonly ILazyRequiredServiceResolver<ProxyConfigManager> _proxyConfigManagerLazy;
+    private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
     private readonly ITunnelAuthenticationCookieService _cookieService;
     private readonly ICertificateConfigLoader _certificateConfigLoader;
     private readonly CertificatePathWatcher _certificatePathWatcher;
@@ -46,7 +64,7 @@ internal sealed class TunnelAuthenticationCertificate
 
     public TunnelAuthenticationCertificate(
         IOptions<TunnelAuthenticationCertificateOptions> options,
-        ILazyRequiredServiceResolver<ProxyConfigManager> proxyConfigManagerLazy,
+        ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
         ITunnelAuthenticationCookieService cookieService,
         ICertificateConfigLoader certificateConfigLoader,
         CertificatePathWatcher certificatePathWatcher,
@@ -258,6 +276,7 @@ internal sealed class TunnelAuthenticationCertificate
 
     public IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
+#warning TODO: the Authentication Certificate does not work with the Authentication Negotiate - copy the magic - feels like a fail on my side...
         if (context.User.Identity is not ClaimsIdentity identity)
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "no context.User.Identity");

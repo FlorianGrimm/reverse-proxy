@@ -76,8 +76,6 @@ public static class WebHostBuilderExtensions
     /// </code>
     /// </remarks>
     /// <param name="builder">this</param>
-    /// <param name="configureTunnelHttp2">configure transport tunnel for Http2.</param>
-    /// <param name="configureTunnelWebSocket">configure transport tunnel for WebSocket.</param>
     /// <returns></returns>
     /// <example>
     ///    builder.Services.AddReverseProxy()
@@ -91,72 +89,47 @@ public static class WebHostBuilderExtensions
     ///        app => app.UseHttpsRedirection()
     ///        );
     /// </example>
-    public static IReverseProxyBuilder AddTunnelTransport(
-        this IReverseProxyBuilder builder,
-        Action<TransportTunnelHttp2Options>? configureTunnelHttp2 = default,
-        Action<TransportTunnelWebSocketOptions>? configureTunnelWebSocket = default
+    public static IReverseProxyBuilder AddTunnelTransportCertificate(
+        this IReverseProxyBuilder builder
         )
     {
 
-        var services = builder.Services
-            .AddSingleton<ITunnelChangeListener, TransportTunnelConnectionChangeListener>()
-            .AddSingleton<TransportTunnelFactory>()
-            ;
+        var services = builder.Services;
+            
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationCertificate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationCertificate>());
 
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelFactory, TransportTunnelHttp2Factory>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelFactory, TransportTunnelWebSocketFactory>());
+        services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
+        services.TryAddSingleton<CertificatePathWatcher>();
 
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelHttp2ConnectionListenerFactory>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelWebSocketConnectionListenerFactory>());
-
-        services.AddSingleton<TransportTunnelHttp2Authentication>();
-        services.AddSingleton<TransportTunnelWebSocketAuthentication>();
-
-        if (configureTunnelHttp2 is not null)
-        {
-            _ = services.Configure(configureTunnelHttp2);
-        }
-
-        if (configureTunnelWebSocket is not null)
-        {
-            _ = services.Configure(configureTunnelWebSocket);
-        }
-
-        _ = services.Configure<KestrelServerOptions>(ConfigureTransportTunnels);
+        services.AddOptions<CertificateConfigOptions>()
+            .PostConfigure<IHostEnvironment>(static (options, hostEnvironment) => options.PostConfigure(hostEnvironment));
 
         return builder;
     }
 
-    private static void ConfigureTransportTunnels(KestrelServerOptions options)
+    public static IReverseProxyBuilder ConfigureCertificateConfigOptions(
+        this IReverseProxyBuilder builder,
+        Action<CertificateConfigOptions>? configure = default,
+        IConfiguration? configuration = default
+        )
     {
-        var proxyConfigManager = options.ApplicationServices.GetRequiredService<ProxyConfigManager>();
-        var tunnels = proxyConfigManager.GetTransportTunnels();
-
-        var transportTunnelFactory = options.ApplicationServices.GetRequiredService<TransportTunnelFactory>();
-
-        var transportTunnelHttp2Options = options.ApplicationServices.GetRequiredService<IOptions<TransportTunnelHttp2Options>>().Value;
-        var transportTunnelWebSocketOptions = options.ApplicationServices.GetRequiredService<IOptions<TransportTunnelWebSocketOptions>>().Value;
-
-        var listAuthenticationNameH2 = options.ApplicationServices.GetRequiredService<TransportTunnelHttp2Authentication>().GetAuthenticationNames();
-        var listAuthenticationNameWS = options.ApplicationServices.GetRequiredService<TransportTunnelWebSocketAuthentication>().GetAuthenticationNames();
-
-        foreach (var tunnel in tunnels)
         {
-            var cfg = tunnel.Model.Config;
-            var remoteTunnelId = cfg.GetRemoteTunnelId();
-            var host = cfg.Url.TrimEnd('/');
-
-            var transport = cfg.Transport;
-
-            var cfgAuthenticationMode = cfg.Authentication.Mode;
-
-            if (transportTunnelFactory.TryGetTransportTunnelFactory(cfg.Transport, out var factory))
+            var optionsBuilder = builder.Services.AddOptions<CertificateConfigOptions>();
+            if (configuration is { })
             {
-                factory.Listen(tunnel, options);
+                _ = optionsBuilder.Configure((options) =>
+                {
+                    options.Bind(configuration);
+                });
             }
-            else {
-                throw new Exception($"Transport {cfg.Transport} is unknow");
+
+            if (configure is { })
+            {
+                _ = optionsBuilder.Configure(configure);
             }
         }
+
+        return builder;
     }
 }
