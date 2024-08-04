@@ -30,6 +30,7 @@ internal sealed class TunnelAuthenticationCertificate
     , IClusterChangeListener
     , IDisposable
 {
+    public const string AuthenticationScheme = "Certificate";
     public const string AuthenticationName = "ClientCertificate";
     public const string CookieName = "YarpTunnelAuth";
 
