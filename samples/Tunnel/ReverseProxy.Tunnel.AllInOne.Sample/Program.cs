@@ -58,9 +58,9 @@ namespace SampleServer;
 internal class Program
 {
 
-    private static ModeAppSettings modeAppSettings = ModeAppSettings.H2Anonymous;
-    private static BrowserAuthentication browserAuthentication = BrowserAuthentication.Anonymous;
-    private static TunnelAuthentication modeTunnelAuthentiacation = TunnelAuthentication.AuthenticationAnonymous;
+    private static ModeAppSettings _modeAppSettings = ModeAppSettings.H2Anonymous;
+    private static BrowserAuthentication _browserAuthentication = BrowserAuthentication.Anonymous;
+    private static TunnelAuthentication _modeTunnelAuthentication = TunnelAuthentication.AuthenticationAnonymous;
     private static bool enableTunnelH2 = false;
     private static bool enableTunnelWS = false;
     private static async Task<int> Main(string[] args)
@@ -118,9 +118,12 @@ internal class Program
                 var listTaskRun = new List<Task>();
                 foreach (var webApplication in listWebApplication)
                 {
+                    TaskCompletionSource tcs = new();
                     var task = webApplication.RunAsync();
+                    webApplication.Lifetime.ApplicationStarted.Register(() => { tcs.TrySetResult(); }, true);
                     await Task.Delay(50);
                     listTaskRun.Add(task);
+                    await tcs.Task;
                 }
                 taskRunServer = listTaskRun.Count > 0 ? Task.WhenAll(listTaskRun) : Task.CompletedTask;
 
@@ -175,19 +178,19 @@ internal class Program
                 hsArgs.Remove("h2ws-a"), hsArgs.Remove("h2ws-w"),
                 hsArgs.Remove("ws-a"), hsArgs.Remove("ws-c"), hsArgs.Remove("ws-w"));
 
-            if (h2_a) { modeAppSettings = ModeAppSettings.H2Anonymous; }
-            else if (h2_c) { modeAppSettings = ModeAppSettings.H2Certificate; }
-            else if (h2_w) { modeAppSettings = ModeAppSettings.H2Windows; }
-            else if (h2_j) { modeAppSettings = ModeAppSettings.H2JwtBaerer; }
+            if (h2_a) { _modeAppSettings = ModeAppSettings.H2Anonymous; }
+            else if (h2_c) { _modeAppSettings = ModeAppSettings.H2Certificate; }
+            else if (h2_w) { _modeAppSettings = ModeAppSettings.H2Windows; }
+            else if (h2_j) { _modeAppSettings = ModeAppSettings.H2JwtBaerer; }
 
-            else if (h2ws_a) { modeAppSettings = ModeAppSettings.H2WSAnonymous; }
-            else if (h2ws_w) { modeAppSettings = ModeAppSettings.H2WSWindows; }
+            else if (h2ws_a) { _modeAppSettings = ModeAppSettings.H2WSAnonymous; }
+            else if (h2ws_w) { _modeAppSettings = ModeAppSettings.H2WSWindows; }
 
-            else if (ws_a) { modeAppSettings = ModeAppSettings.WSAnonymous; }
-            else if (ws_c) { modeAppSettings = ModeAppSettings.WSCertificate; }
-            else if (ws_w) { modeAppSettings = ModeAppSettings.WSWindows; }
+            else if (ws_a) { _modeAppSettings = ModeAppSettings.WSAnonymous; }
+            else if (ws_c) { _modeAppSettings = ModeAppSettings.WSCertificate; }
+            else if (ws_w) { _modeAppSettings = ModeAppSettings.WSWindows; }
 
-            else { modeAppSettings = ModeAppSettings.H2Anonymous; }
+            else { _modeAppSettings = ModeAppSettings.H2Anonymous; }
         }
 
         // browser authentication
@@ -197,15 +200,15 @@ internal class Program
 
             if (browserWindows)
             {
-                browserAuthentication = BrowserAuthentication.Windows;
+                _browserAuthentication = BrowserAuthentication.Windows;
             }
             else if (browserAnonymous)
             {
-                browserAuthentication = BrowserAuthentication.Anonymous;
+                _browserAuthentication = BrowserAuthentication.Anonymous;
             }
             else
             {
-                browserAuthentication = BrowserAuthentication.Anonymous;
+                _browserAuthentication = BrowserAuthentication.Anonymous;
             }
         }
 
@@ -213,60 +216,60 @@ internal class Program
 
         // tunnel / appsettings
         {
-            if (modeAppSettings == ModeAppSettings.H2Anonymous)
+            if (_modeAppSettings == ModeAppSettings.H2Anonymous)
             {
                 appsettingsFolder = "appsettings-H2-Anonymous";
-                modeTunnelAuthentiacation = TunnelAuthentication.AuthenticationAnonymous;
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationAnonymous;
                 enableTunnelH2 = true;
             }
-            else if (modeAppSettings == ModeAppSettings.H2Certificate)
+            else if (_modeAppSettings == ModeAppSettings.H2Certificate)
             {
                 appsettingsFolder = "appsettings-H2-ClientCertificate";
-                modeTunnelAuthentiacation = TunnelAuthentication.AuthenticationCertificate;
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationCertificate;
                 enableTunnelH2 = true;
             }
-            else if (modeAppSettings == ModeAppSettings.H2Windows)
+            else if (_modeAppSettings == ModeAppSettings.H2Windows)
             {
                 appsettingsFolder = "appsettings-H2-Windows";
-                modeTunnelAuthentiacation = TunnelAuthentication.AuthenticationWindows;
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationWindows;
                 enableTunnelH2 = true;
             }
-            else if (modeAppSettings == ModeAppSettings.H2JwtBaerer)
+            else if (_modeAppSettings == ModeAppSettings.H2JwtBaerer)
             {
                 appsettingsFolder = "appsettings-H2-JwtBaerer";
-                modeTunnelAuthentiacation = TunnelAuthentication.AuthenticationJwtBearer;
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationJwtBearer;
                 enableTunnelH2 = true;
             }
-            else if (modeAppSettings == ModeAppSettings.H2WSAnonymous)
+            else if (_modeAppSettings == ModeAppSettings.H2WSAnonymous)
             {
                 appsettingsFolder = "appsettings-H2WS-Anonymous";
-                modeTunnelAuthentiacation = TunnelAuthentication.AuthenticationAnonymous;
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationAnonymous;
                 enableTunnelH2 = true;
                 enableTunnelWS = true;
             }
-            else if (modeAppSettings == ModeAppSettings.H2WSWindows)
+            else if (_modeAppSettings == ModeAppSettings.H2WSWindows)
             {
                 appsettingsFolder = "appsettings-H2WS-Windows";
-                modeTunnelAuthentiacation = TunnelAuthentication.AuthenticationWindows;
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationWindows;
                 enableTunnelH2 = true;
                 enableTunnelWS = true;
             }
-            else if (modeAppSettings == ModeAppSettings.WSAnonymous)
+            else if (_modeAppSettings == ModeAppSettings.WSAnonymous)
             {
                 appsettingsFolder = "appsettings-WS-Anonymous";
-                modeTunnelAuthentiacation = TunnelAuthentication.AuthenticationAnonymous;
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationAnonymous;
                 enableTunnelWS = true;
             }
-            else if (modeAppSettings == ModeAppSettings.WSCertificate)
+            else if (_modeAppSettings == ModeAppSettings.WSCertificate)
             {
                 appsettingsFolder = "appsettings-WS-ClientCertificate";
-                modeTunnelAuthentiacation = TunnelAuthentication.AuthenticationCertificate;
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationCertificate;
                 enableTunnelWS = true;
             }
-            else if (modeAppSettings == ModeAppSettings.WSWindows)
+            else if (_modeAppSettings == ModeAppSettings.WSWindows)
             {
                 appsettingsFolder = "appsettings-WS-Windows";
-                modeTunnelAuthentiacation = TunnelAuthentication.AuthenticationWindows;
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationWindows;
                 enableTunnelWS = true;
             }
             else
@@ -281,6 +284,7 @@ internal class Program
 
     private static WebApplication ServerFrontend(string[] args, string appsettingsFolder, string appsettingsPath)
     {
+        ILogger? logger = default;
         try
         {
             var appsettingsFullName = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
@@ -289,26 +293,18 @@ internal class Program
             var builder = WebApplication.CreateBuilder(args);
             builder.Configuration.AddJsonFile(appsettingsFullName, false, true);
             builder.Configuration.AddUserSecrets("ReverseProxy");
-            
+
             builder.Logging.ClearProviders();
             builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
-            builder.Services.AddOptions<LocalFileLoggerOptions>().Configure(options => {
+            builder.Services.AddOptions<LocalFileLoggerOptions>().Configure(options =>
+            {
                 options.LogDirectory = System.IO.Path.Combine(System.AppContext.BaseDirectory, "LogFiles");
             });
 
             builder.Services.AddAuthorization()
                 .AddRouting()
                 .AddEndpointsApiExplorer();
-
-            var authenticationBuilder = builder.Services.AddAuthentication(
-                (AuthenticationOptions options) =>
-                {
-                    if (browserAuthentication == BrowserAuthentication.Windows)
-                    {
-                        options.DefaultScheme = NegotiateDefaults.AuthenticationScheme;
-                    }
-                });
-
+            
             builder.Services.AddControllers()
                 .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
 
@@ -318,9 +314,9 @@ internal class Program
                     options: new TunnelServicesOptions()
                     {
                         // Anonymous is dangerous - please read the documentation of TunnelServicesOptions and configure a proper authentication.
-                        TunnelAuthenticationAnonymous = modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationAnonymous,
-                        TunnelAuthenticationCertificate = modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationCertificate,
-                        TunnelAuthenticationWindows = modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationWindows,
+                        TunnelAuthenticationAnonymous = _modeTunnelAuthentication == TunnelAuthentication.AuthenticationAnonymous,
+                        TunnelAuthenticationCertificate = _modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate,
+                        TunnelAuthenticationWindows = _modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows,
                         TunnelHTTP2 = enableTunnelH2,
                         TunnelWebSocket = enableTunnelWS
                     }) // enable tunnel listener
@@ -329,7 +325,16 @@ internal class Program
                     options.CertificateRoot = System.AppContext.BaseDirectory;
                 });
 
-            if (modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationCertificate)
+            var authenticationBuilder = builder.Services.AddAuthentication(
+                (AuthenticationOptions options) =>
+                {
+                    if (_browserAuthentication == BrowserAuthentication.Windows)
+                    {
+                        options.DefaultScheme = NegotiateDefaults.AuthenticationScheme;
+                    }
+                });
+
+            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate)
             {
                 authenticationBuilder
                    .AddCertificate(options =>
@@ -386,28 +391,33 @@ internal class Program
                          });
             }
 
-            if ((browserAuthentication == BrowserAuthentication.Windows)
-                || (modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationWindows)
-                )
-            {
-                authenticationBuilder.AddNegotiate();
-            }
-
-
-            if (modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationJwtBearer)
+            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationJwtBearer)
             {
                 reverseProxyBuilder.AddTunnelAuthenticationJwtBearer(
                     builder.Configuration.GetRequiredSection("AzureAd")); // add custom JWT bearer authentication
             }
 
+            if ((_browserAuthentication == BrowserAuthentication.Windows)
+                || (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows)
+                )
+            {
+                authenticationBuilder.AddNegotiate(options => {
+                    options.Events ??= new();
+                    options.Events.OnAuthenticationFailed = (AuthenticationFailedContext context) =>
+                    {
+                        return Task.CompletedTask;
+                    };
+                });
+            }
+
             builder.Services.AddAuthorization(
                 (AuthorizationOptions options) =>
                 {
-                    if (browserAuthentication == BrowserAuthentication.Windows)
+                    if (_browserAuthentication == BrowserAuthentication.Windows)
                     {
                         options.AddPolicy("AuthenticatedUser", policy =>
                         {
-                            policy.RequireAuthenticatedUser();
+                            policy.RequireAuthenticatedUser().AddAuthenticationSchemes(NegotiateDefaults.AuthenticationScheme);
                         });
                     }
                 });
@@ -415,6 +425,8 @@ internal class Program
 
             var app = builder.Build();
             app.Services.GetRequiredService<Brimborium.Extensions.Logging.LocalFile.LocalFileLoggerProvider>().HandleHostApplicationLifetime(app.Services.GetRequiredService<IHostApplicationLifetime>());
+            logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Program");
+            logger.LogInformation("start {args}", string.Join(" ", args));
 
             // app.UseHttpsRedirection() will redirect if the request is a tunnel request;
             // which means that the browser is redirected to https://{tunnelId}/... which is not what we want.
@@ -453,7 +465,7 @@ internal class Program
                     var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
                     return $"Frontend {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
                 });
-                if (browserAuthentication == BrowserAuthentication.Windows)
+                if (_browserAuthentication == BrowserAuthentication.Windows)
                 {
                     route.RequireAuthorization("AuthenticatedUser");
                 }
@@ -463,6 +475,7 @@ internal class Program
         }
         catch (System.Exception error)
         {
+            logger?.LogError(error, nameof(ServerFrontend));
             System.Console.Error.WriteLine(error.ToString());
             throw;
         }
@@ -470,6 +483,8 @@ internal class Program
 
     private static WebApplication ServerBackend(string[] args, string appsettingsFolder, string appsettingsPath)
     {
+        ILogger? logger = default;
+
         try
         {
             var appsettingsFullName = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
@@ -480,7 +495,8 @@ internal class Program
             builder.Configuration.AddUserSecrets("ReverseProxy");
             builder.Logging.ClearProviders();
             builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
-            builder.Services.AddOptions<LocalFileLoggerOptions>().Configure(options => {
+            builder.Services.AddOptions<LocalFileLoggerOptions>().Configure(options =>
+            {
                 options.LogDirectory = System.IO.Path.Combine(System.AppContext.BaseDirectory, "LogFiles");
             });
 
@@ -490,7 +506,7 @@ internal class Program
             var authenticationBuilder = builder.Services.AddAuthentication(
                 (options) =>
                 {
-                    if (browserAuthentication == BrowserAuthentication.Windows)
+                    if (_browserAuthentication == BrowserAuthentication.Windows)
                     {
                         options.DefaultScheme = NegotiateDefaults.AuthenticationScheme;
                     }
@@ -502,9 +518,9 @@ internal class Program
                     options: new TransportTunnelOptions()
                     {
                         // This is dangerous - please read the documentation of TransportTunnelOptions and configure a proper authentication.
-                        TunnelAuthenticationAnonymous = modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationAnonymous,
-                        TunnelAuthenticationCertificate = modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationCertificate,
-                        TunnelAuthenticationWindows = modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationWindows
+                        TunnelAuthenticationAnonymous = _modeTunnelAuthentication == TunnelAuthentication.AuthenticationAnonymous,
+                        TunnelAuthenticationCertificate = _modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate,
+                        TunnelAuthenticationWindows = _modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows
                     },
                     configureTunnelHttp2: options =>
                     {
@@ -563,13 +579,13 @@ internal class Program
                     });
             */
 
-            if ((modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationWindows)
-                || (browserAuthentication == BrowserAuthentication.Windows))
+            if ((_modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows)
+                || (_browserAuthentication == BrowserAuthentication.Windows))
             {
                 authenticationBuilder.AddNegotiate();
             }
 
-            if (modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationCertificate)
+            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate)
             {
                 authenticationBuilder.AddCertificate(options =>
                 {
@@ -577,7 +593,7 @@ internal class Program
                 }).AddCertificateCache();
             }
 
-            if (modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationJwtBearer)
+            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationJwtBearer)
             {
                 authenticationBuilder.AddJwtBearer();
                 reverseProxyBuilder.AddTunnelTransportAuthenticationJwtBearer();
@@ -585,6 +601,8 @@ internal class Program
 
             var app = builder.Build();
             app.Services.GetRequiredService<Brimborium.Extensions.Logging.LocalFile.LocalFileLoggerProvider>().HandleHostApplicationLifetime(app.Services.GetRequiredService<IHostApplicationLifetime>());
+            logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Program");
+            logger.LogInformation("start {args}", string.Join(" ", args));
 
             // app.UseHttpsRedirection() will redirect if the request is a tunnel request;
             // which means that the browser is redirected to https://{tunnelId}/... which is not what we want.
@@ -607,6 +625,7 @@ internal class Program
         }
         catch (System.Exception error)
         {
+            logger?.LogError(error, nameof(ServerBackend));
             System.Console.Error.WriteLine(error.ToString());
             throw;
         }
@@ -614,6 +633,7 @@ internal class Program
 
     private static WebApplication ServerAPI(string[] args, string appsettingsFolder, string appsettingsPath)
     {
+        ILogger? logger = default;
         try
         {
             var appsettingsFullName = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
@@ -623,7 +643,8 @@ internal class Program
             builder.Configuration.AddJsonFile(appsettingsFullName, false, true);
             builder.Logging.ClearProviders();
             builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
-            builder.Services.AddOptions<LocalFileLoggerOptions>().Configure(options => {
+            builder.Services.AddOptions<LocalFileLoggerOptions>().Configure(options =>
+            {
                 options.LogDirectory = System.IO.Path.Combine(System.AppContext.BaseDirectory, "LogFiles");
             });
 
@@ -645,6 +666,8 @@ internal class Program
 
             var app = builder.Build();
             app.Services.GetRequiredService<Brimborium.Extensions.Logging.LocalFile.LocalFileLoggerProvider>().HandleHostApplicationLifetime(app.Services.GetRequiredService<IHostApplicationLifetime>());
+            logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Program");
+            logger.LogInformation("start {args}", string.Join(" ", args));
 
             app.UseWebSockets();
             app.MapControllers();
@@ -668,6 +691,7 @@ internal class Program
         }
         catch (System.Exception error)
         {
+            logger?.LogError(error, nameof(ServerAPI));
             System.Console.Error.WriteLine(error.ToString());
             throw;
         }
@@ -716,7 +740,7 @@ internal class Program
         }
         //
 
-        if (false && modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationCertificate)
+        if (false && _modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate)
         {
             System.Console.WriteLine(System.DateTime.Now.ToString("s"));
             // localhostclient1.pfx - the right one
@@ -802,6 +826,10 @@ internal class Program
         var socketsHttpHandler = new SocketsHttpHandler();
         socketsHttpHandler.ConnectTimeout = TimeSpan.FromSeconds(2);
         socketsHttpHandler.ResponseDrainTimeout = TimeSpan.FromSeconds(2);
+        if (_browserAuthentication == BrowserAuthentication.Windows) {
+            socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
+        }
+        
 
         using var httpClient = new HttpClient(socketsHttpHandler, true);
         Console.Out.WriteLine($"Sending request to {url}");
@@ -908,8 +936,8 @@ internal class Program
     private static SocketsHttpHandler CreateSocketsHttpHandler(X509Certificate2? certificate = null)
     {
         var socketsHttpHandler = new SocketsHttpHandler();
-        if ((browserAuthentication == BrowserAuthentication.Windows)
-            || (modeTunnelAuthentiacation == TunnelAuthentication.AuthenticationWindows))
+        if ((_browserAuthentication == BrowserAuthentication.Windows)
+            || (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows))
         {
             socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
         }

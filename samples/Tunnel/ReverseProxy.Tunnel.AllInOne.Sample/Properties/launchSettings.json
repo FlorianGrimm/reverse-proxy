@@ -2,7 +2,7 @@
   "profiles": {
     "https": {
       "commandName": "Project",
-      "commandLineArgs": "h2-a browser-anonymous",
+      "commandLineArgs": "h2-c browser-windows test stop",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },

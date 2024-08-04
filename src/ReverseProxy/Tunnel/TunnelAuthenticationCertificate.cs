@@ -261,12 +261,12 @@ internal sealed class TunnelAuthenticationCertificate
         if (context.User.Identity is not ClaimsIdentity identity)
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "no context.User.Identity");
-            return Results.StatusCode(401);
+            return Results.Challenge(null, [AuthenticationScheme]);
         }
         if (!identity.IsAuthenticated)
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "not context.User.Identity.IsAuthenticated");
-            return Results.StatusCode(401);
+            return Results.Challenge(null, [AuthenticationScheme]);
         }
         if (!(string.Equals(
             identity.AuthenticationType,
@@ -274,7 +274,7 @@ internal sealed class TunnelAuthenticationCertificate
             System.StringComparison.Ordinal)))
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "not AuthenticationType");
-            return Results.StatusCode(401);
+            return Results.Challenge(null, [AuthenticationScheme]);
         }
 
         var validCertificatesByCluster = _validCertificatesByCluster;
@@ -296,13 +296,13 @@ internal sealed class TunnelAuthenticationCertificate
         if (validCertificatesByCluster is null)
         {
             _logger.LogWarning("validCertificatesByCluster is null.");
-            return Results.StatusCode(401);
+            return Results.Challenge(null, [AuthenticationScheme]);
         }
 
         if (!validCertificatesByCluster.TryGetValue(cluster.ClusterId, out var certificate))
         {
             _logger.LogWarning("validCertificatesByCluster {ClusterId} not found.", cluster.ClusterId);
-            return Results.StatusCode(401);
+            return Results.Challenge(null, [AuthenticationScheme]);
         }
 
         var identityThumbprint = string.Empty;
@@ -323,7 +323,7 @@ internal sealed class TunnelAuthenticationCertificate
         else
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, certificate.Subject);
-            return Results.StatusCode(401);
+            return Results.Challenge(null, [AuthenticationScheme]);
         }
     }
 
