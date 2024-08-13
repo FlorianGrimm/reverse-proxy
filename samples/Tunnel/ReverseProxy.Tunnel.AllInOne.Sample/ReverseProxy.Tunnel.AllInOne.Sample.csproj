@@ -5,16 +5,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>ReverseProxy</UserSecretsId>
+    <MicrosoftAspNetCoreHttpConnectionsClient>8.0.7</MicrosoftAspNetCoreHttpConnectionsClient>
+    <MicrosoftAspNetCoreAuthenticationCertificate>8.0.7</MicrosoftAspNetCoreAuthenticationCertificate>
+    <MicrosoftAspNetCoreAuthenticationNegotiate>8.0.7</MicrosoftAspNetCoreAuthenticationNegotiate>
+    <MicrosoftIdentityClient>4.63.0</MicrosoftIdentityClient>
+    <MicrosoftIdentityClientMsal>4.63.0</MicrosoftIdentityClientMsal>
+    <MicrosoftAspNetCoreAuthenticationJwtBearer>8.0.7</MicrosoftAspNetCoreAuthenticationJwtBearer>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="..\Common\LocalFileLogger.cs" Link="LocalFileLogger.cs" />
-    <Compile Include="..\JWTAuth\ReverseProxy.JWT\Yarp.ReverseProxy.Transport\TransportTunnelAuthenticationJwtBearerExtension.cs" Link="Yarp.ReverseProxy.Transport\TransportTunnelAuthenticationJwtBearerExtension.cs" />
-    <Compile Include="..\JWTAuth\ReverseProxy.JWT\Yarp.ReverseProxy.Transport\TransportTunnelHttp2AuthenticationJwtBearer.cs" Link="Yarp.ReverseProxy.Transport\TransportTunnelHttp2AuthenticationJwtBearer.cs" />
-    <Compile Include="..\JWTAuth\ReverseProxy.JWT\Yarp.ReverseProxy.Transport\TransportTunnelWebSocketAuthenticationJwtBearer.cs" Link="Yarp.ReverseProxy.Transport\TransportTunnelWebSocketAuthenticationJwtBearer.cs" />
-    <Compile Include="..\JWTAuth\ReverseProxy.JWT\Yarp.ReverseProxy.Tunnel\TunnelAuthenticationJwtBearer.cs" Link="Yarp.ReverseProxy.Tunnel\TunnelAuthenticationJwtBearer.cs" />
-    <Compile Include="..\JWTAuth\ReverseProxy.JWT\Yarp.ReverseProxy.Tunnel\TunnelAuthenticationJwtBearerExtension.cs" Link="Yarp.ReverseProxy.Tunnel\TunnelAuthenticationJwtBearerExtension.cs" />
-    <Compile Include="..\JWTAuth\ReverseProxy.JWT\Yarp.ReverseProxy.Tunnel\TunnelAuthenticationJwtBearerOptions.cs" Link="Yarp.ReverseProxy.Tunnel\TunnelAuthenticationJwtBearerOptions.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -36,11 +36,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Identity.Client" Version="4.61.3" />
-    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.61.3" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="8.0.7" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.7" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.7" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="$(MicrosoftIdentityClient)" />
+    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="$(MicrosoftIdentityClientMsal)" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(MicrosoftAspNetCoreAuthenticationJwtBearer)" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="$(MicrosoftAspNetCoreAuthenticationCertificate)" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="$(MicrosoftAspNetCoreAuthenticationNegotiate)" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 

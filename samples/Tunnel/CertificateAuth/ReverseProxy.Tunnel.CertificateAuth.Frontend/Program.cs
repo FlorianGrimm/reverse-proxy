@@ -93,7 +93,8 @@ public class Program
             });
             kestrelServerOptions.ConfigureHttpsDefaults(ConfigHttpsConnectionAdapterOptions);
         });
-        static void ConfigHttpsConnectionAdapterOptions(HttpsConnectionAdapterOptions httpsConnectionAdapterOptions) {
+        static void ConfigHttpsConnectionAdapterOptions(HttpsConnectionAdapterOptions httpsConnectionAdapterOptions)
+        {
             httpsConnectionAdapterOptions.CheckCertificateRevocation = false;
             httpsConnectionAdapterOptions.ClientCertificateMode = Microsoft.AspNetCore.Server.Kestrel.Https.ClientCertificateMode.AllowCertificate;
             httpsConnectionAdapterOptions.ClientCertificateValidation = (certificate, chain, sslPolicyErrors) =>

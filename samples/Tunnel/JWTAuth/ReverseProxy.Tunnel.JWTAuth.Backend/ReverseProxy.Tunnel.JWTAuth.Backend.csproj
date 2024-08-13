@@ -8,19 +8,14 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <PackageReference Include="Microsoft.Identity.Client" Version="4.61.3" />
-    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.61.3" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.7" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Include="..\ReverseProxy.JWT\Yarp.ReverseProxy.Transport\TransportTunnelAuthenticationJwtBearerExtension.cs" Link="Yarp.ReverseProxy.Transport\TransportTunnelAuthenticationJwtBearerExtension.cs" />
-    <Compile Include="..\ReverseProxy.JWT\Yarp.ReverseProxy.Transport\TransportTunnelHttp2AuthenticationJwtBearer.cs" Link="Yarp.ReverseProxy.Transport\TransportTunnelHttp2AuthenticationJwtBearer.cs" />
-    <Compile Include="..\ReverseProxy.JWT\Yarp.ReverseProxy.Transport\TransportTunnelWebSocketAuthenticationJwtBearer.cs" Link="Yarp.ReverseProxy.Transport\TransportTunnelWebSocketAuthenticationJwtBearer.cs" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="$(MicrosoftIdentityClient)" />
+    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="$(MicrosoftIdentityClientMsal)" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(MicrosoftAspNetCoreAuthenticationJwtBearer)" />
   </ItemGroup>
   
   <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\ReverseProxy.Tunnel.JWT\Yarp.ReverseProxy.Tunnel.JWT.csproj" />
     <ProjectReference Include="..\..\..\..\src\ReverseProxy\Yarp.ReverseProxy.csproj" />
   </ItemGroup>
 

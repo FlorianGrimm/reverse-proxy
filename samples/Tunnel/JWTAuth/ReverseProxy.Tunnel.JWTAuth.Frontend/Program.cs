@@ -40,6 +40,9 @@ You need the Application ID URI. It should be in the format `api://{ClientId}`.
 #endif
 
 using Yarp.ReverseProxy.Tunnel;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace ReverseProxy.Tunnel.Frontend;
 
@@ -51,12 +54,7 @@ public class Program
         builder.Configuration.AddUserSecrets("ReverseProxy");
         builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
         builder.Services.AddAuthentication()
-            .AddJwtBearer(jwtBearerOptions => {
-                var options = new TunnelAuthenticationJwtBearerOptions();
-                builder.Configuration.GetRequiredSection("AzureAd").Bind(options);
-                TunnelAuthenticationJwtBearer.ConfigureBearerToken(
-                    jwtBearerOptions, options);
-            })
+            .AddJwtBearer(TunnelAuthenticationJwtBearerOptions.ConfigureJwtBearerOptions(builder.Configuration.GetRequiredSection("AzureAd")))
             ;
         var reverseProxyBuilder = builder.Services.AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetRequiredSection("ReverseProxy"))

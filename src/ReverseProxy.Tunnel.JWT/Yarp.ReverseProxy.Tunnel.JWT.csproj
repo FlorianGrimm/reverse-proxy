@@ -19,17 +19,10 @@
     <PackageReference Include="System.Collections.Immutable" Version="$(SystemCollectionsImmutableVersion)" Condition="'$(TargetFramework)' != 'net8.0'" />
     <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="$(MicrosoftBclTimeProviderVersion)" Condition="'$(TargetFramework)' != 'net8.0'" />
     <PackageReference Include="Microsoft.AspNetCore.Http.Connections.Client" Version="$(MicrosoftAspNetCoreHttpConnectionsClient)" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="$(MicrosoftIdentityClient)" />
+    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="$(MicrosoftIdentityClientMsal)" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(MicrosoftAspNetCoreAuthenticationJwtBearer)" />
   </ItemGroup>
-
-  <!-- TODO: use the version variables-->
-
-  <!--
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Identity.Client" Version="4.61.3" />
-    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.61.3" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.7" />
-  </ItemGroup>
-  -->
 
   <ItemGroup>
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" Key="$(MoqPublicKey)" />

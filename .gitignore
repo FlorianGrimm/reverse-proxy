@@ -353,11 +353,14 @@ MigrationBackup/
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
 
-# Rider 
+# Rider
 .idea/
 
 # nohup
 nohup.out
+
+.vscode/
+
 /samples/Tunnel/ReverseProxy.Tunnel.AllInOne.Sample/LogFiles/
 /samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.Backend/LogFiles/
 /samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.Frontend/LogFiles/
