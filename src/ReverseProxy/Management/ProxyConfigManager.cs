@@ -236,7 +236,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     internal async Task<EndpointDataSource> InitialLoadAsync()
     {
         // Trigger the first load immediately and throw if it fails.
-        // We intend this to crash the app so we don't try listening for further changes.
+        // We intend this to crash the app, so we don't try listening for further changes.
         try
         {
             // moved to InitialPreloadAsync since the tunnel Config is needed earlier than the route

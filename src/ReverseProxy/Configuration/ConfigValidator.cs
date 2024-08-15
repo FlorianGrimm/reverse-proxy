@@ -30,7 +30,7 @@ internal sealed class ConfigValidator : IConfigValidator
         _tunnelValidators = tunnelValidators?.ToArray() ?? throw new ArgumentNullException(nameof(tunnelValidators));
     }
 
-    // Note this performs all validation steps without short circuiting in order to report all possible errors.
+    // Note this performs all validation steps without short-circuiting in order to report all possible errors.
     public async ValueTask<IList<Exception>> ValidateRouteAsync(RouteConfig route)
     {
         _ = route ?? throw new ArgumentNullException(nameof(route));
@@ -62,7 +62,7 @@ internal sealed class ConfigValidator : IConfigValidator
         return errors;
     }
 
-    // Note this performs all validation steps without short circuiting in order to report all possible errors.
+    // Note this performs all validation steps without short-circuiting in order to report all possible errors.
     public async ValueTask<IList<Exception>> ValidateClusterAsync(ClusterConfig cluster)
     {
         _ = cluster ?? throw new ArgumentNullException(nameof(cluster));
