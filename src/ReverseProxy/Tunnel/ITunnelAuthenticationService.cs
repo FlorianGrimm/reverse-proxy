@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -43,5 +44,5 @@ public interface ITunnelAuthenticationService
     /// <param name="context">The request context</param>
     /// <param name="cluster">The cluster</param>
     /// <returns>true ok - false 401 response.</returns>
-    IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster);
+    ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster);
 }

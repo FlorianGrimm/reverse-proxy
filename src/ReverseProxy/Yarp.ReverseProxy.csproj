@@ -12,6 +12,7 @@
     <PackageTags>yarp;dotnet;reverse-proxy;aspnetcore</PackageTags>
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
     <InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);Microsoft.AspNetCore.Http.Generated;Yarp.ReverseProxy.Tunnel</InterceptorsPreviewNamespaces>
+    <LangVersion Condition="'$(LangVersion)' == ''">latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

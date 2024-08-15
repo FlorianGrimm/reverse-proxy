@@ -31,4 +31,9 @@ internal static class EventIds
 
     public static readonly EventId ClusterAuthenticationSuccess = new EventId(95, "ClusterAuthenticationSuccess");
     public static readonly EventId ClusterAuthenticationFailed = new EventId(96, "ClusterAuthenticationFailed");
+
+    public static readonly EventId NoCertificate = new EventId(98, "NoCertificate");
+    public static readonly EventId NotHttps = new EventId(99, "NotHttps");
+    public static readonly EventId CertificateRejected = new EventId(100, "CertificateRejected");
+    public static readonly EventId CertificateFailedValidation = new EventId(101, "CertificateFailedValidation");
 }

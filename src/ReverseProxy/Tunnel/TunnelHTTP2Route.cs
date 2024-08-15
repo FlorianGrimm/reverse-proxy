@@ -93,7 +93,7 @@ internal sealed partial class TunnelHTTP2Route : IDisposable
             return Results.StatusCode(504);
         }
 
-        var result = _tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster);
+        var result = await _tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster);
         if (result is { })
         {
             // return Results.Challenge(); does not work if you have more than one and the tunnel auth is not the default/challange one

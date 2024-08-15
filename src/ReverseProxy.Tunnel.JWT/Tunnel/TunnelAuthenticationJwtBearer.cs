@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -37,16 +38,16 @@ internal sealed class TunnelAuthenticationJwtBearer
     {
     }
 
-    public IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
+    public ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
         if (context.User.Identity is ClaimsIdentity { IsAuthenticated: true} identity) {
             var appid = identity.Claims.FirstOrDefault(c => c.Type == "appid")?.Value;
             var appidacr = identity.Claims.FirstOrDefault(c => c.Type == "appidacr")?.Value;
             if (appid == _options.ClientId && appidacr == "1")
             {
-                return Results.StatusCode(401);
+                return ValueTask.FromResult<IResult?>(Results.StatusCode(401));
             }
         }
-        return default;
+        return ValueTask.FromResult<IResult?>(default);
     }
 }

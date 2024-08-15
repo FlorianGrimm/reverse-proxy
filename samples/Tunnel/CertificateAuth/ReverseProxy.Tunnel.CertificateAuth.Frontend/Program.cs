@@ -58,31 +58,31 @@ public class Program
 
         var authenticationBuilder = builder.Services.AddAuthentication();
         authenticationBuilder
-   .AddCertificate(options =>
-   {
-       // this sample uses the SelfSigned certificates.
-       options.AllowedCertificateTypes = CertificateTypes.SelfSigned;
-       options.RevocationMode = X509RevocationMode.NoCheck;
-       options.ValidateCertificateUse = false;
-       options.ValidateValidityPeriod = false;
-
-       options.Events = new CertificateAuthenticationEvents
-       {
-           OnCertificateValidated = context =>
+           .AddCertificate(options =>
            {
-               if (context.ClientCertificate != null)
-               {
-                   context.Success();
-               }
-               else
-               {
-                   context.NoResult();
-               }
-               return Task.CompletedTask;
-           }
-       };
+               // this sample uses the SelfSigned certificates.
+               options.AllowedCertificateTypes = CertificateTypes.SelfSigned;
+               options.RevocationMode = X509RevocationMode.NoCheck;
+               options.ValidateCertificateUse = false;
+               options.ValidateValidityPeriod = false;
 
-   });
+               options.Events = new CertificateAuthenticationEvents
+               {
+                   OnCertificateValidated = context =>
+                   {
+                       if (context.ClientCertificate != null)
+                       {
+                           context.Success();
+                       }
+                       else
+                       {
+                           context.NoResult();
+                       }
+                       return Task.CompletedTask;
+                   }
+               };
+
+           });
 
         // this sample uses the SelfSigned certificates so disable the some check.
         builder.WebHost.ConfigureKestrel(kestrelServerOptions =>

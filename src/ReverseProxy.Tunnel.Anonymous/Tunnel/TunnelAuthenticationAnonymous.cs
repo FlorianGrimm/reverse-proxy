@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Threading.Tasks;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -21,6 +23,6 @@ internal sealed class TunnelAuthenticationAnonymous
 
     public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern) { }
 
-    public IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster) => default;
+    public ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster) => ValueTask.FromResult<IResult?>(default);
 }
 

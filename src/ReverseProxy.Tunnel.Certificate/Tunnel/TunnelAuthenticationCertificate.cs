@@ -9,6 +9,7 @@ using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -23,9 +24,10 @@ using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
 
+using Microsoft.AspNetCore.Authentication.Certificate;
+using System.Security.Cryptography;
+
 namespace Yarp.ReverseProxy.Tunnel;
-
-
 
 /// <summary>
 /// Enables or disables the client certificate tunnel authentication.
@@ -41,13 +43,13 @@ namespace Yarp.ReverseProxy.Tunnel;
 /// </code>
 /// </summary>
 ///
-
-
 internal sealed class TunnelAuthenticationCertificate
     : ITunnelAuthenticationService
     , IClusterChangeListener
     , IDisposable
 {
+    private static readonly Oid ClientCertificateOid = new Oid("1.3.6.1.5.5.7.3.2");
+
     public const string AuthenticationScheme = "Certificate";
     public const string AuthenticationName = "ClientCertificate";
     public const string CookieName = "YarpTunnelAuth";
@@ -274,18 +276,160 @@ internal sealed class TunnelAuthenticationCertificate
         }
     }
 
-    public IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
+    public async ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
-#warning TODO: the Authentication Certificate does not work with the Authentication Negotiate - copy the magic - feels like a fail on my side...
+        if (_options.SourceAuthenticationProvider)
+        {
+            var isAuthenticatedSourceAuth = CheckTunnelRequestIsAuthenticatedSourceAuth(context, cluster);
+            if (isAuthenticatedSourceAuth)
+            {
+                return null;
+            }
+        }
+        if (_options.SourceRequest)
+        {
+            var isAuthenticatedSourceRequest = await CheckTunnelRequestIsAuthenticatedSourceRequest(context, cluster);
+            if (isAuthenticatedSourceRequest)
+            {
+                return null;
+            }
+        }
+        if (_options.SourceAuthenticationProvider)
+        {
+
+            return Results.Challenge(null, [AuthenticationScheme]);
+        }
+        else
+        {
+            return Results.Forbid();
+        }
+    }
+
+    public async ValueTask<bool> CheckTunnelRequestIsAuthenticatedSourceRequest(HttpContext context, ClusterState cluster)
+    {
+        if (!context.Request.IsHttps)
+        {
+            Log.NotHttps(_logger);
+            return false;
+        }
+
+        var clientCertificate = await context.Connection.GetClientCertificateAsync();
+        if (clientCertificate is null)
+        {
+            Log.NoCertificate(_logger);
+            return false;
+        }
+
+        return ValidateCertificateAsync(clientCertificate);
+    }
+
+    private bool ValidateCertificateAsync(X509Certificate2 clientCertificate)
+    {
+        var isCertificateSelfSigned = clientCertificate.IsSelfSigned();
+
+        // If we have a self signed cert, and they're not allowed, exit early and not bother with
+        // any other validations.
+        if (isCertificateSelfSigned &&
+            !_options.AllowedCertificateTypes.HasFlag(CertificateTypes.SelfSigned))
+        {
+            Log.CertificateRejected(_logger, "Self signed", clientCertificate.Subject);
+            return false;
+        }
+
+        // If we have a chained cert, and they're not allowed, exit early and not bother with
+        // any other validations.
+        if (!isCertificateSelfSigned &&
+            !_options.AllowedCertificateTypes.HasFlag(CertificateTypes.Chained))
+        {
+            Log.CertificateRejected(_logger, "Chained", clientCertificate.Subject);
+            return false;
+        }
+
+        var chainPolicy = BuildChainPolicy(clientCertificate, isCertificateSelfSigned);
+        using var chain = new X509Chain
+        {
+            ChainPolicy = chainPolicy
+        };
+
+        var certificateIsValid = chain.Build(clientCertificate);
+        if (!certificateIsValid)
+        {
+            if (Log.IsCertificateFailedValidationEnabled(_logger))
+            {
+                var chainErrors = new List<string>(chain.ChainStatus.Length);
+                foreach (var validationFailure in chain.ChainStatus)
+                {
+                    chainErrors.Add($"{validationFailure.Status} {validationFailure.StatusInformation}");
+                }
+                Log.CertificateFailedValidation(_logger, clientCertificate.Subject, chainErrors);
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+    private X509ChainPolicy BuildChainPolicy(X509Certificate2 certificate, bool isCertificateSelfSigned)
+    {
+        // Now build the chain validation options.
+        var revocationFlag = _options.RevocationFlag;
+        var revocationMode = _options.RevocationMode;
+
+        if (isCertificateSelfSigned)
+        {
+            // Turn off chain validation, because we have a self signed certificate.
+            revocationFlag = X509RevocationFlag.EntireChain;
+            revocationMode = X509RevocationMode.NoCheck;
+        }
+
+        var chainPolicy = new X509ChainPolicy
+        {
+            RevocationFlag = revocationFlag,
+            RevocationMode = revocationMode,
+        };
+
+        if (_options.ValidateCertificateUse)
+        {
+            chainPolicy.ApplicationPolicy.Add(ClientCertificateOid);
+        }
+
+        if (isCertificateSelfSigned)
+        {
+            chainPolicy.VerificationFlags |= X509VerificationFlags.AllowUnknownCertificateAuthority;
+            chainPolicy.VerificationFlags |= X509VerificationFlags.IgnoreEndRevocationUnknown;
+            chainPolicy.ExtraStore.Add(certificate);
+        }
+        else
+        {
+            if (_options.CustomTrustStore is { } customTrustStore)
+            {
+                chainPolicy.CustomTrustStore.AddRange(customTrustStore);
+            }
+
+            chainPolicy.TrustMode = _options.ChainTrustValidationMode;
+        }
+
+        chainPolicy.ExtraStore.AddRange(_options.AdditionalChainCertificates);
+
+        if (!_options.ValidateValidityPeriod)
+        {
+            chainPolicy.VerificationFlags |= X509VerificationFlags.IgnoreNotTimeValid;
+        }
+
+        return chainPolicy;
+    }
+
+    public bool CheckTunnelRequestIsAuthenticatedSourceAuth(HttpContext context, ClusterState cluster)
+    {
         if (context.User.Identity is not ClaimsIdentity identity)
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "no context.User.Identity");
-            return Results.Challenge(null, [AuthenticationScheme]);
+            return false;
         }
         if (!identity.IsAuthenticated)
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "not context.User.Identity.IsAuthenticated");
-            return Results.Challenge(null, [AuthenticationScheme]);
+            return false;
         }
         if (!(string.Equals(
             identity.AuthenticationType,
@@ -293,12 +437,12 @@ internal sealed class TunnelAuthenticationCertificate
             System.StringComparison.Ordinal)))
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "not AuthenticationType");
-            return Results.Challenge(null, [AuthenticationScheme]);
+            return false;
         }
 
+        // ensure the certificates are loaded
         var validCertificatesByCluster = _validCertificatesByCluster;
         var validCertificatesByThumbprint = _validCertificatesByThumbprint;
-        // ensure the certificates are loaded
         if (validCertificatesByThumbprint is null)
         {
             lock (this)
@@ -315,13 +459,13 @@ internal sealed class TunnelAuthenticationCertificate
         if (validCertificatesByCluster is null)
         {
             _logger.LogWarning("validCertificatesByCluster is null.");
-            return Results.Challenge(null, [AuthenticationScheme]);
+            return false;
         }
 
         if (!validCertificatesByCluster.TryGetValue(cluster.ClusterId, out var certificate))
         {
             _logger.LogWarning("validCertificatesByCluster {ClusterId} not found.", cluster.ClusterId);
-            return Results.Challenge(null, [AuthenticationScheme]);
+            return false;
         }
 
         var identityThumbprint = string.Empty;
@@ -337,12 +481,12 @@ internal sealed class TunnelAuthenticationCertificate
         if (result)
         {
             Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, AuthenticationName, certificate.Subject);
-            return default;
+            return true;
         }
         else
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, certificate.Subject);
-            return Results.Challenge(null, [AuthenticationScheme]);
+            return false;
         }
     }
 
@@ -389,5 +533,58 @@ internal sealed class TunnelAuthenticationCertificate
         {
             _clusterAuthenticationFailed(logger, clusterId, authenticationName, subject, null);
         }
+        private static readonly Action<ILogger, Exception?> _noCertificate = LoggerMessage.Define(
+            LogLevel.Debug,
+            EventIds.NoCertificate,
+            "No client certificate found.");
+
+        public static void NoCertificate(ILogger logger)
+        {
+            _noCertificate(logger, null);
+        }
+
+        private static readonly Action<ILogger, Exception?> _notHttps = LoggerMessage.Define(
+            LogLevel.Debug,
+            EventIds.NotHttps,
+            "Not https, skipping certificate authentication..");
+
+        public static void NotHttps(ILogger logger)
+        {
+            _notHttps(logger, null);
+        }
+
+        private static readonly Action<ILogger, string, string, Exception?> _certificateRejected = LoggerMessage.Define<string, string>(
+            LogLevel.Warning,
+            EventIds.CertificateRejected,
+            "{CertificateType} certificate rejected, subject was {Subject}.");
+
+        public static void CertificateRejected(ILogger logger, string certificateType, string subject)
+        {
+            _certificateRejected(logger, certificateType, subject, null);
+        }
+
+        private static readonly Action<ILogger, string, IList<string>, Exception?> _certificateFailedValidation = LoggerMessage.Define<string, IList<string>>(
+            LogLevel.Information,
+            EventIds.CertificateFailedValidation,
+            "Certificate validation failed, subject was {Subject}. {ChainErrors}");
+
+        public static void CertificateFailedValidation(ILogger logger, string subject, IList<string> chainErrors)
+        {
+            _certificateFailedValidation(logger, subject, chainErrors, null);
+        }
+
+        public static bool IsCertificateFailedValidationEnabled(ILogger logger) => logger.IsEnabled(LogLevel.Information);
+
+        /*
+        private static readonly Action<ILogger, string, string, string, Exception?> _x = LoggerMessage.Define<string, string, string>(
+            LogLevel.Information,
+            EventIds.ClusterAuthenticationFailed,
+            "Cluster {clusterId} Authentication {AuthenticationName} failed {subject}.");
+
+        public static void X(ILogger logger, string clusterId, string authenticationName, string subject)
+        {
+            _x(logger, clusterId, authenticationName, subject, null);
+        }
+        */
     }
 }

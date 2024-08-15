@@ -129,7 +129,7 @@ internal sealed class TunnelAuthenticationNegotiate
     /// <param name="context">http</param>
     /// <param name="cluster">current cluster</param>
     /// <returns>true ok - false 401 response.</returns>
-    public IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
+    public ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
         if (context.Request.Cookies.TryGetValue(CookieName, out var auth)
             && auth is { Length: > 0 }
@@ -139,13 +139,13 @@ internal sealed class TunnelAuthenticationNegotiate
             )
         {
             Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, AuthenticationName, identityName);
-            return default;
+            return return ValueTask.FromResult<IResult?>(default);
         }
         else
         {
             Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "no YarpTunnelAuth");
             //return Results.Challenge(null, ["Negotiate"]);
-            return Results.StatusCode(401);
+            return ValueTask.FromResult<IResult?>(Results.StatusCode(401));
         }
     }
 

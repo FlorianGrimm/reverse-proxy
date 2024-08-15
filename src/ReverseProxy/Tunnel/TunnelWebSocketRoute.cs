@@ -98,7 +98,7 @@ internal sealed class TunnelWebSocketRoute
             Log.TunnelConnectionChannelNotFound(_logger, clusterId);
             return Results.BadRequest();
         }
-        var result = _tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster);
+        var result = await _tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster);
         if (result is { })
         {
             // return Results.Challenge(); does not work if you have more than one and the tunnel auth is not the default/challange one

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -43,12 +44,12 @@ internal sealed class TunnelAuthenticationService
         throw new NotSupportedException("call the real ITunnelAuthenticationService - service.");
     }
 
-    public IResult? CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
+    public async ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
         if (cluster.Model.Config.Authentication.Mode is { Length: > 0 } mode
             && _servicesByAuthenticationName.TryGetValue(mode, out var service))
         {
-            return service.CheckTunnelRequestIsAuthenticated(context, cluster);
+            return await service.CheckTunnelRequestIsAuthenticated(context, cluster);
         }
         else
         {
