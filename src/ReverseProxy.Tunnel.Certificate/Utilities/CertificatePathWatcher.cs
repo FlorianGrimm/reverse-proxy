@@ -38,7 +38,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
     private bool _disposed;
 
     public CertificatePathWatcher(
-        IOptions<CertificateConfigOptions> options,
+        IOptions<CertificateLoaderOptions> options,
         IHostEnvironment hostEnvironment,
         ILogger<CertificatePathWatcher> logger)
         : this(

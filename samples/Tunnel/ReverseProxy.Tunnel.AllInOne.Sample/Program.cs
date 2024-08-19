@@ -277,6 +277,19 @@ internal class Program
                 throw new InvalidOperationException("modeAppSettings is unsupported.");
             }
         }
+
+        if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate)
+        {
+            if (_browserAuthentication == BrowserAuthentication.Anonymous)
+            {
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationCertificateAuthProvider;
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationCertificateRequest;
+            }
+            else
+            {
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationCertificateRequest;
+            }
+        }
         appsettingsFolder = System.IO.Path.Combine(System.AppContext.BaseDirectory, appsettingsFolder);
         System.Console.WriteLine(appsettingsFolder);
         return appsettingsFolder;
@@ -304,23 +317,20 @@ internal class Program
             builder.Services.AddAuthorization()
                 .AddRouting()
                 .AddEndpointsApiExplorer();
-            
+
             builder.Services.AddControllers()
                 .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
 
             var reverseProxyBuilder = builder.Services.AddReverseProxy()
                 .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
                 .AddTunnelServices(
-                    options: new TunnelServicesOptions()
+                    new TunnelServicesOptions()
                     {
-                        // Anonymous is dangerous - please read the documentation of TunnelServicesOptions and configure a proper authentication.
-                        TunnelAuthenticationAnonymous = _modeTunnelAuthentication == TunnelAuthentication.AuthenticationAnonymous,
-                        TunnelAuthenticationCertificate = _modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate,
-                        TunnelAuthenticationWindows = _modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows,
                         TunnelHTTP2 = enableTunnelH2,
                         TunnelWebSocket = enableTunnelWS
-                    }) // enable tunnel listener
-                .ConfigureCertificateConfigOptions(options =>
+                    }
+                ) // enable tunnel listener
+                .ConfigureCertificateLoaderOptions(options =>
                 {
                     options.CertificateRoot = System.AppContext.BaseDirectory;
                 });
@@ -334,9 +344,8 @@ internal class Program
                     }
                 });
 
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate)
+            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificateAuthProvider)
             {
-#warning TODO the CertificateAuthenticationHandler does not work with windows auth (or I'm too stupid for it.) so split and copy the magic ... I don't like this situation
                 authenticationBuilder
                    .AddCertificate(options =>
                    {
@@ -364,31 +373,29 @@ internal class Program
                        };
                    });
 
-                // this sample uses the SelfSigned certificates so disable the some check.
-                builder.WebHost.ConfigureKestrel(kestrelServerOptions =>
-                {
-                    kestrelServerOptions.ConfigureEndpointDefaults(listenOptions =>
-                    {
-                        listenOptions.UseHttps(ConfigHttpsConnectionAdapterOptions);
-                    });
-                    kestrelServerOptions.ConfigureHttpsDefaults(ConfigHttpsConnectionAdapterOptions);
-                });
-                static void ConfigHttpsConnectionAdapterOptions(HttpsConnectionAdapterOptions httpsConnectionAdapterOptions)
-                {
-                    httpsConnectionAdapterOptions.CheckCertificateRevocation = false;
-                    httpsConnectionAdapterOptions.ClientCertificateMode = Microsoft.AspNetCore.Server.Kestrel.Https.ClientCertificateMode.AllowCertificate;
-                    httpsConnectionAdapterOptions.ClientCertificateValidation = (certificate, chain, sslPolicyErrors) =>
-                    {
-                        // return sslPolicyErrors == SslPolicyErrors.None || sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors;
-                        return true;
-                    };
-                }
-
                 reverseProxyBuilder
-                    .ConfigureTunnelAuthenticationCertificateOptions(
-                         (tunnelAuthenticationCertificateOptions) =>
+                    .AddTunnelServicesCertificate(
+                         (options) =>
                          {
-                             tunnelAuthenticationCertificateOptions.IgnoreSslPolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
+                             options.SourceAuthenticationProvider = true;
+                             options.CheckCertificateRevocation = false;
+                             options.RevocationMode = X509RevocationMode.NoCheck;
+                             options.RevocationFlag = X509RevocationFlag.ExcludeRoot;
+                             options.IgnoreSslPolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
+                         });
+            }
+
+            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificateAuthProvider)
+            {
+                reverseProxyBuilder
+                    .AddTunnelServicesCertificate(
+                         (options) =>
+                         {
+                             options.SourceRequest = true;
+                             options.CheckCertificateRevocation = false;
+                             options.RevocationMode = X509RevocationMode.NoCheck;
+                             options.RevocationFlag = X509RevocationFlag.ExcludeRoot;
+                             options.IgnoreSslPolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
                          });
             }
 
@@ -402,7 +409,8 @@ internal class Program
                 || (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows)
                 )
             {
-                authenticationBuilder.AddNegotiate(options => {
+                authenticationBuilder.AddNegotiate(options =>
+                {
                     options.Events ??= new();
                     options.Events.OnAuthenticationFailed = (AuthenticationFailedContext context) =>
                     {
@@ -518,7 +526,7 @@ internal class Program
                 .AddTunnelTransport(
                     configureTunnelHttp2: options =>
                     {
-                        options.MaxConnectionCount = 10;
+                        options.MaxConnectionCount = 1;
                         options.IsEnabled = enableTunnelH2;
                         options.ConfigureSocketsHttpHandlerAsync = (transportTunnelConfig, socketsHttpHandler, transportTunnelHttp2Authentication) =>
                         {
@@ -540,7 +548,7 @@ internal class Program
                     },
                     configureTunnelWebSocket: options =>
                     {
-                        options.MaxConnectionCount = 10;
+                        options.MaxConnectionCount = 1;
                         options.IsEnabled = enableTunnelWS;
                         options.ConfigureClientWebSocket = (config, clientWebSocket, transportTunnelWebSocketAuthentication) =>
                         {
@@ -558,40 +566,60 @@ internal class Program
                             }
                         };
                     }
-                ) /* for the servers that starts the tunnel transport connections */
-                .ConfigureCertificateConfigOptions(options =>
-                {
-                    options.CertificateRoot = System.AppContext.BaseDirectory;
-                })
-                .AddTunnelTransportAnonymous()
-                .AddTunnelTransportNegotiate()
-                .AddTunnelTransportCertificate(
-#warning TODO add options?
-                )
-#warning TODO .AddTunnelTransportJWT()
-                ;
+                );
 
-            /*
-                .ConfigureCertificateConfigOptions(
-                    configure: (options) => {
-                        options.CertificatePassword = (config) => {
-                            return magic(config.Password);
-                        };
-                    });
-            */
 
-            if ((_modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows)
-                || (_browserAuthentication == BrowserAuthentication.Windows))
+
+            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationAnonymous)
+            {
+                reverseProxyBuilder.AddTunnelTransportAnonymous();
+            }
+
+            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows)
+            {
+                reverseProxyBuilder.AddTunnelTransportNegotiate();
+                authenticationBuilder.AddNegotiate();
+            }
+            else if (_browserAuthentication == BrowserAuthentication.Windows)
             {
                 authenticationBuilder.AddNegotiate();
             }
 
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate)
+            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificateAuthProvider)
             {
                 authenticationBuilder.AddCertificate(options =>
                 {
                     options.AllowedCertificateTypes = CertificateTypes.SelfSigned;
+                    options.RevocationFlag = X509RevocationFlag.ExcludeRoot;
+                    options.RevocationMode = X509RevocationMode.NoCheck;
                 }).AddCertificateCache();
+
+                reverseProxyBuilder
+                   .AddTunnelTransportCertificate(
+                       (options) =>
+                       {
+                           options.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
+                       }
+                   )
+                   .ConfigureCertificateLoaderOptions(options =>
+                   {
+                       options.CertificateRoot = System.AppContext.BaseDirectory;
+                   });
+            }
+
+            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificateRequest)
+            {
+                reverseProxyBuilder
+                    .AddTunnelTransportCertificate(
+                        (options) =>
+                        {
+                            options.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
+                        }
+                    )
+                    .ConfigureCertificateLoaderOptions(options =>
+                    {
+                        options.CertificateRoot = System.AppContext.BaseDirectory;
+                    });
             }
 
             if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationJwtBearer)
@@ -827,10 +855,11 @@ internal class Program
         var socketsHttpHandler = new SocketsHttpHandler();
         socketsHttpHandler.ConnectTimeout = TimeSpan.FromSeconds(2);
         socketsHttpHandler.ResponseDrainTimeout = TimeSpan.FromSeconds(2);
-        if (_browserAuthentication == BrowserAuthentication.Windows) {
+        if (_browserAuthentication == BrowserAuthentication.Windows)
+        {
             socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
         }
-        
+
 
         using var httpClient = new HttpClient(socketsHttpHandler, true);
         Console.Out.WriteLine($"Sending request to {url}");
@@ -984,6 +1013,8 @@ internal enum TunnelAuthentication
 {
     AuthenticationAnonymous,
     AuthenticationCertificate,
+    AuthenticationCertificateAuthProvider,
+    AuthenticationCertificateRequest,
     AuthenticationWindows,
     AuthenticationJwtBearer
 }

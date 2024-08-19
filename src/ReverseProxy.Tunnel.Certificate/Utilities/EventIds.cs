@@ -36,4 +36,8 @@ internal static class EventIds
     public static readonly EventId NotHttps = new EventId(99, "NotHttps");
     public static readonly EventId CertificateRejected = new EventId(100, "CertificateRejected");
     public static readonly EventId CertificateFailedValidation = new EventId(101, "CertificateFailedValidation");
+    public static readonly EventId RemoteCertificateValidationSuccess = new EventId(102, "RemoteCertificateValidationSuccess");
+    public static readonly EventId RemoteCertificateValidationFailed = new EventId(103, "RemoteCertificateValidationFailed");
+    public static readonly EventId ClientCertificateValidationSuccess = new EventId(104, "ClientCertificateValidationSuccess");
+    public static readonly EventId ClientCertificateValidationFailed = new EventId(105, "ClientCertificateValidationFailed");
 }

@@ -4,67 +4,18 @@
 using System;
 
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
 
 using Yarp.ReverseProxy.Forwarder;
-using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
-using Yarp.ReverseProxy.Utilities;
 using Yarp.ReverseProxy.Tunnel;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
 public static class TunnelExtensions
 {
-    /// <summary>
-    /// Adds the services required for tunneling.
-    /// </summary>
-    /// <param name="services">this</param>
-    /// <param name="options">options to </param>
-    /// <returns>fluent this</returns>
-    public static IServiceCollection AddTunnelServices(
-        this IServiceCollection services,
-        TunnelServicesOptions? options = default
-        )
-    {
-        services.TryAddSingleton<TunnelConnectionChannelManager>();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterChangeListener, TunnelConnectionChannelManager.ClusterChangeListener>());
-        services.TryAddSingleton<TransportForwarderHttpClientFactorySelector>();
-
-        if (options is null || options.TunnelHTTP2)
-        {
-            services.TryAddSingleton<TunnelHTTP2Route>();
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportForwarderHttpClientFactorySelector, TunnelHTTP2HttpClientFactory>());
-        }
-        if (options is null || options.TunnelWebSocket)
-        {
-            services.TryAddSingleton<TunnelWebSocketRoute>();
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportForwarderHttpClientFactorySelector, TunnelWebSocketHttpClientFactory>());
-        }
-        if (options is not null && !options.TunnelHTTP2 && !options.TunnelWebSocket)
-        {
-            throw new NotSupportedException("At least one of the TunnelHTTP2 or TunnelWebSocket must be enabled.");
-        }
-
-        services.TryAddSingleton<TunnelAuthenticationService>();
-
-        _ = services.Configure<KestrelServerOptions>(kestrelServerOptions =>
-        {
-            var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<TunnelAuthenticationService>();
-            tunnelAuthenticationConfigService.ConfigureKestrelServer(kestrelServerOptions);
-        });
-
-        services.AddSingleton<ITunnelAuthenticationCookieService>(TunnelAuthenticationCookieService.Create);
-
-        return services;
-    }
-
     /// <summary>
     /// Enables tunnels (listener - on the front end) configured
     /// in the <see cref="Yarp.ReverseProxy.Configuration.ClusterConfig"/> Transport (e.g. TunnelHTTP2)
@@ -120,7 +71,36 @@ public static class TunnelExtensions
         TunnelServicesOptions? options = default
         )
     {
-        _ = builder.Services.AddTunnelServices(options);
+        var services = builder.Services;
+        services.TryAddSingleton<TunnelConnectionChannelManager>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterChangeListener, TunnelConnectionChannelManager.ClusterChangeListener>());
+        services.TryAddSingleton<TransportForwarderHttpClientFactorySelector>();
+
+        if (options is null || options.TunnelHTTP2)
+        {
+            services.TryAddSingleton<TunnelHTTP2Route>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportForwarderHttpClientFactorySelector, TunnelHTTP2HttpClientFactory>());
+        }
+        if (options is null || options.TunnelWebSocket)
+        {
+            services.TryAddSingleton<TunnelWebSocketRoute>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportForwarderHttpClientFactorySelector, TunnelWebSocketHttpClientFactory>());
+        }
+        if (options is not null && !options.TunnelHTTP2 && !options.TunnelWebSocket)
+        {
+            throw new NotSupportedException("At least one of the TunnelHTTP2 or TunnelWebSocket must be enabled.");
+        }
+
+        services.TryAddSingleton<TunnelAuthenticationService>();
+
+        _ = services.Configure<KestrelServerOptions>(kestrelServerOptions =>
+        {
+            var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<TunnelAuthenticationService>();
+            tunnelAuthenticationConfigService.ConfigureKestrelServer(kestrelServerOptions);
+        });
+
+        services.AddSingleton<ITunnelAuthenticationCookieService>(TunnelAuthenticationCookieService.Create);
+
         return builder;
     }
 

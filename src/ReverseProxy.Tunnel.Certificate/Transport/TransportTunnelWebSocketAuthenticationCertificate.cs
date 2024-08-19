@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Http.Connections.Client;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 
 using Yarp.ReverseProxy.Configuration;
@@ -24,7 +25,9 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
     : ITransportTunnelWebSocketAuthentication
     , IDisposable
 {
-    private readonly ICertificateConfigLoader _certificateConfigLoader;
+    private readonly TransportTunnelAuthenticationCertificateOptions _options;
+    private readonly RemoteCertificateValidationUtility _remoteCertificateValidation;
+    private readonly ICertificateLoader _certificateConfigLoader;
     private readonly CertificatePathWatcher _certificatePathWatcher;
     private readonly ILogger<TransportTunnelWebSocketAuthenticationCertificate> _logger;
 
@@ -33,11 +36,15 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
     private IDisposable? _unregisterCertificatePathWatcher;
 
     public TransportTunnelWebSocketAuthenticationCertificate(
-                ICertificateConfigLoader certificateConfigLoader,
+        IOptions<TransportTunnelAuthenticationCertificateOptions> options,
+        RemoteCertificateValidationUtility remoteCertificateValidationUtility,
+        ICertificateLoader certificateConfigLoader,
         CertificatePathWatcher certificatePathWatcher,
         ILogger<TransportTunnelWebSocketAuthenticationCertificate> logger
         )
     {
+        _options = options.Value;
+        _remoteCertificateValidation = remoteCertificateValidationUtility;
         _certificateConfigLoader = certificateConfigLoader;
         _certificatePathWatcher = certificatePathWatcher;
         _logger = logger;
@@ -58,12 +65,6 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
 
     public ValueTask<HttpMessageInvoker?> ConfigureClientWebSocket(TransportTunnelConfig config, ClientWebSocket clientWebSocket)
     {
-        if (!ClientCertificateLoader.IsClientCertificate(config.Authentication.Mode))
-        {
-            _logger.LogWarning("ClientCertificate authentication mode expected");
-            return ValueTask.FromResult<HttpMessageInvoker?>(default);
-        }
-
         try
         {
             {
@@ -172,8 +173,12 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
                     sslClientCertificates.AddRange(srcClientCertifiacteCollection);
                 }
             }
-
-            clientWebSocket.Options.RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) => OnRemoteCertificateValidation(sender, certificate, chain, sslPolicyErrors, clientWebSocket.Options);
+            
+            clientWebSocket.Options.RemoteCertificateValidationCallback = _remoteCertificateValidation.RemoteCertificateValidationCallback;
+            if (_options.ConfigureClientWebSocketOptions is { } configureClientWebSocketOptions)
+            {
+                configureClientWebSocketOptions(clientWebSocket.Options);
+            }
         }
         catch (System.Exception error)
         {
@@ -181,29 +186,6 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
         }
 
         return ValueTask.FromResult<HttpMessageInvoker?>(default);
-    }
-
-#pragma warning disable IDE0060 // Remove unused parameter
-    private bool OnRemoteCertificateValidation(object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors, ClientWebSocketOptions options)
-#pragma warning restore IDE0060 // Remove unused parameter
-    {
-        if (certificate is null)
-        {
-            // TODO: no idea
-            _logger.LogWarning("RemoteCertificateValidation: No certificate");
-            return false;
-        }
-        var certHash = certificate.GetCertHash();
-        foreach (var clientCertificate in options.ClientCertificates)
-        {
-            if (certHash.SequenceEqual(clientCertificate.GetCertHash()))
-            {
-                _logger.LogInformation("RemoteCertificateValidation: Certificate found");
-                return true;
-            }
-        }
-        _logger.LogInformation("RemoteCertificateValidation: Certificate no match");
-        return false;
     }
 
     private void ReloadCertificate()

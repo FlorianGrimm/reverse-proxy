@@ -45,46 +45,63 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
         builder.Configuration.AddUserSecrets("ReverseProxy");
         builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
-        builder.Services.AddAuthentication()
-            ;
+
+        var useAuthenticationProvider = args.Any(a => a == "AuthenticationProvider");
+
         var reverseProxyBuilder = builder.Services.AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetRequiredSection("ReverseProxy"))
-            .AddTunnelServices() // enable tunnel listener
-            .ConfigureCertificateConfigOptions(options =>
-            {
-                options.CertificateRoot = System.AppContext.BaseDirectory;
-            });
-        ;
+            .AddTunnelServices()
+            .AddTunnelServicesCertificate((options) =>
+                 {
+                     options.SourceAuthenticationProvider = useAuthenticationProvider;
+                     options.SourceRequest = !useAuthenticationProvider;
+                     options.IgnoreSslPolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
+                     options.AllowedCertificateTypes = CertificateTypes.All;
+                     options.RevocationMode = X509RevocationMode.NoCheck;
+                     options.ValidateCertificateUse = false;
+                     options.ValidateValidityPeriod = false;
+                 },
+                 default
+                 )
+            .ConfigureCertificateLoaderOptions((options) =>
+                {
+                    options.CertificateRoot = System.AppContext.BaseDirectory;
+                }
+            );
 
-        var authenticationBuilder = builder.Services.AddAuthentication();
-        authenticationBuilder
-           .AddCertificate(options =>
-           {
-               // this sample uses the SelfSigned certificates.
-               options.AllowedCertificateTypes = CertificateTypes.SelfSigned;
-               options.RevocationMode = X509RevocationMode.NoCheck;
-               options.ValidateCertificateUse = false;
-               options.ValidateValidityPeriod = false;
-
-               options.Events = new CertificateAuthenticationEvents
+        if (useAuthenticationProvider)
+        {
+            var authenticationBuilder = builder.Services.AddAuthentication();
+            authenticationBuilder
+               .AddCertificate(options =>
                {
-                   OnCertificateValidated = context =>
-                   {
-                       if (context.ClientCertificate != null)
-                       {
-                           context.Success();
-                       }
-                       else
-                       {
-                           context.NoResult();
-                       }
-                       return Task.CompletedTask;
-                   }
-               };
+                   // this sample uses the SelfSigned certificates.
+                   options.AllowedCertificateTypes = CertificateTypes.All;
+                   options.RevocationMode = X509RevocationMode.NoCheck;
+                   options.ValidateCertificateUse = false;
+                   options.ValidateValidityPeriod = false;
 
-           });
+                   options.Events = new CertificateAuthenticationEvents
+                   {
+                       OnCertificateValidated = context =>
+                       {
+                           if (context.ClientCertificate != null)
+                           {
+                               context.Success();
+                           }
+                           else
+                           {
+                               context.NoResult();
+                           }
+                           return Task.CompletedTask;
+                       }
+                   };
+
+               });
+        }
 
         // this sample uses the SelfSigned certificates so disable the some check.
+        /*
         builder.WebHost.ConfigureKestrel(kestrelServerOptions =>
         {
             kestrelServerOptions.ConfigureEndpointDefaults(listenOptions =>
@@ -102,21 +119,17 @@ public class Program
                 return sslPolicyErrors == SslPolicyErrors.None || sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors;
             };
         }
-
-        reverseProxyBuilder
-            .ConfigureTunnelAuthenticationCertificateOptions(
-                 (tunnelAuthenticationCertificateOptions) =>
-                 {
-                     tunnelAuthenticationCertificateOptions.IgnoreSslPolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
-                 });
-
+        */
 
         var app = builder.Build();
 
         app.UseHttpsRedirection();
 
-        app.UseAuthentication();
-        app.UseAuthorization();
+        if (useAuthenticationProvider)
+        {
+            app.UseAuthentication();
+            app.UseAuthorization();
+        }
 
         app.MapReverseProxy();
 

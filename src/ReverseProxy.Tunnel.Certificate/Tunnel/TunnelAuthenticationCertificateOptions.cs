@@ -8,6 +8,8 @@ using System.Threading;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authentication.Certificate;
+using Microsoft.AspNetCore.Server.Kestrel.Https;
+using System.Security.Authentication;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
@@ -15,7 +17,33 @@ public sealed class TunnelAuthenticationCertificateOptions
 {
     public const string SectionName = "TunnelAuthenticationCertificate";
 
+    /// <summary>
+    /// Ignore the SSL policy errors.
+    /// </summary>
     public SslPolicyErrors IgnoreSslPolicyErrors { get; set; }
+
+    /// <summary>
+    /// Specifies the callback method to validate the certificate;
+    /// </summary>
+    public Func<X509Certificate2, X509Chain?, SslPolicyErrors, bool, bool>? CustomValidation { get; set; }
+
+
+    //
+    // Summary:
+    //     Specifies whether the certificate revocation list is checked during authentication.
+    public bool? CheckCertificateRevocation { get; set; }
+
+    //
+    // Summary:
+    //     Specifies allowable SSL protocols. Defaults to System.Security.Authentication.SslProtocols.None
+    //     which allows the operating system to choose the best protocol to use, and to
+    //     block protocols that are not secure. Unless your app has a specific reason not
+    //     to, you should use this default.
+
+    public SslProtocols? SslProtocols { get; set; }
+
+    public Action<HttpsConnectionAdapterOptions>? ConfigureHttpsConnectionAdapterOptions { get; set; }
+
 
     /// <summary>
     /// Using Microsoft.AspNetCore.Authentication.Certificate
@@ -89,11 +117,11 @@ public sealed class TunnelAuthenticationCertificateOptions
     /// </value>
     public X509RevocationMode RevocationMode { get; set; } = X509RevocationMode.Online;
 
-    /// <summary>
-    ///
-    /// </summary>
-    public Func<X509Certificate2, X509Chain?, SslPolicyErrors, bool, bool>? IsCertificateValid { get; set; }
 
+    /// <summary>
+    /// Binds the configuration to the options.
+    /// </summary>
+    /// <param name="configuration">the source configuration</param>
     public void Bind(IConfiguration configuration)
     {
         if (System.Enum.TryParse<SslPolicyErrors>(configuration[nameof(IgnoreSslPolicyErrors)], out var valueIgnoreSslPolicyErrors))

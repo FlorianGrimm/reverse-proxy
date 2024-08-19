@@ -10,10 +10,8 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Utilities;
 
-public sealed class CertificateConfigOptions
+public sealed class CertificateLoaderOptions
 {
-    public const string SectionName = "CertificateConfig";
-
     public string? CertificateRoot { get; set; }
 
     public Func<CertificateConfig, string?>? CertificatePassword { get; set; }

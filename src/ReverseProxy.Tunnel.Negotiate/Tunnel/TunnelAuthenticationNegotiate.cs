@@ -139,7 +139,7 @@ internal sealed class TunnelAuthenticationNegotiate
             )
         {
             Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, AuthenticationName, identityName);
-            return return ValueTask.FromResult<IResult?>(default);
+            return ValueTask.FromResult<IResult?>(default);
         }
         else
         {

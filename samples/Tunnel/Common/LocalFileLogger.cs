@@ -476,6 +476,9 @@ namespace Brimborium.Extensions.Logging.LocalFile
                     }
                 }
             }
+            catch (System.OperationCanceledException)
+            {
+            }
             catch (Exception error)
             {
                 System.Console.Error.WriteLine(error.ToString());
@@ -561,6 +564,19 @@ namespace Brimborium.Extensions.Logging.LocalFile
                         : _stopTokenSource.Token))
                     {
                         Interlocked.Increment(ref _messagesDropped);
+                    }
+                    else
+                    {
+                        try
+                        {
+                            if (0 == _semaphoreProcessMessageQueueIdle.CurrentCount)
+                            {
+                                _semaphoreProcessMessageQueueIdle.Release();
+                            }
+                        }
+                        catch
+                        {
+                        }
                     }
                 }
                 catch

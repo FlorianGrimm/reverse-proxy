@@ -17,28 +17,61 @@ using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
 using Yarp.ReverseProxy.Tunnel;
+using Microsoft.Extensions.Options;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
 public static class TunnelExtensions
 {
+
+
     /// <summary>
     /// Adds the services required for tunneling.
     /// </summary>
-    /// <param name="services">this</param>
+    /// <param name="builder">this</param>
+    /// <param name="configure">Optional configuration delegate</param>
+    /// <param name="configuration">Optional configuration</param>
     /// <returns>fluent this</returns>
-    public static IServiceCollection AddTunnelServicesCertificate(
-        this IServiceCollection services
+    public static IReverseProxyBuilder AddTunnelServicesCertificate(
+        this IReverseProxyBuilder builder,
+        Action<TunnelAuthenticationCertificateOptions>? configure = default,
+        IConfiguration? configuration = default
         )
     {
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationCertificate>());
-        services.TryAddSingleton<CertificatePathWatcher>();
-        services.TryAddSingleton<ICertificateConfigLoader, CertificateConfigLoader>();
+        var services = builder.Services;
 
-        services.AddOptions<CertificateConfigOptions>()
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationCertificate>());
+
+        var optionsBuilder = services.AddOptions<TunnelAuthenticationCertificateOptions>();
+        if (configuration is { })
+        {
+            optionsBuilder.Configure((options) =>
+            {
+                options.Bind(configuration.GetSection(TunnelAuthenticationCertificateOptions.SectionName));
+            });
+        }
+        if (configure is { })
+        {
+            optionsBuilder.Configure(configure);
+        }
+
+        // CertificateLoader
+        services.TryAddSingleton<CertificatePathWatcher>();
+        services.TryAddSingleton<ICertificateLoader, CertificateLoader>();
+        services.AddOptions<CertificateLoaderOptions>()
             .PostConfigure<IHostEnvironment>(static (options, hostEnvironment) => options.PostConfigure(hostEnvironment));
 
-        return services;
+        // ClientCertificateValidationUtility
+        services.AddSingleton<ClientCertificateValidationUtility>();
+        services.AddOptions<ClientCertificateValidationOptions>()
+            .PostConfigure<IOptions<TunnelAuthenticationCertificateOptions>>(
+                (ClientCertificateValidationOptions options, IOptions<TunnelAuthenticationCertificateOptions> tunnelAuthenticationCertificateOptions) => {
+                    var source = tunnelAuthenticationCertificateOptions.Value;
+                    options.IgnoreSslPolicyErrors = source.IgnoreSslPolicyErrors;
+                    options.CustomValidation = source.CustomValidation;
+                });
+
+        return builder;
     }
 
     public static IReverseProxyBuilder ConfigureTunnelAuthenticationCertificateOptions(
@@ -47,19 +80,17 @@ public static class TunnelExtensions
         IConfiguration? configuration = default
         )
     {
+        var optionsBuilder = builder.Services.AddOptions<TunnelAuthenticationCertificateOptions>();
+        if (configuration is { })
         {
-            var optionsBuilder = builder.Services.AddOptions<TunnelAuthenticationCertificateOptions>();
-            if (configuration is { })
+            optionsBuilder.Configure((options) =>
             {
-                optionsBuilder.Configure((options) =>
-                {
-                    options.Bind(configuration.GetSection(TunnelAuthenticationCertificateOptions.SectionName));
-                });
-            }
-            if (configure is { })
-            {
-                optionsBuilder.Configure(configure);
-            }
+                options.Bind(configuration.GetSection(TunnelAuthenticationCertificateOptions.SectionName));
+            });
+        }
+        if (configure is { })
+        {
+            optionsBuilder.Configure(configure);
         }
 
         return builder;

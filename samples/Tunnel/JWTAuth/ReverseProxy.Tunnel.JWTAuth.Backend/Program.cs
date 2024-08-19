@@ -1,15 +1,7 @@
-
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.DependencyInjection.Extensions;
-
-using Yarp.ReverseProxy.Transport;
-
 namespace ReverseProxy.Tunnel.Backend;
 
 public class Program
 {
-#warning TODO move the  AddTunnelTransportAuthenticationJwtBearer to its library.
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -19,8 +11,8 @@ public class Program
         var reverseProxyBuilder = builder.Services.AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
             .AddTunnelTransport(
-                configureTunnelHttp2: options => { options.MaxConnectionCount = 10; },
-                configureTunnelWebSocket: options => { options.MaxConnectionCount = 10; }
+                configureTunnelHttp2: options => { options.MaxConnectionCount = 1; },
+                configureTunnelWebSocket: options => { options.MaxConnectionCount = 1; }
             ) /* for the servers that starts the tunnel transport connections */
             .AddTunnelTransportAuthenticationJwtBearer()
             ;

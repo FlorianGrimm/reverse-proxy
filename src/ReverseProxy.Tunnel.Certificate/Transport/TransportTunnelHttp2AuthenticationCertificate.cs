@@ -6,11 +6,13 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Security;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 
 using Yarp.ReverseProxy.Model;
@@ -22,7 +24,9 @@ internal sealed class TransportTunnelHttp2AuthenticationCertificate
     : ITransportTunnelHttp2Authentication
     , IDisposable
 {
-    private readonly ICertificateConfigLoader _certificateConfigLoader;
+    private readonly TransportTunnelAuthenticationCertificateOptions _options;
+    private readonly RemoteCertificateValidationUtility _remoteCertificateValidation;
+    private readonly ICertificateLoader _certificateConfigLoader;
     private readonly CertificatePathWatcher _certificatePathWatcher;
     private readonly ILogger<TransportTunnelHttp2AuthenticationCertificate> _logger;
 
@@ -30,17 +34,20 @@ internal sealed class TransportTunnelHttp2AuthenticationCertificate
     private IDisposable? _unregisterCertificatePathWatcher;
 
     public TransportTunnelHttp2AuthenticationCertificate(
-        ICertificateConfigLoader certificateConfigLoader,
+        IOptions<TransportTunnelAuthenticationCertificateOptions> options,
+        RemoteCertificateValidationUtility remoteCertificateValidationUtility,
+        ICertificateLoader certificateConfigLoader,
         CertificatePathWatcher certificatePathWatcher,
         ILogger<TransportTunnelHttp2AuthenticationCertificate> logger
         )
     {
+        _options = options.Value;
+        _remoteCertificateValidation = remoteCertificateValidationUtility;
         _certificateConfigLoader = certificateConfigLoader;
         _certificatePathWatcher = certificatePathWatcher;
         _logger = logger;
 
         _clientCertifiacteCollectionByTunnelId = new ConcurrentDictionary<string, X509CertificateCollection>(StringComparer.OrdinalIgnoreCase);
-
         _unregisterCertificatePathWatcher = ChangeToken.OnChange(
             _certificatePathWatcher.GetChangeToken,
             () => ReloadCertificate()
@@ -148,23 +155,22 @@ internal sealed class TransportTunnelHttp2AuthenticationCertificate
                     sslClientCertificates.AddRange(srcClientCertifiacteCollection);
                 }
             }
+            socketsHttpHandler.SslOptions.TargetHost = config.Url;
+            if (_options.ConfigureSslOptions is { } configureSslOptions)
+            {
+                configureSslOptions(socketsHttpHandler.SslOptions);
+            }
             if (socketsHttpHandler.SslOptions.ClientCertificates is { Count: > 0 } clientCertificates)
             {
-                socketsHttpHandler.SslOptions.TargetHost = config.Url;
-                socketsHttpHandler.SslOptions.CertificateRevocationCheckMode = X509RevocationMode.NoCheck;
                 if (socketsHttpHandler.SslOptions.EnabledSslProtocols == System.Security.Authentication.SslProtocols.None)
                 {
                     socketsHttpHandler.SslOptions.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
                 }
-                socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback = (sender, host, localCertificates, remoteCertificate, acceptableIssuers) =>
-                {
-                    return clientCertificates[0];
-                };
-                socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback = (sender, certificate, chain, error) =>
-                {
-                    _logger.LogInformation("RemoteCertificateValidation: {issuer} {error}", certificate?.Issuer, error);
-                    return true;
-                };
+                //socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback = (sender, host, localCertificates, remoteCertificate, acceptableIssuers) =>
+                //{
+                //    return clientCertificates[0];
+                //};
+                socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback = _remoteCertificateValidation.RemoteCertificateValidationCallback;
             }
 
             //

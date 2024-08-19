@@ -40,9 +40,6 @@ You need the Application ID URI. It should be in the format `api://{ClientId}`.
 #endif
 
 using Yarp.ReverseProxy.Tunnel;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace ReverseProxy.Tunnel.Frontend;
 

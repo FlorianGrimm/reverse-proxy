@@ -26,6 +26,8 @@ using Yarp.ReverseProxy.Utilities;
 
 using Microsoft.AspNetCore.Authentication.Certificate;
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Hosting;
+using System.Security.Principal;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
@@ -53,11 +55,11 @@ internal sealed class TunnelAuthenticationCertificate
     public const string AuthenticationScheme = "Certificate";
     public const string AuthenticationName = "ClientCertificate";
     public const string CookieName = "YarpTunnelAuth";
-
+    private readonly ClientCertificateValidationUtility _clientCertificateValidationUtility;
     private readonly TunnelAuthenticationCertificateOptions _options;
     private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
     private readonly ITunnelAuthenticationCookieService _cookieService;
-    private readonly ICertificateConfigLoader _certificateConfigLoader;
+    private readonly ICertificateLoader _certificateConfigLoader;
     private readonly CertificatePathWatcher _certificatePathWatcher;
     private readonly ILogger _logger;
     private IDisposable? _unregisterCertificatePathWatcher;
@@ -67,18 +69,22 @@ internal sealed class TunnelAuthenticationCertificate
     public TunnelAuthenticationCertificate(
         IOptions<TunnelAuthenticationCertificateOptions> options,
         ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
+        ClientCertificateValidationUtility clientCertificateValidationUtility,
         ITunnelAuthenticationCookieService cookieService,
-        ICertificateConfigLoader certificateConfigLoader,
+        ICertificateLoader certificateConfigLoader,
         CertificatePathWatcher certificatePathWatcher,
         ILogger<TunnelAuthenticationCertificate> logger
         )
     {
         _options = options.Value;
         _proxyConfigManagerLazy = proxyConfigManagerLazy;
+        _clientCertificateValidationUtility = clientCertificateValidationUtility;
         _cookieService = cookieService;
         _certificateConfigLoader = certificateConfigLoader;
         _certificatePathWatcher = certificatePathWatcher;
         _logger = logger;
+
+
 
         _unregisterCertificatePathWatcher = ChangeToken.OnChange(
             _certificatePathWatcher.GetChangeToken,
@@ -92,14 +98,30 @@ internal sealed class TunnelAuthenticationCertificate
     {
         kestrelServerOptions.ConfigureHttpsDefaults((HttpsConnectionAdapterOptions httpsOptions) =>
         {
-            ConfigureHttpsDefaults(httpsOptions);
+            ConfigureHttpsConnectionAdapterOptions(httpsOptions);
+        });
+        kestrelServerOptions.ConfigureEndpointDefaults((ListenOptions listenOptions) =>
+        {
+            listenOptions.UseHttps(ConfigureHttpsConnectionAdapterOptions);
         });
     }
 
-    internal void ConfigureHttpsDefaults(HttpsConnectionAdapterOptions httpsOptions)
+    internal void ConfigureHttpsConnectionAdapterOptions(HttpsConnectionAdapterOptions httpsOptions)
     {
         httpsOptions.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
-        httpsOptions.ClientCertificateValidation = ClientCertificateValidation;
+        httpsOptions.ClientCertificateValidation = _clientCertificateValidationUtility.ClientCertificateValidationCallback;
+        if (_options.CheckCertificateRevocation.HasValue)
+        {
+            httpsOptions.CheckCertificateRevocation = _options.CheckCertificateRevocation.Value;
+        }
+        if (_options.SslProtocols.HasValue)
+        {
+            httpsOptions.SslProtocols = _options.SslProtocols.Value;
+        }
+        if (_options.ConfigureHttpsConnectionAdapterOptions is { } configure)
+        {
+            configure(httpsOptions);
+        }
     }
 
     public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
@@ -142,7 +164,6 @@ internal sealed class TunnelAuthenticationCertificate
         await context.Response.CompleteAsync();
     }
 
-
     public void OnClusterAdded(ClusterState cluster)
     {
         ClearCertificateCache();
@@ -156,69 +177,6 @@ internal sealed class TunnelAuthenticationCertificate
     public void OnClusterRemoved(ClusterState cluster)
     {
         ClearCertificateCache();
-    }
-
-    private bool ClientCertificateValidation(X509Certificate2 certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
-    {
-        // REVIEW: is this good engough? 
-        var result = (sslPolicyErrors == SslPolicyErrors.None);
-        if (!result)
-        {
-            result = ((sslPolicyErrors & ~_options.IgnoreSslPolicyErrors) == SslPolicyErrors.None);
-        }
-
-        var validCertificatesByCluster = _validCertificatesByCluster;
-        var validCertificatesByThumbprint = _validCertificatesByThumbprint;
-        // ensure the certificates are loaded
-        if (validCertificatesByThumbprint is null)
-        {
-            lock (this)
-            {
-                validCertificatesByCluster = _validCertificatesByCluster;
-                validCertificatesByThumbprint = _validCertificatesByThumbprint;
-                if (validCertificatesByThumbprint is null)
-                {
-                    (validCertificatesByThumbprint, validCertificatesByCluster) = LoadCertificates();
-                }
-            }
-        }
-
-        // trouble loading?
-        if (validCertificatesByThumbprint is null)
-        {
-            _logger.LogInformation("validCertificatesByThumbprint is null");
-            result = false;
-        }
-        // is their a config for the cert?
-        else if (!validCertificatesByThumbprint.TryGetValue(certificate.Thumbprint, out var foundCertificate))
-        {
-            _logger.LogInformation("validCertificatesByThumbprint:{Thumbprint} is invalid.", certificate.Thumbprint.ToString());
-            result = false;
-        }
-        else
-        {
-            if (result)
-            {
-                // is the thumbprint matches this checks for SerialNumber
-                result = foundCertificate.Equals(certificate);
-                if (!result)
-                {
-                    _logger.LogInformation("found Certificate:{foundThumbprint} not the configered. {configeredThumbprint}", foundCertificate.Thumbprint.ToString(), certificate.Thumbprint.ToString());
-                }
-            }
-        }
-
-        if (_options.IsCertificateValid is { } isCertificateValid)
-        {
-            result = isCertificateValid(certificate, chain, sslPolicyErrors, result);
-            _logger.LogInformation("Custom IsCertificateValid {result}", result);
-            return result;
-        }
-        else
-        {
-            _logger.LogInformation("ClientCertificateValidation {result}", result);
-            return result;
-        }
     }
 
     private (ImmutableDictionary<string, X509Certificate2> validCertificatesByThumbprint, ImmutableDictionary<string, X509Certificate2> validCertificatesByCluster) LoadCertificates()
@@ -320,7 +278,51 @@ internal sealed class TunnelAuthenticationCertificate
             return false;
         }
 
-        return ValidateCertificateAsync(clientCertificate);
+        if (!ValidateCertificateAsync(clientCertificate))
+        {
+            return false;
+        }
+
+
+        // ensure the certificates are loaded
+        var validCertificatesByCluster = _validCertificatesByCluster;
+        var validCertificatesByThumbprint = _validCertificatesByThumbprint;
+        if (validCertificatesByThumbprint is null)
+        {
+            lock (this)
+            {
+                validCertificatesByCluster = _validCertificatesByCluster;
+                validCertificatesByThumbprint = _validCertificatesByThumbprint;
+                if (validCertificatesByThumbprint is null)
+                {
+                    (validCertificatesByThumbprint, validCertificatesByCluster) = LoadCertificates();
+                }
+            }
+        }
+
+        if (validCertificatesByCluster is null)
+        {
+            _logger.LogWarning("validCertificatesByCluster is null.");
+            return false;
+        }
+
+        if (!validCertificatesByCluster.TryGetValue(cluster.ClusterId, out var certificate))
+        {
+            _logger.LogWarning("validCertificatesByCluster {ClusterId} not found.", cluster.ClusterId);
+            return false;
+        }
+
+        var result = string.Equals(certificate.Thumbprint, clientCertificate.Thumbprint, System.StringComparison.Ordinal);
+        if (result)
+        {
+            Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, AuthenticationName, certificate.Subject);
+            return true;
+        }
+        else
+        {
+            Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, certificate.Subject);
+            return false;
+        }
     }
 
     private bool ValidateCertificateAsync(X509Certificate2 clientCertificate)
