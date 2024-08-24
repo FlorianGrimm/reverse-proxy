@@ -42,19 +42,20 @@ internal sealed class TunnelDuplexHttpStream
 
     public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
 
-    public override Task FlushAsync(CancellationToken cancellationToken)
+    public override async Task FlushAsync(CancellationToken cancellationToken)
     {
-        return Task.CompletedTask;
+        await ResponseBody.FlushAsync(cancellationToken);
     }
 
-    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+    public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
     {
-        return ResponseBody.WriteAsync(buffer, cancellationToken);
+        await ResponseBody.WriteAsync(buffer, cancellationToken);
     }
 
-    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
-        return RequestBody.ReadAsync(buffer, cancellationToken);
+        var result = await RequestBody.ReadAsync(buffer, cancellationToken);
+        return result;
     }
 
     public object? GetResult(short token)

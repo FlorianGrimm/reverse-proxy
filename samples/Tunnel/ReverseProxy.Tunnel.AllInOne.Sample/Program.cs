@@ -47,15 +47,15 @@ namespace SampleServer;
     ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" h2ws-w test measure stop
     ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" h2-c test measure stop
 
-    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" h2ws-w browser-windows test 
-    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" h2ws-w browser-windows test measure stop
+    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" h2ws-w browser-negotiate test 
+    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" h2ws-w browser-negotiate test measure stop
 
     h2-a|h2-c|h2-w|h2ws-a|h2ws-w|ws-a|ws-c|ws-w]
-    browser-windows
+    browser-negotiate
     browser-oauth
 #endif
 
-internal class Program
+internal partial class Program
 {
 
     private static ModeAppSettings _modeAppSettings = ModeAppSettings.H2Anonymous;
@@ -67,17 +67,17 @@ internal class Program
     {
         if (args.Length == 0)
         {
-            System.Console.Out.WriteLine("Syntax: [h2-a|h2-c|h2-j|h2-w|h2ws-a|h2ws-w|ws-a|ws-c|ws-w] [browser-anonymous|browser-windows|browser-oauth] [1][2][3][4][5][6] [test] [measure] [stop]");
+            System.Console.Out.WriteLine("Syntax: [h2-anonymous|h2-certificate|h2-jwtbaerer|h2-negotiate|h2ws-anonymous|h2ws-negotiate|ws-anonymous|ws-certificate|ws-negotiate] [browser-anonymous|browser-negotiate|browser-oauth] [none][1][2][3][4][5][6] [test] [measure] [stop]");
             System.Console.Out.WriteLine("Tunnel protocol-authentication");
             System.Console.Out.WriteLine("  h2-: HTTP/2");
             System.Console.Out.WriteLine("  ws-: WebSocket");
-            System.Console.Out.WriteLine("  -a: Anonymous");
-            System.Console.Out.WriteLine("  -c: Client Certificate authentication");
-            System.Console.Out.WriteLine("  -w: Windows authentication");
-            System.Console.Out.WriteLine("  -j: JwtBaerer");
+            System.Console.Out.WriteLine("  -anonymous: Anonymous");
+            System.Console.Out.WriteLine("  -certificate: Client Certificate authentication");
+            System.Console.Out.WriteLine("  -negotiate: Windows authentication");
+            System.Console.Out.WriteLine("  -jwtbaerer: JwtBaerer");
             System.Console.Out.WriteLine("Browser Authentication:");
             System.Console.Out.WriteLine("browser-anonymous: browser wants no auth");
-            System.Console.Out.WriteLine("browser-windows: browser wants windows auth");
+            System.Console.Out.WriteLine("browser-negotiate: browser wants windows auth");
             System.Console.Out.WriteLine("[1][2][3][4][5][6] which server to start none specified means all");
             System.Console.Out.WriteLine("test:     do some tests");
             System.Console.Out.WriteLine("measure: do some request and measure the time");
@@ -86,25 +86,25 @@ internal class Program
 
         var hsArgs = args.ToHashSet();
         var appsettingsFolder = ParseArgs(hsArgs);
-        var (s1, s2, s3, s4, s5, s6) = (hsArgs.Remove("1"), hsArgs.Remove("2"), hsArgs.Remove("3"), hsArgs.Remove("4"), hsArgs.Remove("5"), hsArgs.Remove("6"));
-        var (test, measure, wait) = (hsArgs.Remove("test"), hsArgs.Remove("measure"), !hsArgs.Remove("stop"));
+        var (sNone, s1, s2, s3, s4, s5, s6) = (hsArgs.Remove("none"), hsArgs.Remove("1"), hsArgs.Remove("2"), hsArgs.Remove("3"), hsArgs.Remove("4"), hsArgs.Remove("5"), hsArgs.Remove("6"));
+        var (test, measure, wait) = (hsArgs.Remove("test"), hsArgs.Remove("measure"), !hsArgs.Remove("stop") || hsArgs.Remove("wait"));
 
         if (0 < hsArgs.Count)
         {
             System.Console.WriteLine($"Unknown args {string.Join(" ", hsArgs)}");
             return 1;
         }
+
+        List<WebApplication> listWebApplication = [];
         try
         {
             Console.Out.WriteLine("Starting Servers");
             Thread.CurrentThread.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(1033);
             Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(1033);
 
-            List<WebApplication> listWebApplication = [];
-
             Task taskRunServer;
             {
-                var allServers = !s1 && !s2 && !s3 && !s4 && !s5 && !s6;
+                var allServers = sNone ? false : (!s1 && !s2 && !s3 && !s4 && !s5 && !s6);
 
                 if (allServers || s5) { listWebApplication.Add(ServerAPI(args, appsettingsFolder, "appsettings.server5API.json")); }
                 if (allServers || s6) { listWebApplication.Add(ServerAPI(args, appsettingsFolder, "appsettings.server6API.json")); }
@@ -153,15 +153,18 @@ internal class Program
                 System.Console.Error.WriteLine("Hit CTRL-C to exit.");
                 await taskRunServer;
             }
-            foreach (var app in listWebApplication)
-            {
-                await app.Services.GetRequiredService<Brimborium.Extensions.Logging.LocalFile.LocalFileLoggerProvider>().FlushAsync(CancellationToken.None);
-            }
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine(ex.ToString());
             return 1;
+        }
+        finally
+        {
+            foreach (var app in listWebApplication)
+            {
+                await app.Services.GetRequiredService<Brimborium.Extensions.Logging.LocalFile.LocalFileLoggerProvider>().FlushAsync(CancellationToken.None);
+            }
         }
         return 0;
     }
@@ -171,36 +174,38 @@ internal class Program
         // tunnel 
         {
             var (
-                h2_a, h2_c, h2_w, h2_j,
-                h2ws_a, h2ws_w,
-                ws_a, ws_c, ws_w) = (
-                hsArgs.Remove("h2-a"), hsArgs.Remove("h2-c"), hsArgs.Remove("h2-w"), hsArgs.Remove("h2-j"),
-                hsArgs.Remove("h2ws-a"), hsArgs.Remove("h2ws-w"),
-                hsArgs.Remove("ws-a"), hsArgs.Remove("ws-c"), hsArgs.Remove("ws-w"));
+                h2_anonymous, h2_certificate, h2_negotiate, h2_jwtbaerer,
+                h2ws_anonymous, h2ws_negotiate,
+                ws_anonymous, ws_certificate, ws_negotiate) = (
+                hsArgs.Remove("h2-anonymous"), hsArgs.Remove("h2-certificate"), hsArgs.Remove("h2-negotiate"), hsArgs.Remove("h2-jwtbaerer"),
+                hsArgs.Remove("h2ws-anonymous"), hsArgs.Remove("h2ws-negotiate"),
+                hsArgs.Remove("ws-anonymous"), hsArgs.Remove("ws-certificate"), hsArgs.Remove("ws-negotiate"));
 
-            if (h2_a) { _modeAppSettings = ModeAppSettings.H2Anonymous; }
-            else if (h2_c) { _modeAppSettings = ModeAppSettings.H2Certificate; }
-            else if (h2_w) { _modeAppSettings = ModeAppSettings.H2Windows; }
-            else if (h2_j) { _modeAppSettings = ModeAppSettings.H2JwtBaerer; }
+            if (h2_anonymous) { _modeAppSettings = ModeAppSettings.H2Anonymous; }
+            else if (h2_certificate) { _modeAppSettings = ModeAppSettings.H2Certificate; }
+            else if (h2_negotiate) { _modeAppSettings = ModeAppSettings.H2Negotiate; }
+            else if (h2_jwtbaerer) { _modeAppSettings = ModeAppSettings.H2JwtBaerer; }
 
-            else if (h2ws_a) { _modeAppSettings = ModeAppSettings.H2WSAnonymous; }
-            else if (h2ws_w) { _modeAppSettings = ModeAppSettings.H2WSWindows; }
+            else if (h2ws_anonymous) { _modeAppSettings = ModeAppSettings.H2WSAnonymous; }
+            else if (h2ws_negotiate) { _modeAppSettings = ModeAppSettings.H2WSNegotiate; }
 
-            else if (ws_a) { _modeAppSettings = ModeAppSettings.WSAnonymous; }
-            else if (ws_c) { _modeAppSettings = ModeAppSettings.WSCertificate; }
-            else if (ws_w) { _modeAppSettings = ModeAppSettings.WSWindows; }
+            else if (ws_anonymous) { _modeAppSettings = ModeAppSettings.WSAnonymous; }
+            else if (ws_certificate) { _modeAppSettings = ModeAppSettings.WSCertificate; }
+            else if (ws_negotiate) { _modeAppSettings = ModeAppSettings.WSNegotiate; }
 
-            else { _modeAppSettings = ModeAppSettings.H2Anonymous; }
+            else {
+                throw new InvalidOperationException("no valid mode");
+            }
         }
 
         // browser authentication
         {
-            var browserWindows = hsArgs.Remove("browser-windows");
+            var browserWindows = hsArgs.Remove("browser-negotiate");
             var browserAnonymous = hsArgs.Remove("browser-anonymous");
 
             if (browserWindows)
             {
-                _browserAuthentication = BrowserAuthentication.Windows;
+                _browserAuthentication = BrowserAuthentication.Negotiate;
             }
             else if (browserAnonymous)
             {
@@ -228,10 +233,10 @@ internal class Program
                 _modeTunnelAuthentication = TunnelAuthentication.AuthenticationCertificate;
                 enableTunnelH2 = true;
             }
-            else if (_modeAppSettings == ModeAppSettings.H2Windows)
+            else if (_modeAppSettings == ModeAppSettings.H2Negotiate)
             {
-                appsettingsFolder = "appsettings-H2-Windows";
-                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationWindows;
+                appsettingsFolder = "appsettings-H2-Negotiate";
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationNegotiate;
                 enableTunnelH2 = true;
             }
             else if (_modeAppSettings == ModeAppSettings.H2JwtBaerer)
@@ -247,10 +252,10 @@ internal class Program
                 enableTunnelH2 = true;
                 enableTunnelWS = true;
             }
-            else if (_modeAppSettings == ModeAppSettings.H2WSWindows)
+            else if (_modeAppSettings == ModeAppSettings.H2WSNegotiate)
             {
-                appsettingsFolder = "appsettings-H2WS-Windows";
-                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationWindows;
+                appsettingsFolder = "appsettings-H2WS-Negotiate";
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationNegotiate;
                 enableTunnelH2 = true;
                 enableTunnelWS = true;
             }
@@ -266,10 +271,10 @@ internal class Program
                 _modeTunnelAuthentication = TunnelAuthentication.AuthenticationCertificate;
                 enableTunnelWS = true;
             }
-            else if (_modeAppSettings == ModeAppSettings.WSWindows)
+            else if (_modeAppSettings == ModeAppSettings.WSNegotiate)
             {
-                appsettingsFolder = "appsettings-WS-Windows";
-                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationWindows;
+                appsettingsFolder = "appsettings-WS-Negotiate";
+                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationNegotiate;
                 enableTunnelWS = true;
             }
             else
@@ -293,437 +298,6 @@ internal class Program
         appsettingsFolder = System.IO.Path.Combine(System.AppContext.BaseDirectory, appsettingsFolder);
         System.Console.WriteLine(appsettingsFolder);
         return appsettingsFolder;
-    }
-
-    private static WebApplication ServerFrontend(string[] args, string appsettingsFolder, string appsettingsPath)
-    {
-        ILogger? logger = default;
-        try
-        {
-            var appsettingsFullName = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
-
-
-            var builder = WebApplication.CreateBuilder(args);
-            builder.Configuration.AddJsonFile(appsettingsFullName, false, true);
-            builder.Configuration.AddUserSecrets("ReverseProxy");
-
-            builder.Logging.ClearProviders();
-            builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
-            builder.Services.AddOptions<LocalFileLoggerOptions>().Configure(options =>
-            {
-                options.LogDirectory = System.IO.Path.Combine(System.AppContext.BaseDirectory, "LogFiles");
-            });
-
-            builder.Services.AddAuthorization()
-                .AddRouting()
-                .AddEndpointsApiExplorer();
-
-            builder.Services.AddControllers()
-                .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
-
-            var reverseProxyBuilder = builder.Services.AddReverseProxy()
-                .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-                .AddTunnelServices(
-                    new TunnelServicesOptions()
-                    {
-                        TunnelHTTP2 = enableTunnelH2,
-                        TunnelWebSocket = enableTunnelWS
-                    }
-                ) // enable tunnel listener
-                .ConfigureCertificateLoaderOptions(options =>
-                {
-                    options.CertificateRoot = System.AppContext.BaseDirectory;
-                });
-
-            var authenticationBuilder = builder.Services.AddAuthentication(
-                (AuthenticationOptions options) =>
-                {
-                    if (_browserAuthentication == BrowserAuthentication.Windows)
-                    {
-                        options.DefaultScheme = NegotiateDefaults.AuthenticationScheme;
-                    }
-                });
-
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificateAuthProvider)
-            {
-                authenticationBuilder
-                   .AddCertificate(options =>
-                   {
-                       // this sample uses the SelfSigned certificates.
-                       options.AllowedCertificateTypes = CertificateTypes.SelfSigned;
-                       options.RevocationMode = X509RevocationMode.NoCheck;
-                       options.ValidateCertificateUse = false;
-                       options.ValidateValidityPeriod = false;
-
-                       // this allows other authenticationSchema to be used
-                       options.Events = new CertificateAuthenticationEvents
-                       {
-                           OnCertificateValidated = context =>
-                           {
-                               if (context.ClientCertificate != null)
-                               {
-                                   context.Success();
-                               }
-                               else
-                               {
-                                   context.NoResult();
-                               }
-                               return Task.CompletedTask;
-                           }
-                       };
-                   });
-
-                reverseProxyBuilder
-                    .AddTunnelServicesCertificate(
-                         (options) =>
-                         {
-                             options.SourceAuthenticationProvider = true;
-                             options.CheckCertificateRevocation = false;
-                             options.RevocationMode = X509RevocationMode.NoCheck;
-                             options.RevocationFlag = X509RevocationFlag.ExcludeRoot;
-                             options.IgnoreSslPolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
-                         });
-            }
-
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificateAuthProvider)
-            {
-                reverseProxyBuilder
-                    .AddTunnelServicesCertificate(
-                         (options) =>
-                         {
-                             options.SourceRequest = true;
-                             options.CheckCertificateRevocation = false;
-                             options.RevocationMode = X509RevocationMode.NoCheck;
-                             options.RevocationFlag = X509RevocationFlag.ExcludeRoot;
-                             options.IgnoreSslPolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
-                         });
-            }
-
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationJwtBearer)
-            {
-                reverseProxyBuilder.AddTunnelAuthenticationJwtBearer(
-                    builder.Configuration.GetRequiredSection("AzureAd")); // add custom JWT bearer authentication
-            }
-
-            if ((_browserAuthentication == BrowserAuthentication.Windows)
-                || (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows)
-                )
-            {
-                authenticationBuilder.AddNegotiate(options =>
-                {
-                    options.Events ??= new();
-                    options.Events.OnAuthenticationFailed = (AuthenticationFailedContext context) =>
-                    {
-                        return Task.CompletedTask;
-                    };
-                });
-            }
-
-            builder.Services.AddAuthorization(
-                (AuthorizationOptions options) =>
-                {
-                    if (_browserAuthentication == BrowserAuthentication.Windows)
-                    {
-                        options.AddPolicy("AuthenticatedUser", policy =>
-                        {
-                            policy.RequireAuthenticatedUser().AddAuthenticationSchemes(NegotiateDefaults.AuthenticationScheme);
-                        });
-                    }
-                });
-
-
-            var app = builder.Build();
-            app.Services.GetRequiredService<Brimborium.Extensions.Logging.LocalFile.LocalFileLoggerProvider>().HandleHostApplicationLifetime(app.Services.GetRequiredService<IHostApplicationLifetime>());
-            logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Program");
-            logger.LogInformation("start {args}", string.Join(" ", args));
-
-            // app.UseHttpsRedirection() will redirect if the request is a tunnel request;
-            // which means that the browser is redirected to https://{tunnelId}/... which is not what we want.
-            app.UseWhen(
-                static context => !context.TryGetTransportTunnelByUrl(out var _),
-                app => app.UseHttpsRedirection()
-            );
-
-            app.UseRouting();
-            app.UseAuthentication();
-            app.UseAuthorization();
-
-            app.MapReverseProxy();
-            app.UseWebSockets();
-            app.MapControllers();
-
-            {
-                // shows information about the client certificate
-                app.MapGet("/_CheckCert", async (context) =>
-                {
-                    var certificate = await context.Connection.GetClientCertificateAsync();
-                    if (certificate is null)
-                    {
-                        await context.Response.WriteAsync("no certificate!");
-                    }
-                    else
-                    {
-                        await context.Response.WriteAsync($"certificate:{certificate.FriendlyName}");
-                    }
-                });
-            }
-
-            {
-                var route = app.MapGet("/Frontend", (HttpContext context) =>
-                {
-                    var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
-                    return $"Frontend {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
-                });
-                if (_browserAuthentication == BrowserAuthentication.Windows)
-                {
-                    route.RequireAuthorization("AuthenticatedUser");
-                }
-            }
-
-            return app;
-        }
-        catch (System.Exception error)
-        {
-            logger?.LogError(error, nameof(ServerFrontend));
-            System.Console.Error.WriteLine(error.ToString());
-            throw;
-        }
-    }
-
-    private static WebApplication ServerBackend(string[] args, string appsettingsFolder, string appsettingsPath)
-    {
-        ILogger? logger = default;
-
-        try
-        {
-            var appsettingsFullName = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
-
-            var builder = WebApplication.CreateBuilder(args);
-
-            builder.Configuration.AddJsonFile(appsettingsFullName, false, true);
-            builder.Configuration.AddUserSecrets("ReverseProxy");
-            builder.Logging.ClearProviders();
-            builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
-            builder.Services.AddOptions<LocalFileLoggerOptions>().Configure(options =>
-            {
-                options.LogDirectory = System.IO.Path.Combine(System.AppContext.BaseDirectory, "LogFiles");
-            });
-
-            builder.Services.AddControllers()
-                .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
-
-            var authenticationBuilder = builder.Services.AddAuthentication(
-                (options) =>
-                {
-                    if (_browserAuthentication == BrowserAuthentication.Windows)
-                    {
-                        options.DefaultScheme = NegotiateDefaults.AuthenticationScheme;
-                    }
-                });
-#warning broken because of the split - TODO
-            var reverseProxyBuilder = builder.Services.AddReverseProxy()
-                .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-                .AddTunnelTransport(
-                    configureTunnelHttp2: options =>
-                    {
-                        options.MaxConnectionCount = 1;
-                        options.IsEnabled = enableTunnelH2;
-                        options.ConfigureSocketsHttpHandlerAsync = (transportTunnelConfig, socketsHttpHandler, transportTunnelHttp2Authentication) =>
-                        {
-                            socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback = (object sender, string targetHost, X509CertificateCollection localCertificates, X509Certificate? target, string[] acceptableIssuers) =>
-                            {
-                                return 0 < localCertificates.Count ? localCertificates[0] : null!;
-                            };
-                            socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback = (object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors) =>
-                            {
-                                var result = sslPolicyErrors == SslPolicyErrors.None || sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors;
-                                if (!result)
-                                {
-                                    return false;
-                                }
-                                return result;
-                            };
-                            return ValueTask.CompletedTask;
-                        };
-                    },
-                    configureTunnelWebSocket: options =>
-                    {
-                        options.MaxConnectionCount = 1;
-                        options.IsEnabled = enableTunnelWS;
-                        options.ConfigureClientWebSocket = (config, clientWebSocket, transportTunnelWebSocketAuthentication) =>
-                        {
-                            if (transportTunnelWebSocketAuthentication.GetAuthenticationName() == "ClientCertificate")
-                            {
-                                clientWebSocket.Options.RemoteCertificateValidationCallback = (object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors) =>
-                                {
-                                    var result = sslPolicyErrors == SslPolicyErrors.None || sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors;
-                                    if (!result)
-                                    {
-                                        return false;
-                                    }
-                                    return result;
-                                };
-                            }
-                        };
-                    }
-                );
-
-
-
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationAnonymous)
-            {
-                reverseProxyBuilder.AddTunnelTransportAnonymous();
-            }
-
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows)
-            {
-                reverseProxyBuilder.AddTunnelTransportNegotiate();
-                authenticationBuilder.AddNegotiate();
-            }
-            else if (_browserAuthentication == BrowserAuthentication.Windows)
-            {
-                authenticationBuilder.AddNegotiate();
-            }
-
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificateAuthProvider)
-            {
-                authenticationBuilder.AddCertificate(options =>
-                {
-                    options.AllowedCertificateTypes = CertificateTypes.SelfSigned;
-                    options.RevocationFlag = X509RevocationFlag.ExcludeRoot;
-                    options.RevocationMode = X509RevocationMode.NoCheck;
-                }).AddCertificateCache();
-
-                reverseProxyBuilder
-                   .AddTunnelTransportCertificate(
-                       (options) =>
-                       {
-                           options.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
-                       }
-                   )
-                   .ConfigureCertificateLoaderOptions(options =>
-                   {
-                       options.CertificateRoot = System.AppContext.BaseDirectory;
-                   });
-            }
-
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificateRequest)
-            {
-                reverseProxyBuilder
-                    .AddTunnelTransportCertificate(
-                        (options) =>
-                        {
-                            options.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
-                        }
-                    )
-                    .ConfigureCertificateLoaderOptions(options =>
-                    {
-                        options.CertificateRoot = System.AppContext.BaseDirectory;
-                    });
-            }
-
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationJwtBearer)
-            {
-                authenticationBuilder.AddJwtBearer();
-                reverseProxyBuilder.AddTunnelTransportAuthenticationJwtBearer();
-            }
-
-            var app = builder.Build();
-            app.Services.GetRequiredService<Brimborium.Extensions.Logging.LocalFile.LocalFileLoggerProvider>().HandleHostApplicationLifetime(app.Services.GetRequiredService<IHostApplicationLifetime>());
-            logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Program");
-            logger.LogInformation("start {args}", string.Join(" ", args));
-
-            // app.UseHttpsRedirection() will redirect if the request is a tunnel request;
-            // which means that the browser is redirected to https://{tunnelId}/... which is not what we want.
-            app.UseWhen(
-                static context => !context.TryGetTransportTunnelByUrl(out var _),
-                app => app.UseHttpsRedirection()
-            );
-
-            app.UseWebSockets();
-            app.MapControllers();
-
-            app.MapReverseProxy();
-
-            app.MapGet("/Backend", (HttpContext context) =>
-            {
-                var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
-                return $"Backend {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
-            });
-            return app;
-        }
-        catch (System.Exception error)
-        {
-            logger?.LogError(error, nameof(ServerBackend));
-            System.Console.Error.WriteLine(error.ToString());
-            throw;
-        }
-    }
-
-    private static WebApplication ServerAPI(string[] args, string appsettingsFolder, string appsettingsPath)
-    {
-        ILogger? logger = default;
-        try
-        {
-            var appsettingsFullName = System.IO.Path.Combine(appsettingsFolder, appsettingsPath);
-
-            var builder = WebApplication.CreateBuilder(args);
-
-            builder.Configuration.AddJsonFile(appsettingsFullName, false, true);
-            builder.Logging.ClearProviders();
-            builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
-            builder.Services.AddOptions<LocalFileLoggerOptions>().Configure(options =>
-            {
-                options.LogDirectory = System.IO.Path.Combine(System.AppContext.BaseDirectory, "LogFiles");
-            });
-
-            builder.Services.AddControllers()
-                .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
-
-            /*
-            Microsoft.AspNetCore.Authentication.AuthenticationBuilder authenticationBuilder;
-            if (browserAuthentication == BrowserAuthentication.Windows)
-            {
-                authenticationBuilder = builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme);
-                authenticationBuilder.AddNegotiate();
-            }
-            else
-            {
-                authenticationBuilder = builder.Services.AddAuthentication();
-            }
-            */
-
-            var app = builder.Build();
-            app.Services.GetRequiredService<Brimborium.Extensions.Logging.LocalFile.LocalFileLoggerProvider>().HandleHostApplicationLifetime(app.Services.GetRequiredService<IHostApplicationLifetime>());
-            logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Program");
-            logger.LogInformation("start {args}", string.Join(" ", args));
-
-            app.UseWebSockets();
-            app.MapControllers();
-            app.MapGet("/API", (HttpContext context) =>
-            {
-                var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
-                return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
-            });
-            app.MapGet("/alpha/API", (HttpContext context) =>
-            {
-                var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
-                return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
-            });
-            app.MapGet("/beta/API", (HttpContext context) =>
-            {
-                var urls = context.RequestServices.GetRequiredService<IConfiguration>().GetValue<string>("Urls");
-                return $"API {urls} - {context.Request.Host} - {context.Connection.LocalIpAddress}:{context.Connection.LocalPort}";
-            });
-
-            return app;
-        }
-        catch (System.Exception error)
-        {
-            logger?.LogError(error, nameof(ServerAPI));
-            System.Console.Error.WriteLine(error.ToString());
-            throw;
-        }
     }
 
     private static async Task<int> RunTests()
@@ -855,7 +429,7 @@ internal class Program
         var socketsHttpHandler = new SocketsHttpHandler();
         socketsHttpHandler.ConnectTimeout = TimeSpan.FromSeconds(2);
         socketsHttpHandler.ResponseDrainTimeout = TimeSpan.FromSeconds(2);
-        if (_browserAuthentication == BrowserAuthentication.Windows)
+        if (_browserAuthentication == BrowserAuthentication.Negotiate)
         {
             socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
         }
@@ -966,8 +540,8 @@ internal class Program
     private static SocketsHttpHandler CreateSocketsHttpHandler(X509Certificate2? certificate = null)
     {
         var socketsHttpHandler = new SocketsHttpHandler();
-        if ((_browserAuthentication == BrowserAuthentication.Windows)
-            || (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationWindows))
+        if ((_browserAuthentication == BrowserAuthentication.Negotiate)
+            || (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationNegotiate))
         {
             socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
         }
@@ -992,21 +566,21 @@ internal enum ModeAppSettings
 {
     H2Anonymous,
     H2Certificate,
-    H2Windows,
+    H2Negotiate,
     H2JwtBaerer,
 
     H2WSAnonymous,
-    H2WSWindows,
+    H2WSNegotiate,
 
     WSAnonymous,
     WSCertificate,
-    WSWindows
+    WSNegotiate
 }
 
 internal enum BrowserAuthentication
 {
     Anonymous,
-    Windows
+    Negotiate
 }
 
 internal enum TunnelAuthentication
@@ -1015,7 +589,7 @@ internal enum TunnelAuthentication
     AuthenticationCertificate,
     AuthenticationCertificateAuthProvider,
     AuthenticationCertificateRequest,
-    AuthenticationWindows,
+    AuthenticationNegotiate,
     AuthenticationJwtBearer
 }
 

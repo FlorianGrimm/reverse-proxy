@@ -8,6 +8,7 @@ using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Reflection.PortableExecutable;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -122,9 +123,11 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                                 await configure(config, requestMessage);
                             }
                         }
-
-
                         (innerConnection, httpContent) = TransportTunnelHttp2ConnectionContext.Create(_logger);
+                        if (Log.IsTransportSendTransportTunnelEnabled(_logger))
+                        {
+                            Log.TransportSendTransportTunnel(_logger, _tunnel.TunnelId, requestMessage.Method, requestMessage.RequestUri, requestMessage.Content?.Headers.ContentLength);
+                        }
                         requestMessage.Content = httpContent;
                         response = await _httpMessageInvoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
                         response.EnsureSuccessStatusCode();
@@ -142,7 +145,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                     }
                     catch (Exception error)
                     {
-                        _logger.LogWarning(error, "Failed to connect to tunnel '{TunnelId}' at '{RemoteUrl}' {Transport}.", config.TunnelId, config.Url, config.Transport);
+                        Log.TransportFailureSendTransportTunnel(_logger, config.TunnelId, config.Url, config.Transport);
                         if (requestMessage is not null) { requestMessage.Dispose(); }
                         if (innerConnection is not null) { await innerConnection.DisposeAsync(); }
                         if (httpContent is not null) { httpContent.Dispose(); }
@@ -157,6 +160,9 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                             Log.TunnelCannotConnectTunnel(_logger, config.TunnelId, config.Url, config.Transport, error);
                         }
                         await _delay.Delay(cancellationToken);
+
+                        // TODO: Check does this works better?
+                        // return null;
                     }
                 }
             }
@@ -177,6 +183,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         var socketsHttpHandler = new SocketsHttpHandler
         {
             EnableMultipleHttp2Connections = true,
+            ConnectTimeout = TimeSpan.FromSeconds(5),
             PooledConnectionLifetime = Timeout.InfiniteTimeSpan,
             PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
         };
@@ -303,6 +310,31 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         {
             _acceptFailed(logger, url, error);
         }
+
+        private static readonly Action<ILogger, string, HttpMethod, string?, long?, Exception?> _transportSendTransportTunnel = LoggerMessage.Define<string, HttpMethod, string?, long?>(
+            LogLevel.Debug,
+            EventIds.TransportSendTransportTunnel,
+            "Send Transport Tunnel '{TunnelId}' {Method} {RequestUri} {ContentLength}.");
+
+        public static bool IsTransportSendTransportTunnelEnabled(ILogger logger) => logger.IsEnabled(LogLevel.Debug);
+
+        public static void TransportSendTransportTunnel(ILogger logger, string tunnelId, HttpMethod method, Uri? requestUri, long? contentLength)
+        {
+            _transportSendTransportTunnel(logger, tunnelId, method, requestUri?.ToString(), contentLength, null);
+        }
+
+        //_logger.LogWarning(error, "Failed to connect to tunnel '{TunnelId}' at '{RemoteUrl}' {Transport}.", config.TunnelId, config.Url, config.Transport);
+
+        private static readonly Action<ILogger, string, string, string, Exception?> _transportFailureSendTransportTunnel = LoggerMessage.Define<string, string, string>(
+            LogLevel.Debug,
+            EventIds.TunnelCreateHttpMessageInvoker,
+            "Failed to connect to tunnel '{TunnelId}' at '{RemoteUrl}' {Transport}.");
+
+        public static void TransportFailureSendTransportTunnel(ILogger logger, string tunnelId, string url, string transport)
+        {
+            _transportFailureSendTransportTunnel(logger, tunnelId, url, transport, null);
+        }
+
         /*
         private static readonly Action<ILogger, string, string, Exception?> _x = LoggerMessage.Define<string, string>(
             LogLevel.Debug,

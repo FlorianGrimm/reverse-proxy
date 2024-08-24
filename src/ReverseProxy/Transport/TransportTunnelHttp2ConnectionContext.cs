@@ -91,11 +91,13 @@ internal sealed class TransportTunnelHttp2ConnectionContext
         HttpResponseMessage?.Dispose();
         Input?.CancelPendingRead();
         Output?.CancelPendingFlush();
+        /*
         if (releasedLock != removedFromCollection)
         {
             // time for investigation??
             _logger.LogInformation("Mismatched lock release and collection removal releasedLock:{releasedLock} removedFromCollection:{removedFromCollection}", releasedLock, removedFromCollection);
         }
+        */
     }
 
     public override void Abort(ConnectionAbortedException abortReason)

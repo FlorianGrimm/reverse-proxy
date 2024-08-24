@@ -32,12 +32,12 @@ internal static class EventIds
     public static readonly EventId ClusterAuthenticationSuccess = new EventId(95, "ClusterAuthenticationSuccess");
     public static readonly EventId ClusterAuthenticationFailed = new EventId(96, "ClusterAuthenticationFailed");
 
-    public static readonly EventId NoCertificate = new EventId(98, "NoCertificate");
-    public static readonly EventId NotHttps = new EventId(99, "NotHttps");
-    public static readonly EventId CertificateRejected = new EventId(100, "CertificateRejected");
-    public static readonly EventId CertificateFailedValidation = new EventId(101, "CertificateFailedValidation");
-    public static readonly EventId RemoteCertificateValidationSuccess = new EventId(102, "RemoteCertificateValidationSuccess");
-    public static readonly EventId RemoteCertificateValidationFailed = new EventId(103, "RemoteCertificateValidationFailed");
-    public static readonly EventId ClientCertificateValidationSuccess = new EventId(104, "ClientCertificateValidationSuccess");
-    public static readonly EventId ClientCertificateValidationFailed = new EventId(105, "ClientCertificateValidationFailed");
+    public static readonly EventId NoCertificate = new EventId(120, "NoCertificate");
+    public static readonly EventId NotHttps = new EventId(121, "NotHttps");
+    public static readonly EventId CertificateRejected = new EventId(122, "CertificateRejected");
+    public static readonly EventId CertificateFailedValidation = new EventId(123, "CertificateFailedValidation");
+    public static readonly EventId RemoteCertificateValidationSuccess = new EventId(124, "RemoteCertificateValidationSuccess");
+    public static readonly EventId RemoteCertificateValidationFailed = new EventId(125, "RemoteCertificateValidationFailed");
+    public static readonly EventId ClientCertificateValidationSuccess = new EventId(126, "ClientCertificateValidationSuccess");
+    public static readonly EventId ClientCertificateValidationFailed = new EventId(127, "ClientCertificateValidationFailed");
 }

@@ -56,7 +56,7 @@ public class Program
         var reverseProxyBuilder = builder.Services.AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetRequiredSection("ReverseProxy"))
             .AddTunnelServices() // enable tunnel listener
-            .AddTunnelAuthenticationJwtBearer(builder.Configuration.GetRequiredSection("AzureAd")) // add custom JWT bearer authentication
+            .AddTunnelServicesJwtBearer(builder.Configuration.GetRequiredSection("AzureAd")) // add custom JWT bearer authentication
             ;
 
         var app = builder.Build();

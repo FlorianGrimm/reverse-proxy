@@ -111,16 +111,16 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
                         return stream;
                     }
                 }
-                catch (OperationCanceledException error)
+                catch (OperationCanceledException)
                 {
                     tunnelConnectionRequest.Failed();
-                    _logger.LogInformation(error, "ConnectCallback request canceled {clusterId}", _clusterId);
+                    Log.TransportConnectCallbackRequestCanceled(_logger, _clusterId);
                     throw;
                 }
                 catch (Exception error)
                 {
                     tunnelConnectionRequest.Failed();
-                    _logger.LogError(error, "ConnectCallback error {clusterId}", _clusterId);
+                    Log.TransportConnectCallbackRequestFailed(_logger, _clusterId, error);
                     throw;
                 }
                 finally
@@ -134,7 +134,7 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
                 }
             };
 
-            Log.ClientCreated(_logger, context.ClusterId);
+            Log.TunnelClientCreated(_logger, context.ClusterId);
 
             return new HttpMessageInvoker(handler, disposeHandler: true);
         }
@@ -193,19 +193,39 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
               EventIds.ClientCreated,
               "New client created for cluster '{clusterId}'.");
 
+        public static void TunnelClientCreated(ILogger logger, string clusterId)
+        {
+            _clientCreated(logger, clusterId, null);
+        }
+
         private static readonly Action<ILogger, string, Exception?> _clientReused = LoggerMessage.Define<string>(
             LogLevel.Debug,
             EventIds.ClientReused,
             "Existing client reused for cluster '{clusterId}'.");
 
-        public static void ClientCreated(ILogger logger, string clusterId)
-        {
-            _clientCreated(logger, clusterId, null);
-        }
-
         public static void ClientReused(ILogger logger, string clusterId)
         {
             _clientReused(logger, clusterId, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _transportConnectCallbackRequestCanceled = LoggerMessage.Define<string>(
+            LogLevel.Debug,
+            EventIds.TransportConnectCallbackRequestCanceled,
+            "ConnectCallback request canceled {clusterId}");
+
+        internal static void TransportConnectCallbackRequestCanceled(ILogger logger, string clusterId)
+        {
+            _transportConnectCallbackRequestCanceled(logger, clusterId, null);
+        }
+
+        private static readonly Action<ILogger, string, Exception?> _transportConnectCallbackRequestFailed = LoggerMessage.Define<string>(
+            LogLevel.Debug,
+            EventIds.TransportConnectCallbackRequestCanceled,
+            "ConnectCallback request failed {clusterId}");
+
+        internal static void TransportConnectCallbackRequestFailed(ILogger logger, string clusterId, Exception? exception)
+        {
+            _transportConnectCallbackRequestFailed(logger, clusterId, exception);
         }
     }
 

@@ -51,7 +51,12 @@ internal sealed partial class TunnelHTTP2Route : IDisposable
         Action<IEndpointConventionBuilder>? configure)
     {
         var tunnelAuthenticationService = endpoints.ServiceProvider.GetRequiredService<TunnelAuthenticationService>();
-        foreach (var tunnelAuthentication in tunnelAuthenticationService.GetTunnelAuthenticationServices())
+        var listTunnelAuthenticationService = tunnelAuthenticationService.GetTunnelAuthenticationServices();
+        if (listTunnelAuthenticationService.Count == 0)
+        {
+            throw new InvalidOperationException("No TunnelAuthenticationService found.");
+        }
+        foreach (var tunnelAuthentication in listTunnelAuthenticationService)
         {
             var authenticationName = tunnelAuthentication.GetAuthenticationName();
 

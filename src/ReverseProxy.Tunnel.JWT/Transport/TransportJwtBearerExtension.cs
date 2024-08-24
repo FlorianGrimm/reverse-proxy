@@ -1,15 +1,17 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Identity.Client;
 
 using Yarp.ReverseProxy.Transport;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Identity.Client;
 
 namespace Microsoft.AspNetCore.Builder;
 
-public static class TransportTunnelAuthenticationJwtBearerExtension {
-    public static IReverseProxyBuilder AddTunnelTransportAuthenticationJwtBearer(
+public static class TransportJwtBearerExtension {
+    public static IReverseProxyBuilder AddTunnelTransportJwtBearer(
         this IReverseProxyBuilder builder
 
         )

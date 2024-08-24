@@ -4,7 +4,6 @@
 using System;
 using System.Linq;
 using System.Security.Claims;
-using System.Security.Principal;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Authorization;
@@ -15,22 +14,21 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Logging;
 
 using Yarp.ReverseProxy.Configuration;
-using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
-    /// <summary>
-    /// Enables or disables the Windows authentication for the tunnel.
-    /// A Windows account is required for the tunnel.
-    /// This might be useful for a corporate environment with firewall or inner VPNs.
-    /// You have to configure the authentication, e.g.
-    /// <code>
-    ///     builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
-    ///         .AddNegotiate();
-    /// </code>
-    /// </summary>
+/// <summary>
+/// Enables or disables the Windows authentication for the tunnel.
+/// A Windows account is required for the tunnel.
+/// This might be useful for a corporate environment with firewall or inner VPNs.
+/// You have to configure the authentication, e.g.
+/// <code>
+///     builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
+///         .AddNegotiate();
+/// </code>
+/// </summary>
 
 /*
     The Windows Authentication is not supported by the HTTP/2 protocol.
@@ -53,7 +51,7 @@ internal sealed class TunnelAuthenticationNegotiate
             );
     }
 
-    public const string AuthenticationName = "Windows";
+    public const string AuthenticationName = "Negotiate";
     public const string CookieName = "YarpTunnelAuth";
     private static readonly string[] AuthenticationTypes = ["NTLM", "Kerberos", "Kerberos2"];
     private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
@@ -81,7 +79,9 @@ internal sealed class TunnelAuthenticationNegotiate
     public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
     {
         // add a second endpoint for the same pattern but for GET not POST.
-        endpoints.MapGet(pattern, MapGetAuth).RequireAuthorization(PolicyName);
+        endpoints.MapGet(pattern, MapGetAuth)
+            .RequireAuthorization(PolicyName)
+            ;
     }
 
     /*

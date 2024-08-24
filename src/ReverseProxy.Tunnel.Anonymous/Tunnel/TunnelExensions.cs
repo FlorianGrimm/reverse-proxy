@@ -16,21 +16,13 @@ public static class TunnelExtensionsAnonymous
     /// This allows anyone to answer the request instead of your servers.
     /// You have been warned - DONT USE IT.
     /// </summary>
+    /// <param name="builder">this</param>
     /// <returns>fluent this</returns>
-    public static IServiceCollection AddTunnelServicesAnonymous(
-        this IServiceCollection services
+    public static IReverseProxyBuilder AddTunnelServicesAnonymous(
+        this IReverseProxyBuilder builder
         )
     {
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationAnonymous>());
-        return services;
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationAnonymous>());
+        return builder;
     }
-
-    //public static IReverseProxyBuilder AddTunnelServices(
-    //    this IReverseProxyBuilder builder,
-    //    TunnelServicesOptions? options = default
-    //    )
-    //{
-    //    _ = builder.Services.AddTunnelServices(options);
-    //    return builder;
-    //}
 }

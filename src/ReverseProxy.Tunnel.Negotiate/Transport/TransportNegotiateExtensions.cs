@@ -21,7 +21,7 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Microsoft.AspNetCore.Builder;
 
-public static class WebHostBuilderExtensions
+public static class TransportNegotiateExtensions
 {
     /// <summary>
     /// Enable the tunnel transport on the backend.
@@ -76,7 +76,6 @@ public static class WebHostBuilderExtensions
     /// </code>
     /// </remarks>
     /// <param name="builder">this</param>
-    /// <param name="configure"> </param>
     /// <returns></returns>
     /// <example>
     ///    builder.Services.AddReverseProxy()
@@ -90,73 +89,14 @@ public static class WebHostBuilderExtensions
     ///        app => app.UseHttpsRedirection()
     ///        );
     /// </example>
-    public static IReverseProxyBuilder AddTunnelTransportCertificate(
-        this IReverseProxyBuilder builder,
-        Action<TransportTunnelAuthenticationCertificateOptions>? configure = default
+    public static IReverseProxyBuilder AddTunnelTransportNegotiate(
+        this IReverseProxyBuilder builder
         )
     {
         var services = builder.Services;
 
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationCertificate>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationCertificate>());
-
-        // CertificateLoader
-        services.TryAddSingleton<CertificatePathWatcher>();
-        services.TryAddSingleton<ICertificateLoader, CertificateLoader>();
-        services.AddOptions<CertificateLoaderOptions>()
-            .PostConfigure<IHostEnvironment>(static (options, hostEnvironment) => options.PostConfigure(hostEnvironment));
-
-
-        {
-            var optionsBuilder = services.AddOptions<TransportTunnelAuthenticationCertificateOptions>();
-            if (configure is { })
-            {
-                optionsBuilder.Configure(configure);
-            }
-        }
-
-        // RemoteCertificateValidationUtility
-        {
-            services.AddSingleton<RemoteCertificateValidationUtility>();
-            var optionsBuilder = services.AddOptions<RemoteCertificateValidationOptions>();
-            optionsBuilder.PostConfigure<IOptions<TransportTunnelAuthenticationCertificateOptions>>(
-                (options, ttacOptions) =>
-                {
-                    var ttacOptionsValue = ttacOptions.Value;
-                    if (ttacOptionsValue.IgnoreSslPolicyErrors != System.Net.Security.SslPolicyErrors.None)
-                    {
-                        options.IgnoreSslPolicyErrors = ttacOptionsValue.IgnoreSslPolicyErrors;
-                    }
-                    if (ttacOptionsValue.CustomValidation is { })
-                    {
-                        options.CustomValidation = ttacOptionsValue.CustomValidation;
-                    }
-                });
-        }
-
-        return builder;
-    }
-
-    public static IReverseProxyBuilder ConfigureCertificateLoaderOptions
-        (
-            this IReverseProxyBuilder builder,
-            Action<CertificateLoaderOptions>? configure = default,
-            IConfiguration? configuration = default
-        )
-    {
-        var optionsBuilder = builder.Services.AddOptions<CertificateLoaderOptions>();
-        if (configuration is { })
-        {
-            _ = optionsBuilder.Configure((options) =>
-            {
-                options.Bind(configuration);
-            });
-        }
-
-        if (configure is { })
-        {
-            _ = optionsBuilder.Configure(configure);
-        }
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationNegotiate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationNegotiate>());
 
         return builder;
     }

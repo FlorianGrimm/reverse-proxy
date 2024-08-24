@@ -115,7 +115,7 @@ internal class TransportTunnelWebSocketFactory : ITransportTunnelFactory
         }
         else
         {
-            throw new NotSupportedException($"Authentication {cfgAuthenticationMode} is unknown");
+            throw new NotSupportedException($"Tunnel Transport Authentication '{cfgAuthenticationMode}' is unknown");
         }
     }
 }

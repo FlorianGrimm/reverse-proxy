@@ -14,7 +14,7 @@ public class Program
                 configureTunnelHttp2: options => { options.MaxConnectionCount = 1; },
                 configureTunnelWebSocket: options => { options.MaxConnectionCount = 1; }
             ) /* for the servers that starts the tunnel transport connections */
-            .AddTunnelTransportAuthenticationJwtBearer()
+            .AddTunnelTransportJwtBearer()
             ;
 
         var app = builder.Build();

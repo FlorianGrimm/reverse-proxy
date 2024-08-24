@@ -82,4 +82,6 @@ internal static class EventIds
 
     public static readonly EventId TransportWebSocketAcceptFailed = new EventId(93, "TransportWebSocketAcceptFailed");
     public static readonly EventId TransportHttp2AcceptFailed = new EventId(94, "TransportHttp2AcceptFailed");
+    public static readonly EventId TransportSendTransportTunnel = new EventId(95, "TransportSendTransportTunnel");
+    public static readonly EventId TransportConnectCallbackRequestCanceled = new EventId(96, "TransportConnectCallbackRequestCanceled");
 }

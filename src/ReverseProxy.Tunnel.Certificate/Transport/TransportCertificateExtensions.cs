@@ -2,26 +2,19 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Linq;
 
-using Microsoft.AspNetCore.Connections;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
-using Yarp.ReverseProxy.Configuration;
-using Yarp.ReverseProxy.Management;
-using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Transport;
 using Yarp.ReverseProxy.Utilities;
 
 namespace Microsoft.AspNetCore.Builder;
 
-public static class WebHostBuilderExtensions
+public static class TransportCertificateExtensions
 {
     /// <summary>
     /// Enable the tunnel transport on the backend.
@@ -76,6 +69,7 @@ public static class WebHostBuilderExtensions
     /// </code>
     /// </remarks>
     /// <param name="builder">this</param>
+    /// <param name="configure"> </param>
     /// <returns></returns>
     /// <example>
     ///    builder.Services.AddReverseProxy()
@@ -89,14 +83,73 @@ public static class WebHostBuilderExtensions
     ///        app => app.UseHttpsRedirection()
     ///        );
     /// </example>
-    public static IReverseProxyBuilder AddTunnelTransportNegotiate(
-        this IReverseProxyBuilder builder
+    public static IReverseProxyBuilder AddTunnelTransportCertificate(
+        this IReverseProxyBuilder builder,
+        Action<TransportTunnelAuthenticationCertificateOptions>? configure = default
         )
     {
         var services = builder.Services;
 
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationNegotiate>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationNegotiate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationCertificate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationCertificate>());
+
+        // CertificateLoader
+        services.TryAddSingleton<CertificatePathWatcher>();
+        services.TryAddSingleton<ICertificateLoader, CertificateLoader>();
+        services.AddOptions<CertificateLoaderOptions>()
+            .PostConfigure<IHostEnvironment>(static (options, hostEnvironment) => options.PostConfigure(hostEnvironment));
+
+
+        {
+            var optionsBuilder = services.AddOptions<TransportTunnelAuthenticationCertificateOptions>();
+            if (configure is { })
+            {
+                optionsBuilder.Configure(configure);
+            }
+        }
+
+        // RemoteCertificateValidationUtility
+        {
+            services.AddSingleton<RemoteCertificateValidationUtility>();
+            var optionsBuilder = services.AddOptions<RemoteCertificateValidationOptions>();
+            optionsBuilder.PostConfigure<IOptions<TransportTunnelAuthenticationCertificateOptions>>(
+                (options, ttacOptions) =>
+                {
+                    var ttacOptionsValue = ttacOptions.Value;
+                    if (ttacOptionsValue.IgnoreSslPolicyErrors != System.Net.Security.SslPolicyErrors.None)
+                    {
+                        options.IgnoreSslPolicyErrors = ttacOptionsValue.IgnoreSslPolicyErrors;
+                    }
+                    if (ttacOptionsValue.CustomValidation is { })
+                    {
+                        options.CustomValidation = ttacOptionsValue.CustomValidation;
+                    }
+                });
+        }
+
+        return builder;
+    }
+
+    public static IReverseProxyBuilder ConfigureCertificateLoaderOptions
+        (
+            this IReverseProxyBuilder builder,
+            Action<CertificateLoaderOptions>? configure = default,
+            IConfiguration? configuration = default
+        )
+    {
+        var optionsBuilder = builder.Services.AddOptions<CertificateLoaderOptions>();
+        if (configuration is { })
+        {
+            _ = optionsBuilder.Configure((options) =>
+            {
+                options.Bind(configuration);
+            });
+        }
+
+        if (configure is { })
+        {
+            _ = optionsBuilder.Configure(configure);
+        }
 
         return builder;
     }

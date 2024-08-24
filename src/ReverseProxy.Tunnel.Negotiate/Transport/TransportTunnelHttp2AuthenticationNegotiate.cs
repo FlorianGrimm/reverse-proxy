@@ -33,7 +33,7 @@ internal sealed class TransportTunnelHttp2AuthenticationNegotiate
     {
         _logger = logger;
     }
-    
+
     public string GetAuthenticationName() => "Negotiate";
 
     private PerTunnel GetPerTunnel(string key)
@@ -71,26 +71,36 @@ internal sealed class TransportTunnelHttp2AuthenticationNegotiate
 
         public ValueTask<HttpMessageInvoker?> ConfigureSocketsHttpHandlerAsync(SocketsHttpHandler socketsHttpHandler)
         {
-            socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
+            //socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
             socketsHttpHandler.CookieContainer = _cookieContainer;
-            return new(default(HttpMessageInvoker));
+            return new(new HttpMessageInvoker(socketsHttpHandler));
         }
 
         public async ValueTask ConfigureHttpRequestMessageAsync(HttpRequestMessage requestMessage)
         {
-            using SocketsHttpHandler socketsHttpHandlerAuth = new();
-            socketsHttpHandlerAuth.Credentials = System.Net.CredentialCache.DefaultCredentials;
-            socketsHttpHandlerAuth.CookieContainer = _cookieContainer;
-            using var requestMessageAuth = new HttpRequestMessage()
+            try
             {
-                Version = new Version(1, 1),
-                RequestUri = requestMessage.RequestUri!,
-                Method = HttpMethod.Get
-            };
-            using var httpMessageInvokerAuth = new HttpMessageInvoker(socketsHttpHandlerAuth);
-            using var responseMessage = await httpMessageInvokerAuth.SendAsync(requestMessageAuth, CancellationToken.None);
-            responseMessage.EnsureSuccessStatusCode();
-            _ = await responseMessage.Content.ReadAsStringAsync();
+                using SocketsHttpHandler socketsHttpHandlerAuth = new();
+                socketsHttpHandlerAuth.Credentials = System.Net.CredentialCache.DefaultCredentials;
+                socketsHttpHandlerAuth.CookieContainer = _cookieContainer;
+                using var requestMessageAuth = new HttpRequestMessage()
+                {
+                    Version = new Version(1, 1),
+                    RequestUri = requestMessage.RequestUri!,
+                    Method = HttpMethod.Get
+                };
+                _logger.LogInformation("ConfigureHttpRequestMessageAsync: {RequestUri}", requestMessageAuth.RequestUri);
+                using var httpMessageInvokerAuth = new HttpMessageInvoker(socketsHttpHandlerAuth);
+                using var responseMessage = await httpMessageInvokerAuth.SendAsync(requestMessageAuth, CancellationToken.None);
+                responseMessage.EnsureSuccessStatusCode();
+                _ = await responseMessage.Content.ReadAsStringAsync();
+                _logger.LogInformation("ConfigureHttpRequestMessageAsync: {RequestUri} success", requestMessageAuth.RequestUri);
+            }
+            catch (Exception error)
+            {
+                _logger.LogError(error, "ConfigureHttpRequestMessageAsync: {RequestUri} failed", requestMessage.RequestUri);
+                throw;
+            }
         }
     }
 }
