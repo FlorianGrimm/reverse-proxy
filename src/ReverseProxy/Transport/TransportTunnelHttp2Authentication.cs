@@ -19,10 +19,10 @@ namespace Yarp.ReverseProxy.Transport;
 /// </summary>
 /// <param name="services">the known services.</param>
 internal sealed class TransportTunnelHttp2Authentication(
-    IEnumerable<ITransportTunnelHttp2Authentication> services
-    ) : ITransportTunnelHttp2Authentication
+    IEnumerable<ITransportTunnelHttp2Authenticator> services
+    ) : ITransportTunnelHttp2Authenticator
 {
-    private readonly ImmutableDictionary<string, ITransportTunnelHttp2Authentication> _serviceByName = services.ToImmutableDictionary(service => service.GetAuthenticationName(), StringComparer.OrdinalIgnoreCase);
+    private readonly ImmutableDictionary<string, ITransportTunnelHttp2Authenticator> _serviceByName = services.ToImmutableDictionary(service => service.GetAuthenticationName(), StringComparer.OrdinalIgnoreCase);
 
     public string GetAuthenticationName() => throw new NotSupportedException();
 

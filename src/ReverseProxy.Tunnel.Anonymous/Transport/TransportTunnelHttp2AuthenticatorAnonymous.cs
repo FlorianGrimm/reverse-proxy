@@ -10,8 +10,8 @@ using Microsoft.AspNetCore.Http;
 using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Transport;
-internal sealed class TransportTunnelHttp2AuthenticationAnonymous
-    : ITransportTunnelHttp2Authentication
+internal sealed class TransportTunnelHttp2AuthenticatorAnonymous
+    : ITransportTunnelHttp2Authenticator
 {
     public string GetAuthenticationName() => "Anonymous";
 

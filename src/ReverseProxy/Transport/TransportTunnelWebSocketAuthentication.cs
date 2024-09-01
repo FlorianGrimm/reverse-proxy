@@ -16,10 +16,10 @@ using Yarp.ReverseProxy.Configuration;
 namespace Yarp.ReverseProxy.Transport;
 
 internal sealed class TransportTunnelWebSocketAuthentication(
-        IEnumerable<ITransportTunnelWebSocketAuthentication> services
-        ) : ITransportTunnelWebSocketAuthentication
+        IEnumerable<ITransportTunnelWebSocketAuthenticator> services
+        ) : ITransportTunnelWebSocketAuthenticator
 {
-    private readonly ImmutableDictionary<string, ITransportTunnelWebSocketAuthentication> _serviceByName = services.ToImmutableDictionary(service => service.GetAuthenticationName(), StringComparer.OrdinalIgnoreCase);
+    private readonly ImmutableDictionary<string, ITransportTunnelWebSocketAuthenticator> _serviceByName = services.ToImmutableDictionary(service => service.GetAuthenticationName(), StringComparer.OrdinalIgnoreCase);
 
     public string GetAuthenticationName() => throw new NotSupportedException();
 

@@ -21,14 +21,14 @@ namespace Yarp.ReverseProxy.Transport;
     So the authentication is done by the HTTP/1.1 protocol (and a cookie is set)
     and then the HTTP/2 protocol is used for the data (and the cookie is used for authn).
 */
-internal sealed class TransportTunnelHttp2AuthenticationNegotiate
-    : ITransportTunnelHttp2Authentication
+internal sealed class TransportTunnelHttp2AuthenticatorNegotiate
+    : ITransportTunnelHttp2Authenticator
 {
     private readonly ConcurrentDictionary<string, PerTunnel> _perTunnel = new(StringComparer.CurrentCultureIgnoreCase);
-    private readonly ILogger<TransportTunnelHttp2AuthenticationNegotiate> _logger;
+    private readonly ILogger<TransportTunnelHttp2AuthenticatorNegotiate> _logger;
 
-    public TransportTunnelHttp2AuthenticationNegotiate(
-        ILogger<TransportTunnelHttp2AuthenticationNegotiate> logger
+    public TransportTunnelHttp2AuthenticatorNegotiate(
+        ILogger<TransportTunnelHttp2AuthenticatorNegotiate> logger
         )
     {
         _logger = logger;

@@ -12,8 +12,8 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Transport;
 
-internal class TransportTunnelWebSocketAuthenticationJwtBearer
-    : ITransportTunnelWebSocketAuthentication
+internal class TransportTunnelWebSocketAuthenticatorJwtBearer
+    : ITransportTunnelWebSocketAuthenticator
 {
     public string GetAuthenticationName() => "JwtBearer";
 

@@ -20,7 +20,7 @@ namespace Yarp.ReverseProxy.Transport;
 /// builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton&lt;ITransportTunnelHttp2Authentication, YourImplementation&gt;());
 /// </code>
 /// </example>
-public interface ITransportTunnelWebSocketAuthentication
+public interface ITransportTunnelWebSocketAuthenticator
 {
     /// <summary>
     /// The name of the authentication.

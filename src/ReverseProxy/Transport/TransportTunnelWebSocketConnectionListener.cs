@@ -36,7 +36,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
     private readonly TransportTunnelWebSocketOptions _options;
     private readonly ILogger _logger;
     private readonly TunnelState _tunnel;
-    private readonly ITransportTunnelWebSocketAuthentication _transportTunnelWebSocketAuthentication;
+    private readonly ITransportTunnelWebSocketAuthenticator _transportTunnelWebSocketAuthentication;
     private readonly UriWebSocketEndPoint _endPoint;
     private readonly TrackLifetimeConnectionContextCollection _connectionCollection;
     private readonly IncrementalDelay _delay = new();
@@ -45,7 +45,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
     public TransportTunnelWebSocketConnectionListener(
         UriWebSocketEndPoint endpoint,
         TunnelState tunnel,
-        ITransportTunnelWebSocketAuthentication transportTunnelWebSocketAuthentication,
+        ITransportTunnelWebSocketAuthenticator transportTunnelWebSocketAuthentication,
         TransportTunnelWebSocketOptions options,
         ILogger logger
         )

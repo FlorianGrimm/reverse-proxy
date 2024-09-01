@@ -14,8 +14,8 @@ using Microsoft.Identity.Client;
 using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Transport;
-internal class TransportTunnelHttp2AuthenticationJwtBearer
-    : ITransportTunnelHttp2Authentication
+internal class TransportTunnelHttp2AuthenticatorJwtBearer
+    : ITransportTunnelHttp2Authenticator
 {
     private readonly ConfidentialClientApplicationOptions _options;
     private readonly IConfidentialClientApplication _confidentialClientApplication;
@@ -23,9 +23,9 @@ internal class TransportTunnelHttp2AuthenticationJwtBearer
     private readonly SemaphoreSlim _asyncLock = new SemaphoreSlim(1, 1);
     private IAccount? _account;
 
-    public TransportTunnelHttp2AuthenticationJwtBearer(
+    public TransportTunnelHttp2AuthenticatorJwtBearer(
         IOptions<Microsoft.Identity.Client.ConfidentialClientApplicationOptions> options,
-        ILogger<TransportTunnelHttp2AuthenticationJwtBearer> logger
+        ILogger<TransportTunnelHttp2AuthenticatorJwtBearer> logger
         )
     {
         _options = options.Value;

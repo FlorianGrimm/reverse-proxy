@@ -11,8 +11,8 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Transport;
 
-internal sealed class TransportTunnelWebSocketAuthenticationAnonymous
-    : ITransportTunnelWebSocketAuthentication
+internal sealed class TransportTunnelWebSocketAuthenticatorAnonymous
+    : ITransportTunnelWebSocketAuthenticator
 {
     public string GetAuthenticationName() => "Anonymous";
 

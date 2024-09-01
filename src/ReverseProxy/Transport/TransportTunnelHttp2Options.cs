@@ -28,7 +28,7 @@ public sealed class TransportTunnelHttp2Options
     /// <summary>
     /// Allows Authentification for the tunnel.
     /// </summary>
-    public Func<TransportTunnelConfig, SocketsHttpHandler, ITransportTunnelHttp2Authentication, ValueTask>? ConfigureSocketsHttpHandlerAsync { get; set; }
+    public Func<TransportTunnelConfig, SocketsHttpHandler, ITransportTunnelHttp2Authenticator, ValueTask>? ConfigureSocketsHttpHandlerAsync { get; set; }
 
     /// <summary>
     /// Allows Authentification for the tunnel.

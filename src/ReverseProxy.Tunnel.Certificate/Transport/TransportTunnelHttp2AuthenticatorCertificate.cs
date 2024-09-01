@@ -3,44 +3,39 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Net.Security;
-using System.Net.WebSockets;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
-using Microsoft.AspNetCore.Http.Connections.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 
-using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
 
-internal sealed class TransportTunnelWebSocketAuthenticationCertificate
-    : ITransportTunnelWebSocketAuthentication
+internal sealed class TransportTunnelHttp2AuthenticatorCertificate
+    : ITransportTunnelHttp2Authenticator
     , IDisposable
 {
     private readonly TransportTunnelAuthenticationCertificateOptions _options;
     private readonly RemoteCertificateValidationUtility _remoteCertificateValidation;
     private readonly ICertificateLoader _certificateConfigLoader;
     private readonly CertificatePathWatcher _certificatePathWatcher;
-    private readonly ILogger<TransportTunnelWebSocketAuthenticationCertificate> _logger;
+    private readonly ILogger<TransportTunnelHttp2AuthenticatorCertificate> _logger;
 
     private readonly ConcurrentDictionary<string, X509CertificateCollection> _clientCertifiacteCollectionByTunnelId;
-    private readonly HashSet<CertificateConfig> _allCertificateConfig;
     private IDisposable? _unregisterCertificatePathWatcher;
 
-    public TransportTunnelWebSocketAuthenticationCertificate(
+    public TransportTunnelHttp2AuthenticatorCertificate(
         IOptions<TransportTunnelAuthenticationCertificateOptions> options,
         RemoteCertificateValidationUtility remoteCertificateValidationUtility,
         ICertificateLoader certificateConfigLoader,
         CertificatePathWatcher certificatePathWatcher,
-        ILogger<TransportTunnelWebSocketAuthenticationCertificate> logger
+        ILogger<TransportTunnelHttp2AuthenticatorCertificate> logger
         )
     {
         _options = options.Value;
@@ -49,8 +44,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
         _certificatePathWatcher = certificatePathWatcher;
         _logger = logger;
 
-        _clientCertifiacteCollectionByTunnelId = new(StringComparer.OrdinalIgnoreCase);
-        _allCertificateConfig = new();
+        _clientCertifiacteCollectionByTunnelId = new ConcurrentDictionary<string, X509CertificateCollection>(StringComparer.OrdinalIgnoreCase);
         _unregisterCertificatePathWatcher = ChangeToken.OnChange(
             _certificatePathWatcher.GetChangeToken,
             () => ReloadCertificate()
@@ -59,12 +53,14 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
 
     public string GetAuthenticationName() => "ClientCertificate";
 
-    public void ConfigureWebSocketConnectionOptions(TransportTunnelConfig config, HttpConnectionOptions options)
+    public ValueTask<HttpMessageInvoker?> ConfigureSocketsHttpHandlerAsync(TunnelState tunnel, SocketsHttpHandler socketsHttpHandler)
     {
-    }
+        var config = tunnel.Model.Config;
+        if (!ClientCertificateLoader.IsClientCertificate(config.Authentication.Mode))
+        {
+            return new(default(HttpMessageInvoker));
+        }
 
-    public ValueTask<HttpMessageInvoker?> ConfigureClientWebSocket(TransportTunnelConfig config, ClientWebSocket clientWebSocket)
-    {
         try
         {
             {
@@ -97,13 +93,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
 
                                         if (certificateConfig.IsFileCert())
                                         {
-                                            lock (_allCertificateConfig)
-                                            {
-                                                if (_allCertificateConfig.Add(certificateConfig))
-                                                {
-                                                    _certificatePathWatcher.AddWatch(certificateConfig);
-                                                }
-                                            }
+                                            _certificatePathWatcher.AddWatch(certificateConfig);
                                         }
                                     }
                                     else
@@ -127,13 +117,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
 
                                         if (certificateConfig.IsFileCert())
                                         {
-                                            lock (_allCertificateConfig)
-                                            {
-                                                if (_allCertificateConfig.Add(certificateConfig))
-                                                {
-                                                    _certificatePathWatcher.AddWatch(certificateConfig);
-                                                }
-                                            }
+                                            _certificatePathWatcher.AddWatch(certificateConfig);
                                         }
                                         else
                                         {
@@ -144,7 +128,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
                             }
                             if (_clientCertifiacteCollectionByTunnelId.TryAdd(config.TunnelId, srcClientCertifiacteCollection))
                             {
-                                _logger.LogTrace("Certificates loaded {TunnelId}", config.TunnelId);
+                                _logger.LogInformation("Certifactes loaded");
                             }
                             else
                             {
@@ -157,66 +141,61 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
                         }
                     }
                 }
-
-                if (srcClientCertifiacteCollection is { Count: > 0 }) {
-                    _logger.LogTrace("Certifactes added by config {TunnelId}", config.TunnelId);
-                    var sslClientCertificates = clientWebSocket.Options.ClientCertificates ??= [];
-                    sslClientCertificates.AddRange(srcClientCertifiacteCollection);
-                }
+                var sslClientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= [];
+                sslClientCertificates.AddRange(srcClientCertifiacteCollection);
             }
 
             {
-                if (config.Authentication.ClientCertificateCollection is { Count:>0 } srcClientCertifiacteCollection)
+                if (config.Authentication.ClientCertificateCollection is { } srcClientCertifiacteCollection)
                 {
-                    _logger.LogTrace("Certifactes added by config collection {TunnelId}", config.TunnelId);
-                    var sslClientCertificates = clientWebSocket.Options.ClientCertificates ??= [];
+                    var sslClientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= [];
                     sslClientCertificates.AddRange(srcClientCertifiacteCollection);
                 }
             }
-            
-            clientWebSocket.Options.RemoteCertificateValidationCallback = _remoteCertificateValidation.RemoteCertificateValidationCallback;
-            if (_options.ConfigureClientWebSocketOptions is { } configureClientWebSocketOptions)
+            socketsHttpHandler.SslOptions.TargetHost = config.Url;
+            if (_options.ConfigureSslOptions is { } configureSslOptions)
             {
-                configureClientWebSocketOptions(clientWebSocket.Options);
+                configureSslOptions(socketsHttpHandler.SslOptions);
             }
+            if (socketsHttpHandler.SslOptions.ClientCertificates is { Count: > 0 } clientCertificates)
+            {
+                if (socketsHttpHandler.SslOptions.EnabledSslProtocols == System.Security.Authentication.SslProtocols.None)
+                {
+                    socketsHttpHandler.SslOptions.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
+                }
+                //socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback = (sender, host, localCertificates, remoteCertificate, acceptableIssuers) =>
+                //{
+                //    return clientCertificates[0];
+                //};
+                socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback = _remoteCertificateValidation.RemoteCertificateValidationCallback;
+            }
+
+            //
+            return new(new HttpMessageInvoker(socketsHttpHandler, true));
         }
         catch (System.Exception error)
         {
-            _logger.LogError(error, "Failed to load certificate");
+            _logger.LogError(error, "TransportTunnelHttp2AuthenticationCertificate");
+            return new(default(HttpMessageInvoker));
         }
-
-        return ValueTask.FromResult<HttpMessageInvoker?>(default);
     }
+
+    public ValueTask ConfigureHttpRequestMessageAsync(TunnelState tunnel, HttpRequestMessage requestMessage)
+        => ValueTask.CompletedTask;
 
     private void ReloadCertificate()
     {
-        List<X509CertificateCollection> certificateCollections;
-        List<CertificateConfig> allCertificateConfig;
-        lock (_allCertificateConfig)
+        var certificateCollections = _clientCertifiacteCollectionByTunnelId.Values.ToList();
+        if (0 < certificateCollections.Count)
         {
-            certificateCollections = _clientCertifiacteCollectionByTunnelId.Values.ToList();
-            allCertificateConfig = _allCertificateConfig.ToList();
-
-            if (0 == certificateCollections.Count
-                && 0 == allCertificateConfig.Count)
-            {
-                return;
-            }
-
             _clientCertifiacteCollectionByTunnelId.Clear();
-            _allCertificateConfig.Clear();
-
-            foreach (var certificateConfig in _allCertificateConfig)
-            {
-                _certificatePathWatcher.RemoveWatch(certificateConfig);
-            }
+            _logger.LogInformation("Certifactes cache cleared");
             foreach (var certificateCollection in certificateCollections)
             {
                 ClientCertificateLoader.DisposeCertificates(certificateCollection, null);
                 certificateCollection.Clear();
             }
         }
-        _logger.LogInformation("Certifactes cache cleared");
     }
 
     private void Dispose(bool disposing)
@@ -231,7 +210,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationCertificate
         }
     }
 
-    ~TransportTunnelWebSocketAuthenticationCertificate()
+    ~TransportTunnelHttp2AuthenticatorCertificate()
     {
         Dispose(disposing: false);
     }

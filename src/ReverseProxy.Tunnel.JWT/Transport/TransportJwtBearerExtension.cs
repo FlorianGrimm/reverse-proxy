@@ -18,8 +18,8 @@ public static class TransportJwtBearerExtension {
     {
         var services = builder.Services;
 
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authentication, TransportTunnelHttp2AuthenticationJwtBearer>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthentication, TransportTunnelWebSocketAuthenticationJwtBearer>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authenticator, TransportTunnelHttp2AuthenticatorJwtBearer>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthenticator, TransportTunnelWebSocketAuthenticatorJwtBearer>());
 
         services.AddOptions<Microsoft.Identity.Client.ConfidentialClientApplicationOptions>().Configure<IConfiguration>((options, configuration)=>{
             var section = configuration.GetSection("AzureAd");

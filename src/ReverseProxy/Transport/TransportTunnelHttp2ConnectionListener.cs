@@ -36,7 +36,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
     private readonly ILogger _logger;
     private readonly TransportTunnelHttp2Options _options;
     private readonly TunnelState _tunnel;
-    private readonly ITransportTunnelHttp2Authentication _transportTunnelHttp2Authentication;
+    private readonly ITransportTunnelHttp2Authenticator _transportTunnelHttp2Authentication;
     private readonly UriEndPointHttp2 _endPoint;
     private readonly IncrementalDelay _delay = new();
 
@@ -46,7 +46,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
     public TransportTunnelHttp2ConnectionListener(
         UriEndPointHttp2 endpoint,
         TunnelState tunnel,
-        ITransportTunnelHttp2Authentication transportTunnelHttp2Authentication,
+        ITransportTunnelHttp2Authenticator transportTunnelHttp2Authentication,
         TransportTunnelHttp2Options options,
         ILogger logger
         )
