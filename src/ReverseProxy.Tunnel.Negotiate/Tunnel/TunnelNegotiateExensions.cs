@@ -18,12 +18,13 @@ public static class TunnelExtensions
         this IReverseProxyBuilder builder
         )
     {
-        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationNegotiate>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationNegotiateHttp2>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationNegotiateWebSocket>());
 
         builder.Services.AddAuthorization(
             options =>
             {
-                TunnelAuthenticationNegotiate.ConfigureAuthorizationPolicy(options);
+                TunnelAuthenticationNegotiateBase.ConfigureAuthorizationPolicy(options);
             });
 
         return builder;

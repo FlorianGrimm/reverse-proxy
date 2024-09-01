@@ -133,7 +133,6 @@ internal sealed class TunnelConnectionRequest(ILogger logger)
         {
             System.Threading.Interlocked.Exchange(ref _stream, stream);
             _lock.Release();
-            // _logger.LogInformation("TunnelConnectionRequest.SetStream({id})", _id);
             return true;
         }
     }
@@ -143,7 +142,6 @@ internal sealed class TunnelConnectionRequest(ILogger logger)
         try
         {
             await _lock.WaitAsync(cancellationToken);
-            // _logger.LogInformation("TunnelConnectionRequest.GetStreamAsync({id})", _id);
             return System.Threading.Interlocked.Exchange(ref _stream, null);
         }
         catch

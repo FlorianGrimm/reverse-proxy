@@ -51,7 +51,7 @@ internal partial class Program
                 .AddTunnelTransport(
                     configureTunnelHttp2: options =>
                     {
-                        options.MaxConnectionCount = 2;
+                        options.MaxConnectionCount = 1;
                         options.IsEnabled = enableTunnelH2;
                         options.ConfigureSocketsHttpHandlerAsync = (transportTunnelConfig, socketsHttpHandler, transportTunnelHttp2Authentication) =>
                         {
@@ -75,9 +75,9 @@ internal partial class Program
                     {
                         options.MaxConnectionCount = 1;
                         options.IsEnabled = enableTunnelWS;
-                        options.ConfigureClientWebSocket = (config, clientWebSocket, transportTunnelWebSocketAuthentication) =>
+                        options.ConfigureClientWebSocket = (config, clientWebSocket) =>
                         {
-                            if (transportTunnelWebSocketAuthentication.GetAuthenticationName() == "ClientCertificate")
+                            if (config.Authentication.Mode == "ClientCertificate")
                             {
                                 clientWebSocket.Options.RemoteCertificateValidationCallback = (object sender, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors) =>
                                 {
@@ -110,30 +110,7 @@ internal partial class Program
                 authenticationBuilder.AddNegotiate();
             }
 
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificateAuthProvider)
-            {
-                authenticationBuilder = authenticationBuilder ?? CreateAuthenticationBuilder(builder);
-                authenticationBuilder.AddCertificate(options =>
-                {
-                    options.AllowedCertificateTypes = CertificateTypes.SelfSigned;
-                    options.RevocationFlag = X509RevocationFlag.ExcludeRoot;
-                    options.RevocationMode = X509RevocationMode.NoCheck;
-                }).AddCertificateCache();
-
-                reverseProxyBuilder
-                   .AddTunnelTransportCertificate(
-                       (options) =>
-                       {
-                           options.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
-                       }
-                   )
-                   .ConfigureCertificateLoaderOptions(options =>
-                   {
-                       options.CertificateRoot = System.AppContext.BaseDirectory;
-                   });
-            }
-
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificateRequest)
+            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate)
             {
                 reverseProxyBuilder
                     .AddTunnelTransportCertificate(

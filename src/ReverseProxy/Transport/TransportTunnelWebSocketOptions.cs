@@ -27,5 +27,5 @@ public class TransportTunnelWebSocketOptions
     /// <summary>
     /// Allows Authentification for the tunnel.
     /// </summary>
-    public Action<TransportTunnelConfig, ClientWebSocket, ITransportTunnelWebSocketAuthentication>? ConfigureClientWebSocket { get; set; }
+    public Action<TransportTunnelConfig, ClientWebSocket>? ConfigureClientWebSocket { get; set; }
 }

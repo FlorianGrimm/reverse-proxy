@@ -63,56 +63,12 @@ internal partial class Program
                 reverseProxyBuilder.AddTunnelServicesAnonymous();
             }
 
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificateAuthProvider)
-            {
-                authenticationBuilder = authenticationBuilder  ?? CreateAuthenticationBuilder(builder);
-                authenticationBuilder
-                   .AddCertificate(options =>
-                   {
-                       // this sample uses the SelfSigned certificates.
-                       options.AllowedCertificateTypes = CertificateTypes.SelfSigned;
-                       options.RevocationMode = X509RevocationMode.NoCheck;
-                       options.ValidateCertificateUse = false;
-                       options.ValidateValidityPeriod = false;
-
-                       // this allows other authenticationSchema to be used
-                       options.Events = new CertificateAuthenticationEvents
-                       {
-                           OnCertificateValidated = context =>
-                           {
-                               if (context.ClientCertificate != null)
-                               {
-                                   context.Success();
-                               }
-                               else
-                               {
-                                   context.NoResult();
-                               }
-                               return Task.CompletedTask;
-                           }
-                       };
-                   });
-
-                reverseProxyBuilder
-                    .AddTunnelServicesCertificate(
-                         (options) =>
-                         {
-                             options.SourceAuthenticationProvider = true;
-                             options.CheckCertificateRevocation = false;
-                             options.AllowedCertificateTypes = CertificateTypes.All;
-                             options.RevocationMode = X509RevocationMode.NoCheck;
-                             options.RevocationFlag = X509RevocationFlag.ExcludeRoot;
-                             options.IgnoreSslPolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
-                         });
-            }
-
-            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificateRequest)
+            if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate)
             {
                 reverseProxyBuilder
                     .AddTunnelServicesCertificate(
                          (options) =>
                          {
-                             options.SourceRequest = true;
                              options.CheckCertificateRevocation = false;
                              options.AllowedCertificateTypes = CertificateTypes.All;
                              options.RevocationMode = X509RevocationMode.NoCheck;
@@ -221,10 +177,13 @@ internal partial class Program
         return builder.Services.AddAuthentication(
             (AuthenticationOptions options) =>
             {
+                if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationNegotiate) {
+                    options.DefaultScheme = NegotiateDefaults.AuthenticationScheme;
+                }
                 if (_browserAuthentication == BrowserAuthentication.Negotiate)
                 {
                     options.DefaultScheme = NegotiateDefaults.AuthenticationScheme;
-                }
+                } 
             });
     }
 }

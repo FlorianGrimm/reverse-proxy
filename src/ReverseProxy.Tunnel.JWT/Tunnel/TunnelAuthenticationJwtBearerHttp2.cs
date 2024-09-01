@@ -13,22 +13,27 @@ using Microsoft.Extensions.Options;
 using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Tunnel;
-internal sealed class TunnelAuthenticationJwtBearer
+
+internal sealed class TunnelAuthenticationJwtBearerHttp2
     : ITunnelAuthenticationService
 {
     private readonly TunnelAuthenticationJwtBearerOptions _options;
     private readonly ILogger _logger;
 
-    public TunnelAuthenticationJwtBearer(
+    public TunnelAuthenticationJwtBearerHttp2(
         IOptions<TunnelAuthenticationJwtBearerOptions> options,
-        ILogger<TunnelAuthenticationJwtBearer> logger
+        ILogger<TunnelAuthenticationJwtBearerHttp2> logger
         )
     {
         _options = options.Value;
         _logger = logger;
     }
 
-    public string GetAuthenticationName() => "JwtBearer";
+    public string GetAuthenticationMode() => "JwtBearer";
+
+    public string GetTransport() => "TunnelHTTP2";
+
+    public ITunnelAuthenticationService GetAuthenticationService(string protocol) => this;
 
     public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)
     {

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -72,18 +73,18 @@ public static class TunnelExtensions
         )
     {
         var services = builder.Services;
-        services.TryAddSingleton<TunnelConnectionChannelManager>();
+        services.TryAddSingleton<TunnelConnectionChannelManager > ();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterChangeListener, TunnelConnectionChannelManager.ClusterChangeListener>());
         services.TryAddSingleton<TransportForwarderHttpClientFactorySelector>();
 
         if (options is null || options.TunnelHTTP2)
         {
-            services.TryAddSingleton<TunnelHTTP2Route>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IProxyRouteService, TunnelHTTP2Route>());
             services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportForwarderHttpClientFactorySelector, TunnelHTTP2HttpClientFactory>());
         }
         if (options is null || options.TunnelWebSocket)
         {
-            services.TryAddSingleton<TunnelWebSocketRoute>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IProxyRouteService, TunnelWebSocketRoute>());
             services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportForwarderHttpClientFactorySelector, TunnelWebSocketHttpClientFactory>());
         }
         if (options is not null && !options.TunnelHTTP2 && !options.TunnelWebSocket)
@@ -91,16 +92,16 @@ public static class TunnelExtensions
             throw new NotSupportedException("At least one of the TunnelHTTP2 or TunnelWebSocket must be enabled.");
         }
 
-        services.TryAddSingleton<TunnelAuthenticationService>();
+        services.TryAddSingleton<ITunnelAuthenticationConfigService, TunnelAuthenticationConfigService>();
 
         _ = services.Configure<KestrelServerOptions>(kestrelServerOptions =>
         {
-            var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<TunnelAuthenticationService>();
-            tunnelAuthenticationConfigService.ConfigureKestrelServer(kestrelServerOptions);
+            var tunnelAuthenticationConfigService = kestrelServerOptions.ApplicationServices.GetRequiredService<ITunnelAuthenticationConfigService>();
+            (tunnelAuthenticationConfigService as TunnelAuthenticationConfigService)?.ConfigureKestrelServer(kestrelServerOptions);
         });
 
         services.AddSingleton<ITunnelAuthenticationCookieService>(TunnelAuthenticationCookieService.Create);
-
+        
         return builder;
     }
 
@@ -108,18 +109,20 @@ public static class TunnelExtensions
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute("Map")]
     internal static void MapTunnels(
         this IEndpointRouteBuilder endpoints,
-        Action<IEndpointConventionBuilder>? configureTunnelHTTP2 = default,
-        Action<IEndpointConventionBuilder>? configureTunnelWebSocket = default)
+        Dictionary<string, Action<IEndpointConventionBuilder>>? configureEndpoints = default)
     {
-
-        if (endpoints.ServiceProvider.GetService<TunnelHTTP2Route>() is { } tunnelHTTP2Route)
+        var tunnelRouteServices = endpoints.ServiceProvider.GetServices<IProxyRouteService>();
+        foreach (var tunnelRouteService in tunnelRouteServices)
         {
-            tunnelHTTP2Route.Map(endpoints, configureTunnelHTTP2);
-        }
-
-        if (endpoints.ServiceProvider.GetService<TunnelWebSocketRoute>() is { } tunnelWebSocketRoute)
-        {
-            tunnelWebSocketRoute.Map(endpoints, configureTunnelWebSocket);
+            var transport = tunnelRouteService.GetTransport();
+            if (configureEndpoints is not null && configureEndpoints.TryGetValue(transport, out var configureAction))
+            {
+                tunnelRouteService.Map(endpoints, configureAction);
+            }
+            else
+            {
+                tunnelRouteService.Map(endpoints, null);
+            }
         }
     }
 }

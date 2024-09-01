@@ -323,8 +323,6 @@ internal sealed class TransportTunnelHttp2ConnectionListener
             _transportSendTransportTunnel(logger, tunnelId, method, requestUri?.ToString(), contentLength, null);
         }
 
-        //_logger.LogWarning(error, "Failed to connect to tunnel '{TunnelId}' at '{RemoteUrl}' {Transport}.", config.TunnelId, config.Url, config.Transport);
-
         private static readonly Action<ILogger, string, string, string, Exception?> _transportFailureSendTransportTunnel = LoggerMessage.Define<string, string, string>(
             LogLevel.Debug,
             EventIds.TunnelCreateHttpMessageInvoker,

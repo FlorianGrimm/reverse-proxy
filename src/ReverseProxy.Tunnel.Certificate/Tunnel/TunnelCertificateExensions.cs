@@ -40,7 +40,8 @@ public static class TunnelExtensions
     {
         var services = builder.Services;
 
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationCertificate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationCertificateWebSocket>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationCertificateHttp2>());
 
         var optionsBuilder = services.AddOptions<TunnelAuthenticationCertificateOptions>();
         if (configuration is { })

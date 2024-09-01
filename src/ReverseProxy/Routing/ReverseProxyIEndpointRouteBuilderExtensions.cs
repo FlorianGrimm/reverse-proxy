@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -29,15 +30,14 @@ public static class ReverseProxyIEndpointRouteBuilderExtensions
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute("Map")]
     public static ReverseProxyConventionBuilder MapReverseProxy(
         this IEndpointRouteBuilder endpoints,
-        Action<IEndpointConventionBuilder>? configureTunnelHTTP2 = default,
-        Action<IEndpointConventionBuilder>? configureTunnelWebSocket = default)
+        Dictionary<string, Action<IEndpointConventionBuilder>>? configureEndpoints = default)
     {
         return endpoints.MapReverseProxy(app =>
         {
             app.UseSessionAffinity();
             app.UseLoadBalancing();
             app.UsePassiveHealthChecks();
-        }, configureTunnelHTTP2, configureTunnelWebSocket);
+        }, configureEndpoints);
     }
 
     /// <summary>
@@ -48,8 +48,7 @@ public static class ReverseProxyIEndpointRouteBuilderExtensions
     public static ReverseProxyConventionBuilder MapReverseProxy(
         this IEndpointRouteBuilder endpoints,
         Action<IReverseProxyApplicationBuilder> configureApp,
-        Action<IEndpointConventionBuilder>? configureTunnelHTTP2 = default,
-        Action<IEndpointConventionBuilder>? configureTunnelWebSocket = default
+        Dictionary<string, Action<IEndpointConventionBuilder>>? configureEndpoints = default
         )
     {
         if (endpoints is null)
@@ -87,7 +86,7 @@ public static class ReverseProxyIEndpointRouteBuilderExtensions
             var areTunnelServicesEnabled = endpoints.ServiceProvider.GetService<TunnelConnectionChannelManager>() != null;
             if (areTunnelServicesEnabled)
             {
-                endpoints.MapTunnels(configureTunnelHTTP2, configureTunnelWebSocket);
+                endpoints.MapTunnels(configureEndpoints);
             }
         }
         return proxyConfigManager.DefaultBuilder;

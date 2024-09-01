@@ -52,13 +52,7 @@ internal sealed class TransportTunnelWebSocketConnectionContext
         underlyingWebSocket?.Abort();
         var releasedLock = _asyncLockOwner.Release();
         var removedFromCollection = _trackLifetimeConnectionContextCollection?.TryRemove(this) ?? false;
-        /*
-        if (releasedLock != removedFromCollection)
-        {
-            // time for investigation??
-            _logger.LogInformation("Mismatched lock release and collection removal releasedLock:{releasedLock} removedFromCollection:{removedFromCollection}", releasedLock, removedFromCollection);
-        }
-        */
+        System.Diagnostics.Debug.Assert(releasedLock == removedFromCollection);
     }
 
     public override void Abort(ConnectionAbortedException abortReason)
@@ -67,16 +61,7 @@ internal sealed class TransportTunnelWebSocketConnectionContext
         underlyingWebSocket?.Abort();
         var removedFromCollection = _trackLifetimeConnectionContextCollection?.TryRemove(this) ?? false;
         var releasedLock = _asyncLockOwner.Release();
-        /*
-        if (releasedLock != removedFromCollection)
-        {
-            _logger.LogInformation("Mismatched lock release and collection removal releasedLock:{releasedLock} removedFromCollection:{removedFromCollection}", releasedLock, removedFromCollection);
-        }
-        else
-        {
-            _logger.LogInformation("Matched lock release and collection removal releasedLock:{releasedLock} removedFromCollection:{removedFromCollection}", releasedLock, removedFromCollection);
-        }
-        */
+        System.Diagnostics.Debug.Assert(releasedLock == removedFromCollection);
     }
 
     public override ValueTask DisposeAsync()

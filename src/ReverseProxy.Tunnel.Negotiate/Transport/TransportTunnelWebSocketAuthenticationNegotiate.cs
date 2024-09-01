@@ -29,7 +29,7 @@ internal sealed class TransportTunnelWebSocketAuthenticationNegotiate
     public void ConfigureWebSocketConnectionOptions(TransportTunnelConfig config, HttpConnectionOptions options)
     {
         options.Credentials = System.Net.CredentialCache.DefaultCredentials;
-        options.SkipNegotiation = false;
+        options.SkipNegotiation = true;
         options.UseDefaultCredentials = true;
     }
 

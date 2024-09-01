@@ -2,15 +2,20 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.FileSystemGlobbing.Internal;
 using Microsoft.Extensions.Logging;
 
 using Yarp.ReverseProxy.Configuration;
@@ -36,29 +41,18 @@ namespace Yarp.ReverseProxy.Tunnel;
     So the authentication is done by the HTTP/1.1 protocol (and a cookie "YarpTunnelAuth" is set)
     and then the HTTP/2 protocol is used for the data (and the cookie is used for authn).
 */
-internal sealed class TunnelAuthenticationNegotiate
+
+#if false
+
+internal class TunnelAuthenticationNegotiate2
     : ITunnelAuthenticationService
 {
-    public const string PolicyName = "YarpTunnelNegotiate";
-
-    internal static void ConfigureAuthorizationPolicy(AuthorizationOptions options)
-    {
-        options.AddPolicy(
-            PolicyName,
-            policy => policy
-                .RequireAuthenticatedUser()
-                .AddAuthenticationSchemes("Negotiate")
-            );
-    }
-
-    public const string AuthenticationName = "Negotiate";
-    public const string CookieName = "YarpTunnelAuth";
-    private static readonly string[] AuthenticationTypes = ["NTLM", "Kerberos", "Kerberos2"];
+    
     private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
     private readonly ITunnelAuthenticationCookieService _cookieService;
     private readonly ILogger _logger;
 
-    public TunnelAuthenticationNegotiate(
+    public TunnelAuthenticationNegotiate2(
         ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
         ITunnelAuthenticationCookieService cookieService,
         ILogger<TunnelAuthenticationNegotiate> logger
@@ -69,19 +63,28 @@ internal sealed class TunnelAuthenticationNegotiate
         _logger = logger;
     }
 
-    public string GetAuthenticationName() => AuthenticationName;
+    public string GetAuthenticationMode() => AuthenticationName;
+
+    public ITunnelAuthenticationService GetAuthenticationService(string protocol) => this;
 
     public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)
     {
         // do nothing
     }
 
-    public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
+    public void MapAuthentication(string protocol, IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
     {
         // add a second endpoint for the same pattern but for GET not POST.
-        endpoints.MapGet(pattern, MapGetAuth)
-            .RequireAuthorization(PolicyName)
-            ;
+        if (string.Equals("WebSocket", protocol, StringComparison.Ordinal))
+        {
+            conventionBuilder.RequireAuthorization(PolicyName);
+        }
+        else if (string.Equals("HTTP2", protocol, StringComparison.Ordinal))
+        {
+            endpoints.MapGet(pattern, MapGetAuth)
+                .RequireAuthorization(PolicyName)
+                ;
+        }
     }
 
     /*
@@ -126,10 +129,11 @@ internal sealed class TunnelAuthenticationNegotiate
     /// Check if the outer tunnel request is authenticated.
     /// This checks the cookie "YarpTunnelAuth" in the request.
     /// </summary>
+    /// <param name="protocol"></param>
     /// <param name="context">http</param>
     /// <param name="cluster">current cluster</param>
     /// <returns>true ok - false 401 response.</returns>
-    public ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
+    public ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(string protocol, HttpContext context, ClusterState cluster)
     {
         if (context.Request.Cookies.TryGetValue(CookieName, out var auth)
             && auth is { Length: > 0 }
@@ -217,7 +221,92 @@ internal sealed class TunnelAuthenticationNegotiate
         return result;
     }
 
-    private static class Log
+}
+
+internal sealed class TunnelAuthenticationNegotiate
+    : TunnelAuthenticationNegotiateBase
+    , ITunnelAuthenticationServiceForTransport
+{
+    public TunnelAuthenticationNegotiate(
+        IEnumerable<ITunnelAuthenticationServiceForTransport> tunnelAuthenticationServiceForProtocols,
+        ILogger<TunnelAuthenticationNegotiate> logger
+        ):base(logger)
+    {
+        var dict = ImmutableDictionary<string, ITunnelAuthenticationServiceForTransport>.Empty;
+        foreach (var item in tunnelAuthenticationServiceForProtocols) {
+            if (item.GetTransport() is { Length: > 0 } protocol)
+            {
+                dict = dict.Add(protocol, item);
+            }
+            else
+            {
+                foreach (var knownProtocol in KnownProtocols)
+                {
+                    dict = dict.Add(knownProtocol, item);
+                }
+            }
+        }
+        _tunnelAuthenticationServiceForProtocols = dict;
+    }
+    
+    public string GetAuthenticationMode() => AuthenticationName;
+
+    public string GetTransport() => "TunnelWebSocket";
+
+    public ITunnelAuthenticationService GetAuthenticationService(string protocol) {
+        if (string.Equals("HTTP2", protocol, StringComparison.Ordinal))
+        {
+            return _tunnelAuthenticationHttp2Negotiate;
+        }
+        else if (string.Equals("WebSocket", protocol, StringComparison.Ordinal))
+        {
+            return _tunnelAuthenticationWebSocketNegotiate;
+        }
+        throw new InvalidOperationException($"Unknown protocol '{protocol}'");
+    }
+
+    public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)
+    {
+    }
+
+    //public void MapAuthentication(string protocol, IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
+    //{
+    //    GetAuthenticationService(protocol).MapAuthentication(protocol, endpoints, conventionBuilder, pattern);
+    //}
+
+    //public async ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(string protocol, HttpContext context, ClusterState cluster)
+    //{
+    //    return await GetAuthenticationService(protocol).CheckTunnelRequestIsAuthenticated(protocol, context, cluster);
+    //}
+}
+#endif
+
+internal class TunnelAuthenticationNegotiateBase
+{
+    public const string PolicyName = "YarpTunnelNegotiate";
+    public const string AuthenticationName = "Negotiate";
+    public const string CookieName = "YarpTunnelAuth";
+
+    internal static void ConfigureAuthorizationPolicy(AuthorizationOptions options)
+    {
+        options.AddPolicy(
+            PolicyName,
+            policy => policy
+                .RequireAuthenticatedUser()
+                .AddAuthenticationSchemes(AuthenticationName)
+            );
+    }
+
+    protected readonly ILogger _logger;
+
+    public TunnelAuthenticationNegotiateBase(
+        ILogger logger
+        )
+    {
+        _logger = logger;
+    }
+
+    protected static class Log
     {
         private static readonly Action<ILogger, string, string, string, Exception?> _clusterAuthenticationSuccess = LoggerMessage.Define<string, string, string>(
             LogLevel.Debug,

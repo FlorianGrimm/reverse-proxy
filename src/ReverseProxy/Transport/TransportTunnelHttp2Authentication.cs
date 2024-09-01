@@ -38,7 +38,7 @@ internal sealed class TransportTunnelHttp2Authentication(
         }
         else
         {
-            return null;
+            throw new NotSupportedException($"Authentication.Mode {mode} is unknown");
         }
     }
 
@@ -49,6 +49,10 @@ internal sealed class TransportTunnelHttp2Authentication(
             && _serviceByName.TryGetValue(mode, out var service))
         {
             await service.ConfigureHttpRequestMessageAsync(tunnel, requestMessage);
+        }
+        else
+        {
+            throw new NotSupportedException($"Authentication.Mode {mode} is unknown");
         }
     }
 }

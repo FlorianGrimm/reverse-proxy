@@ -19,11 +19,14 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
-internal sealed partial class TunnelHTTP2Route : IDisposable
+internal sealed partial class TunnelHTTP2Route
+    : IProxyRouteService
+    , IDisposable
 {
+    public const string TransportName = "TunnelHTTP2";
     private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
-    private readonly TunnelAuthenticationService _tunnelAuthenticationConfigService;
+    private readonly ITunnelAuthenticationConfigService _tunnelAuthenticationConfigService;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly ILogger _logger;
     private CancellationTokenRegistration? _unRegister;
@@ -32,7 +35,7 @@ internal sealed partial class TunnelHTTP2Route : IDisposable
     public TunnelHTTP2Route(
         ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
         TunnelConnectionChannelManager tunnelConnectionChannelManager,
-        TunnelAuthenticationService tunnelAuthenticationConfigService,
+        ITunnelAuthenticationConfigService tunnelAuthenticationConfigService,
         IHostApplicationLifetime lifetime,
         ILogger<TunnelHTTP2Route> logger)
     {
@@ -45,20 +48,21 @@ internal sealed partial class TunnelHTTP2Route : IDisposable
         _unRegister = _lifetime.ApplicationStopping.Register(() => _cancellationTokenSource.Cancel());
     }
 
+    public string GetTransport() => TransportName;
+
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute("Map")]
-    internal void Map(
+    public void Map(
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
     {
-        var tunnelAuthenticationService = endpoints.ServiceProvider.GetRequiredService<TunnelAuthenticationService>();
-        var listTunnelAuthenticationService = tunnelAuthenticationService.GetTunnelAuthenticationServices();
+        var listTunnelAuthenticationService = _tunnelAuthenticationConfigService.GetTunnelAuthenticationServices(TransportName);
         if (listTunnelAuthenticationService.Count == 0)
         {
-            throw new InvalidOperationException("No TunnelAuthenticationService found.");
+            _logger.LogError("No TunnelAuthenticationService found.");
         }
         foreach (var tunnelAuthentication in listTunnelAuthenticationService)
         {
-            var authenticationName = tunnelAuthentication.GetAuthenticationName();
+            var authenticationName = tunnelAuthentication.GetAuthenticationMode();
 
             var pattern = $"_Tunnel/H2/{authenticationName}/{{clusterId}}";
             var conventionBuilder = endpoints.MapPost(pattern, TunnelHTTP2RoutePost);
@@ -91,14 +95,30 @@ internal sealed partial class TunnelHTTP2Route : IDisposable
             Log.ClusterNotFound(_logger, clusterId);
             return Results.StatusCode(504);
         }
-
+        
         if (!_tunnelConnectionChannelManager.TryGetConnectionChannel(clusterId, out var tunnelConnectionChannels))
         {
             Log.TunnelConnectionChannelNotFound(_logger, clusterId);
             return Results.StatusCode(504);
         }
 
-        var result = await _tunnelAuthenticationConfigService.CheckTunnelRequestIsAuthenticated(context, cluster);
+        var transport = cluster.Model.Config.Transport;
+        if (!string.Equals(transport, TransportName, StringComparison.OrdinalIgnoreCase)) {
+            Log.ParameterNotValid(_logger, "Transport");
+            return Results.StatusCode(504);
+        }
+        var authenticationMode = cluster.Model.Config.Authentication.Mode;
+        if (string.IsNullOrEmpty(authenticationMode)) {
+            Log.ParameterNotValid(_logger, "Authentication.Mode");
+            return Results.StatusCode(504);
+        }
+        if (!_tunnelAuthenticationConfigService.TryGetTunnelAuthenticationServices(transport, authenticationMode, out var tunnelAuthenticationServices))
+        {
+            Log.ParameterNotValid(_logger, "Authentication.Mode");
+            return Results.StatusCode(504);
+        }
+
+        var result = await tunnelAuthenticationServices.CheckTunnelRequestIsAuthenticated(context, cluster);
         if (result is { })
         {
             // return Results.Challenge(); does not work if you have more than one and the tunnel auth is not the default/challange one

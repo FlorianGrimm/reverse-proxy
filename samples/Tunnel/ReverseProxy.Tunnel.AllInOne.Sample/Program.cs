@@ -38,26 +38,10 @@ namespace SampleServer;
 
     The api servers process the request and return the result - the request as html.
 
-    The perfomance depend on the console logger (and the logging settings on the appsettings).
-    You get better results if you are redirect the output to a file.
-
-    cd ".\artifacts\bin\ReverseProxy.Tunnel.AllInOne.Sample\Debug\net8.0"
-    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" h2-a test measure stop
-    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" h2ws-a test measure stop
-    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" h2ws-w test measure stop
-    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" h2-c test measure stop
-
-    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" h2ws-w browser-negotiate test 
-    ".\ReverseProxy.Tunnel.AllInOne.Sample.exe" h2ws-w browser-negotiate test measure stop
-
-    h2-a|h2-c|h2-w|h2ws-a|h2ws-w|ws-a|ws-c|ws-w]
-    browser-negotiate
-    browser-oauth
 #endif
 
 internal partial class Program
 {
-
     private static ModeAppSettings _modeAppSettings = ModeAppSettings.H2Anonymous;
     private static BrowserAuthentication _browserAuthentication = BrowserAuthentication.Anonymous;
     private static TunnelAuthentication _modeTunnelAuthentication = TunnelAuthentication.AuthenticationAnonymous;
@@ -71,10 +55,10 @@ internal partial class Program
             System.Console.Out.WriteLine("Tunnel protocol-authentication");
             System.Console.Out.WriteLine("  h2-: HTTP/2");
             System.Console.Out.WriteLine("  ws-: WebSocket");
-            System.Console.Out.WriteLine("  -anonymous: Anonymous");
-            System.Console.Out.WriteLine("  -certificate: Client Certificate authentication");
-            System.Console.Out.WriteLine("  -negotiate: Windows authentication");
-            System.Console.Out.WriteLine("  -jwtbaerer: JwtBaerer");
+            System.Console.Out.WriteLine("    -anonymous: Anonymous");
+            System.Console.Out.WriteLine("    -certificate: Client Certificate authentication");
+            System.Console.Out.WriteLine("    -negotiate: Windows authentication");
+            System.Console.Out.WriteLine("    -jwtbaerer: JwtBaerer");
             System.Console.Out.WriteLine("Browser Authentication:");
             System.Console.Out.WriteLine("browser-anonymous: browser wants no auth");
             System.Console.Out.WriteLine("browser-negotiate: browser wants windows auth");
@@ -193,7 +177,8 @@ internal partial class Program
             else if (ws_certificate) { _modeAppSettings = ModeAppSettings.WSCertificate; }
             else if (ws_negotiate) { _modeAppSettings = ModeAppSettings.WSNegotiate; }
 
-            else {
+            else
+            {
                 throw new InvalidOperationException("no valid mode");
             }
         }
@@ -285,15 +270,7 @@ internal partial class Program
 
         if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationCertificate)
         {
-            if (_browserAuthentication == BrowserAuthentication.Anonymous)
-            {
-                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationCertificateAuthProvider;
-                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationCertificateRequest;
-            }
-            else
-            {
-                _modeTunnelAuthentication = TunnelAuthentication.AuthenticationCertificateRequest;
-            }
+            _modeTunnelAuthentication = TunnelAuthentication.AuthenticationCertificate;
         }
         appsettingsFolder = System.IO.Path.Combine(System.AppContext.BaseDirectory, appsettingsFolder);
         System.Console.WriteLine(appsettingsFolder);
@@ -587,8 +564,6 @@ internal enum TunnelAuthentication
 {
     AuthenticationAnonymous,
     AuthenticationCertificate,
-    AuthenticationCertificateAuthProvider,
-    AuthenticationCertificateRequest,
     AuthenticationNegotiate,
     AuthenticationJwtBearer
 }

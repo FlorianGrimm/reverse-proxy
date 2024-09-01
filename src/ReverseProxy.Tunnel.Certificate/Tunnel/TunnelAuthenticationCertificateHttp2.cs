@@ -45,7 +45,7 @@ namespace Yarp.ReverseProxy.Tunnel;
 /// </code>
 /// </summary>
 ///
-internal sealed class TunnelAuthenticationCertificate
+internal sealed class TunnelAuthenticationCertificateHttp2
     : ITunnelAuthenticationService
     , IClusterChangeListener
     , IDisposable
@@ -66,14 +66,14 @@ internal sealed class TunnelAuthenticationCertificate
     private ImmutableDictionary<string, X509Certificate2>? _validCertificatesByThumbprint;
     private ImmutableDictionary<string, X509Certificate2>? _validCertificatesByCluster;
 
-    public TunnelAuthenticationCertificate(
+    public TunnelAuthenticationCertificateHttp2(
         IOptions<TunnelAuthenticationCertificateOptions> options,
         ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
         ClientCertificateValidationUtility clientCertificateValidationUtility,
         ITunnelAuthenticationCookieService cookieService,
         ICertificateLoader certificateConfigLoader,
         CertificatePathWatcher certificatePathWatcher,
-        ILogger<TunnelAuthenticationCertificate> logger
+        ILogger<TunnelAuthenticationCertificateHttp2> logger
         )
     {
         _options = options.Value;
@@ -92,7 +92,11 @@ internal sealed class TunnelAuthenticationCertificate
             );
     }
 
-    public string GetAuthenticationName() => AuthenticationName;
+    public string GetAuthenticationMode() => AuthenticationName;
+
+    public string GetTransport() => "TunnelHTTP2";
+
+    public ITunnelAuthenticationService GetAuthenticationService(string protocol) => this;
 
     public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)
     {
@@ -126,42 +130,6 @@ internal sealed class TunnelAuthenticationCertificate
 
     public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
     {
-        // add a second endpoint for the same pattern but for GET not POST.
-        //endpoints.MapGet(pattern, MapGetAuth); // .RequireAuthorization(PolicyName);
-    }
-
-    /*
-        Get and validate the Windows authenticated User
-        and add cookie "YarpTunnelAuth" in the response.
-     */
-    private async Task MapGetAuth(HttpContext context)
-    {
-        var identity = context.User.Identity;
-        if (context.GetRouteValue("clusterId") is string clusterId
-            && _proxyConfigManagerLazy.GetService().TryGetCluster(clusterId, out var cluster)
-            && cluster.Model.Config.IsTunnelTransport()
-            )
-        {
-            context.Response.StatusCode = 200;
-
-            ClaimsPrincipal principal = new(new ClaimsIdentity("Tunnel", "Tunnel", null));
-            var auth = _cookieService.NewCookie(principal);
-            context.Response.Cookies.Append(CookieName, auth, new CookieOptions()
-            {
-                Domain = context.Request.Host.Host,
-                Path = context.Request.Path,
-                IsEssential = true,
-                HttpOnly = true,
-                SameSite = SameSiteMode.Strict
-            });
-            await context.Response.WriteAsync("OK");
-        }
-        else
-        {
-            context.Response.StatusCode = 401;
-            await context.Response.WriteAsync("Unauthorized");
-        }
-        await context.Response.CompleteAsync();
     }
 
     public void OnClusterAdded(ClusterState cluster)
@@ -236,26 +204,10 @@ internal sealed class TunnelAuthenticationCertificate
 
     public async ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
-        if (_options.SourceAuthenticationProvider)
+        var isAuthenticatedSourceRequest = await CheckTunnelRequestIsAuthenticatedSourceRequest(context, cluster);
+        if (isAuthenticatedSourceRequest)
         {
-            var isAuthenticatedSourceAuth = CheckTunnelRequestIsAuthenticatedSourceAuth(context, cluster);
-            if (isAuthenticatedSourceAuth)
-            {
-                return null;
-            }
-        }
-        if (_options.SourceRequest)
-        {
-            var isAuthenticatedSourceRequest = await CheckTunnelRequestIsAuthenticatedSourceRequest(context, cluster);
-            if (isAuthenticatedSourceRequest)
-            {
-                return null;
-            }
-        }
-        if (_options.SourceAuthenticationProvider)
-        {
-
-            return Results.Challenge(null, [AuthenticationScheme]);
+            return null;
         }
         else
         {
@@ -421,77 +373,6 @@ internal sealed class TunnelAuthenticationCertificate
         return chainPolicy;
     }
 
-    public bool CheckTunnelRequestIsAuthenticatedSourceAuth(HttpContext context, ClusterState cluster)
-    {
-        if (context.User.Identity is not ClaimsIdentity identity)
-        {
-            Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "no context.User.Identity");
-            return false;
-        }
-        if (!identity.IsAuthenticated)
-        {
-            Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "not context.User.Identity.IsAuthenticated");
-            return false;
-        }
-        if (!(string.Equals(
-            identity.AuthenticationType,
-            "Certificate" /* = Microsoft.AspNetCore.Authentication.Certificate.CertificateAuthenticationDefaults.AuthenticationScheme */,
-            System.StringComparison.Ordinal)))
-        {
-            Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, "not AuthenticationType");
-            return false;
-        }
-
-        // ensure the certificates are loaded
-        var validCertificatesByCluster = _validCertificatesByCluster;
-        var validCertificatesByThumbprint = _validCertificatesByThumbprint;
-        if (validCertificatesByThumbprint is null)
-        {
-            lock (this)
-            {
-                validCertificatesByCluster = _validCertificatesByCluster;
-                validCertificatesByThumbprint = _validCertificatesByThumbprint;
-                if (validCertificatesByThumbprint is null)
-                {
-                    (validCertificatesByThumbprint, validCertificatesByCluster) = LoadCertificates();
-                }
-            }
-        }
-
-        if (validCertificatesByCluster is null)
-        {
-            _logger.LogWarning("validCertificatesByCluster is null.");
-            return false;
-        }
-
-        if (!validCertificatesByCluster.TryGetValue(cluster.ClusterId, out var certificate))
-        {
-            _logger.LogWarning("validCertificatesByCluster {ClusterId} not found.", cluster.ClusterId);
-            return false;
-        }
-
-        var identityThumbprint = string.Empty;
-        foreach (var claim in identity.Claims)
-        {
-            if (string.Equals(claim.Type, ClaimTypes.Thumbprint, StringComparison.Ordinal))
-            {
-                identityThumbprint = claim.Value;
-            }
-        }
-
-        var result = string.Equals(certificate.Thumbprint, identityThumbprint, System.StringComparison.Ordinal);
-        if (result)
-        {
-            Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, AuthenticationName, certificate.Subject);
-            return true;
-        }
-        else
-        {
-            Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, certificate.Subject);
-            return false;
-        }
-    }
-
     private void Dispose(bool disposing)
     {
         using (var unregister = _unregisterCertificatePathWatcher)
@@ -503,7 +384,7 @@ internal sealed class TunnelAuthenticationCertificate
         }
     }
 
-    ~TunnelAuthenticationCertificate()
+    ~TunnelAuthenticationCertificateHttp2()
     {
         Dispose(disposing: false);
     }

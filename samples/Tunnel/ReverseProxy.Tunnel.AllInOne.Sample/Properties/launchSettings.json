@@ -2,7 +2,7 @@
   "profiles": {
     "https": {
       "commandName": "Project",
-      "commandLineArgs": "h2-negotiate browser-negotiate",
+      "commandLineArgs": "ws-anonymous browser-negotiate 1 2 3 5 6",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },

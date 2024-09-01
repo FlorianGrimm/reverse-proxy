@@ -22,7 +22,8 @@ public static class TunnelExtensionsAnonymous
         this IReverseProxyBuilder builder
         )
     {
-        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationAnonymous>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationAnonymous.WebSocket>());
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationAnonymous.Http2>());
         return builder;
     }
 }

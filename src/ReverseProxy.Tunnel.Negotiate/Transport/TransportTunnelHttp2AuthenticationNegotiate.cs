@@ -89,7 +89,6 @@ internal sealed class TransportTunnelHttp2AuthenticationNegotiate
                     RequestUri = requestMessage.RequestUri!,
                     Method = HttpMethod.Get
                 };
-                _logger.LogInformation("ConfigureHttpRequestMessageAsync: {RequestUri}", requestMessageAuth.RequestUri);
                 using var httpMessageInvokerAuth = new HttpMessageInvoker(socketsHttpHandlerAuth);
                 using var responseMessage = await httpMessageInvokerAuth.SendAsync(requestMessageAuth, CancellationToken.None);
                 responseMessage.EnsureSuccessStatusCode();

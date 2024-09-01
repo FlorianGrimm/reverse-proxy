@@ -44,17 +44,6 @@ public sealed class TunnelAuthenticationCertificateOptions
 
     public Action<HttpsConnectionAdapterOptions>? ConfigureHttpsConnectionAdapterOptions { get; set; }
 
-
-    /// <summary>
-    /// Using Microsoft.AspNetCore.Authentication.Certificate
-    /// </summary>
-    public bool SourceAuthenticationProvider { get; set; }
-
-    /// <summary>
-    /// Using the client certificate from http request directly.
-    /// </summary>
-    public bool SourceRequest { get; set; }
-
     /// <summary>
     /// Value indicating the types of certificates accepted - used if SourceRequest is trúe.
     /// </summary>
@@ -127,17 +116,6 @@ public sealed class TunnelAuthenticationCertificateOptions
         if (System.Enum.TryParse<SslPolicyErrors>(configuration[nameof(IgnoreSslPolicyErrors)], out var valueIgnoreSslPolicyErrors))
         {
             IgnoreSslPolicyErrors = valueIgnoreSslPolicyErrors;
-        }
-        
-        if (bool.TryParse(configuration[nameof(SourceAuthenticationProvider)], out var sourceAuth))
-        {
-            SourceAuthenticationProvider = sourceAuth;
-        }
-
-
-        if (bool.TryParse(configuration[nameof(SourceRequest)], out var sourceRequest))
-        {
-            SourceRequest = sourceRequest;
         }
 
         if (System.Enum.TryParse<CertificateTypes>(configuration[nameof(AllowedCertificateTypes)], out var allowedCertificateTypes))

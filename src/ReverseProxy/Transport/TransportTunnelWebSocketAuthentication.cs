@@ -33,6 +33,10 @@ internal sealed class TransportTunnelWebSocketAuthentication(
         {
             service.ConfigureWebSocketConnectionOptions(config, options);
         }
+        else
+        {
+            throw new NotSupportedException($"Authentication.Mode {mode} is unknown");
+        }
     }
 
     public async ValueTask<HttpMessageInvoker?> ConfigureClientWebSocket(TransportTunnelConfig config, ClientWebSocket clientWebSocketocket)
@@ -43,7 +47,9 @@ internal sealed class TransportTunnelWebSocketAuthentication(
         {
             return await service.ConfigureClientWebSocket(config, clientWebSocketocket);
         }
-
-        return default;
+        else
+        {
+            throw new NotSupportedException($"Authentication.Mode {mode} is unknown");
+        }
     }
 }

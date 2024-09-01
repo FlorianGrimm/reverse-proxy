@@ -101,7 +101,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
 
                                 if (_options.ConfigureClientWebSocket is { } configureClientWebSocket)
                                 {
-                                    configureClientWebSocket(_tunnel.Model.Config, underlyingWebSocket, _transportTunnelWebSocketAuthentication);
+                                    configureClientWebSocket(_tunnel.Model.Config, underlyingWebSocket);
                                 }
 
                                 try

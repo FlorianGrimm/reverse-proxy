@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Builder;
@@ -19,10 +21,23 @@ namespace Yarp.ReverseProxy.Tunnel;
 public interface ITunnelAuthenticationService
 {
     /// <summary>
-    /// The name of the authentication.
+    /// The name of the authentication - Mode in the configuration.
     /// </summary>
     /// <returns>the unique name</returns>
-    string GetAuthenticationName();
+    string GetAuthenticationMode();
+
+    /// <summary>
+    /// Get the transport
+    /// </summary>
+    /// <returns></returns>
+    string GetTransport();
+
+    /// <summary>
+    /// Get the authentication service for the protocol.
+    /// </summary>
+    /// <param name="transport">transport</param>
+    /// <returns>the related service.</returns>
+    ITunnelAuthenticationService GetAuthenticationService(string transport);
 
     /// <summary>
     /// Configure the Kestrel server options for the tunnel.
@@ -45,4 +60,33 @@ public interface ITunnelAuthenticationService
     /// <param name="cluster">The cluster</param>
     /// <returns>true ok - false 401 response.</returns>
     ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster);
+}
+
+#if false
+public interface ITunnelAuthenticationServiceForTransport
+    : ITunnelAuthenticationService
+{
+    /// <summary>
+    /// Get the transport
+    /// </summary>
+    /// <returns></returns>
+    string GetTransport();
+}
+#endif
+
+public interface IProxyRouteService {
+
+    string GetTransport();
+
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute("Map")]
+    void Map(
+        IEndpointRouteBuilder endpoints,
+        Action<IEndpointConventionBuilder>? configure
+        );
+}
+
+public interface ITunnelAuthenticationConfigService
+{
+    IReadOnlyCollection<ITunnelAuthenticationService> GetTunnelAuthenticationServices(string transport);
+    bool TryGetTunnelAuthenticationServices(string transport, string authenticationMode, [MaybeNullWhen(false)] out ITunnelAuthenticationService result);
 }
