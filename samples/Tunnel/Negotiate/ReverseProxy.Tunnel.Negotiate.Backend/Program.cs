@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication.Negotiate;
+
 namespace ReverseProxy.Tunnel.Backend;
 
 public class Program
@@ -5,6 +7,15 @@ public class Program
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+
+        builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
+           .AddNegotiate();
+
+        builder.Services.AddAuthorization(options =>
+        {
+            options.FallbackPolicy = options.DefaultPolicy;
+        });
+
 
         builder.Configuration.AddUserSecrets("ReverseProxy");
         builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
@@ -14,15 +25,20 @@ public class Program
                 configureTunnelHttp2: options => { options.MaxConnectionCount = 1; },
                 configureTunnelWebSocket: options => { options.MaxConnectionCount = 1; }
             ) /* for the servers that starts the tunnel transport connections */
-            .AddTunnelTransportJwtBearer()
+            .AddTunnelTransportNegotiate()
+#warning Needed
+            //.ConfigureCertificateLoaderOptions(options =>
+            //{
+            //    options.CertificateRoot = System.AppContext.BaseDirectory;
+            //})
             ;
 
         var app = builder.Build();
 
         // app.UseHttpsRedirection() will redirect if the request is a tunnel request;
         // which means that the browser is redirected to https://{tunnelId}/... which is not what we want.
-        app.UseWhen(
-            static context => !context.TryGetTransportTunnelByUrl(out var _),
+        _ = app.UseWhen(
+            static context => !context.TryGetTransportTunnelByUrl(out _),
             app => app.UseHttpsRedirection()
         );
 

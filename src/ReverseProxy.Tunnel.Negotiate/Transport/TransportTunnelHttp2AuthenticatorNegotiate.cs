@@ -19,7 +19,7 @@ namespace Yarp.ReverseProxy.Transport;
     The Windows Authentication is not supported by the HTTP/2 protocol.
     The Windows Authentication is supported by the HTTP/1.1 protocol.
     So the authentication is done by the HTTP/1.1 protocol (and a cookie is set)
-    and then the HTTP/2 protocol is used for the data (and the cookie is used for authn).
+    and then the HTTP/2 protocol is used for the data (and the cookie is used for authentication).
 */
 internal sealed class TransportTunnelHttp2AuthenticatorNegotiate
     : ITransportTunnelHttp2Authenticator
@@ -71,7 +71,6 @@ internal sealed class TransportTunnelHttp2AuthenticatorNegotiate
 
         public ValueTask<HttpMessageInvoker?> ConfigureSocketsHttpHandlerAsync(SocketsHttpHandler socketsHttpHandler)
         {
-            //socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
             socketsHttpHandler.CookieContainer = _cookieContainer;
             return new(new HttpMessageInvoker(socketsHttpHandler));
         }
@@ -91,7 +90,7 @@ internal sealed class TransportTunnelHttp2AuthenticatorNegotiate
                 };
                 using var httpMessageInvokerAuth = new HttpMessageInvoker(socketsHttpHandlerAuth);
                 using var responseMessage = await httpMessageInvokerAuth.SendAsync(requestMessageAuth, CancellationToken.None);
-                responseMessage.EnsureSuccessStatusCode();
+                _ = responseMessage.EnsureSuccessStatusCode();
                 _ = await responseMessage.Content.ReadAsStringAsync();
                 _logger.LogInformation("ConfigureHttpRequestMessageAsync: {RequestUri} success", requestMessageAuth.RequestUri);
             }

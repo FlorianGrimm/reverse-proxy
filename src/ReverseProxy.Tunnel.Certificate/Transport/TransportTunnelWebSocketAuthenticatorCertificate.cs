@@ -216,7 +216,7 @@ internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
                 certificateCollection.Clear();
             }
         }
-        _logger.LogInformation("Certifactes cache cleared");
+        _logger.LogInformation("Certificates cache cleared");
     }
 
     private void Dispose(bool disposing)

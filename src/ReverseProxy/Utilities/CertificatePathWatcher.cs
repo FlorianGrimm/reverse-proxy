@@ -230,7 +230,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
         previousToken.OnReload();
     }
 
-    internal void RemoveWatch(CertificateConfig certificateConfig)
+    public void RemoveWatch(CertificateConfig certificateConfig)
     {
         lock (_metadataLock)
         {

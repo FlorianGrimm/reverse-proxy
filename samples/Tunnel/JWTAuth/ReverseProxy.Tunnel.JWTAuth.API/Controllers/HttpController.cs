@@ -8,7 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 
-namespace ReverseProxy.Tunnel.API.Controllers
+namespace SampleServer.Controllers
 {
     /// <summary>
     /// Sample controller.
