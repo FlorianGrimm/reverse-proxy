@@ -33,7 +33,7 @@ public sealed class CertificateLoaderOptions
         }
     }
 
-    internal void PostConfigure(IHostEnvironment hostEnvironment)
+    public void PostConfigure(IHostEnvironment hostEnvironment)
     {
         if (string.IsNullOrEmpty(CertificateRoot))
         {

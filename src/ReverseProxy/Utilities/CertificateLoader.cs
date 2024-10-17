@@ -14,7 +14,7 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Utilities;
 
-// copy from https://github.com/dotnet/aspnetcore.git src\Servers\Kestrel\Core\src\Internal\Certificates\CertificateConfigLoader.cs
+// based on https://github.com/dotnet/aspnetcore.git src\Servers\Kestrel\Core\src\Internal\Certificates\CertificateConfigLoader.cs
 
 public interface ICertificateLoader
 {
@@ -22,7 +22,7 @@ public interface ICertificateLoader
     (X509Certificate2?, X509Certificate2Collection?) LoadCertificateWithPrivateKey(CertificateConfig? certInfo, string name);
 }
 
-internal sealed partial class CertificateLoader : ICertificateLoader
+public sealed partial class CertificateLoader : ICertificateLoader
 {
     private readonly ILogger<CertificateLoader> _logger;
     private readonly string _certificateRoot;

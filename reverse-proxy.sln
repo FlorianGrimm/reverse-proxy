@@ -133,7 +133,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ReverseProxy.Tunnel.Hybrid.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ReverseProxy.Tunnel.Hybrid.Backend", "samples\Tunnel\Hybrid\ReverseProxy.Tunnel.Hybrid.Backend\ReverseProxy.Tunnel.Hybrid.Backend.csproj", "{230E315E-AFBA-47AE-871F-CE215CFB7CA0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReverseProxy.Tunnel.Hybrid.Frontend", "samples\Tunnel\Hybrid\ReverseProxy.Tunnel.Hybrid.Frontend\ReverseProxy.Tunnel.Hybrid.Frontend.csproj", "{8EC0A06C-A32D-448A-92BC-220609193AAF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ReverseProxy.Tunnel.Hybrid.Frontend", "samples\Tunnel\Hybrid\ReverseProxy.Tunnel.Hybrid.Frontend\ReverseProxy.Tunnel.Hybrid.Frontend.csproj", "{8EC0A06C-A32D-448A-92BC-220609193AAF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Negotiate", "Negotiate", "{98A96ABE-D78C-4D44-9279-47D182D8BBF8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReverseProxy.Tunnel.Negotiate.API", "samples\Tunnel\Negotiate\ReverseProxy.Tunnel.Negotiate.API\ReverseProxy.Tunnel.Negotiate.API.csproj", "{177B4428-83CC-4DC5-829D-3070F541739F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReverseProxy.Tunnel.Negotiate.Frontend", "samples\Tunnel\Negotiate\ReverseProxy.Tunnel.Negotiate.Frontend\ReverseProxy.Tunnel.Negotiate.Frontend.csproj", "{3590E558-9418-45E5-B063-CBE2B45F99F8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReverseProxy.Tunnel.Negotiate.Backend", "samples\Tunnel\Negotiate\ReverseProxy.Tunnel.Negotiate.Backend\ReverseProxy.Tunnel.Negotiate.Backend.csproj", "{4CDCAE78-9EAE-4365-8644-6346B837F418}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -511,6 +519,30 @@ Global
 		{8EC0A06C-A32D-448A-92BC-220609193AAF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8EC0A06C-A32D-448A-92BC-220609193AAF}.Release|x64.ActiveCfg = Release|Any CPU
 		{8EC0A06C-A32D-448A-92BC-220609193AAF}.Release|x64.Build.0 = Release|Any CPU
+		{177B4428-83CC-4DC5-829D-3070F541739F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{177B4428-83CC-4DC5-829D-3070F541739F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{177B4428-83CC-4DC5-829D-3070F541739F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{177B4428-83CC-4DC5-829D-3070F541739F}.Debug|x64.Build.0 = Debug|Any CPU
+		{177B4428-83CC-4DC5-829D-3070F541739F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{177B4428-83CC-4DC5-829D-3070F541739F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{177B4428-83CC-4DC5-829D-3070F541739F}.Release|x64.ActiveCfg = Release|Any CPU
+		{177B4428-83CC-4DC5-829D-3070F541739F}.Release|x64.Build.0 = Release|Any CPU
+		{3590E558-9418-45E5-B063-CBE2B45F99F8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3590E558-9418-45E5-B063-CBE2B45F99F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3590E558-9418-45E5-B063-CBE2B45F99F8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3590E558-9418-45E5-B063-CBE2B45F99F8}.Debug|x64.Build.0 = Debug|Any CPU
+		{3590E558-9418-45E5-B063-CBE2B45F99F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3590E558-9418-45E5-B063-CBE2B45F99F8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3590E558-9418-45E5-B063-CBE2B45F99F8}.Release|x64.ActiveCfg = Release|Any CPU
+		{3590E558-9418-45E5-B063-CBE2B45F99F8}.Release|x64.Build.0 = Release|Any CPU
+		{4CDCAE78-9EAE-4365-8644-6346B837F418}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4CDCAE78-9EAE-4365-8644-6346B837F418}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4CDCAE78-9EAE-4365-8644-6346B837F418}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4CDCAE78-9EAE-4365-8644-6346B837F418}.Debug|x64.Build.0 = Debug|Any CPU
+		{4CDCAE78-9EAE-4365-8644-6346B837F418}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4CDCAE78-9EAE-4365-8644-6346B837F418}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4CDCAE78-9EAE-4365-8644-6346B837F418}.Release|x64.ActiveCfg = Release|Any CPU
+		{4CDCAE78-9EAE-4365-8644-6346B837F418}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -572,6 +604,10 @@ Global
 		{AC01A8DC-D3DE-4F38-AAF2-2BB6F1244B92} = {6A8AA580-4294-42C1-9CEE-D74AB65E5957}
 		{230E315E-AFBA-47AE-871F-CE215CFB7CA0} = {6A8AA580-4294-42C1-9CEE-D74AB65E5957}
 		{8EC0A06C-A32D-448A-92BC-220609193AAF} = {6A8AA580-4294-42C1-9CEE-D74AB65E5957}
+		{98A96ABE-D78C-4D44-9279-47D182D8BBF8} = {8F5D651C-B441-4B54-A383-5A4614D6834D}
+		{177B4428-83CC-4DC5-829D-3070F541739F} = {98A96ABE-D78C-4D44-9279-47D182D8BBF8}
+		{3590E558-9418-45E5-B063-CBE2B45F99F8} = {98A96ABE-D78C-4D44-9279-47D182D8BBF8}
+		{4CDCAE78-9EAE-4365-8644-6346B837F418} = {98A96ABE-D78C-4D44-9279-47D182D8BBF8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {31F6924A-E427-4830-96E9-B47CEB7BFE78}

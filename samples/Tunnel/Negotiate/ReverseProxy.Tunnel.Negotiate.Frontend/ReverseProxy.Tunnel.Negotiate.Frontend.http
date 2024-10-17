@@ -1,0 +1,6 @@
+@ReverseProxy.Tunnel.Negotiate.Frontend_HostAddress = http://localhost:5139
+
+GET {{ReverseProxy.Tunnel.Negotiate.Frontend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

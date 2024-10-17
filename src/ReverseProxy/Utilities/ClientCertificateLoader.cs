@@ -14,10 +14,10 @@ namespace Yarp.ReverseProxy.Utilities;
 /// </summary>
 public static class ClientCertificateLoader
 {
-    internal static bool IsClientCertificate(string? mode)
+    public static bool IsClientCertificate(string? mode)
         => string.Equals(mode, "ClientCertificate", System.StringComparison.OrdinalIgnoreCase);
 
-    private const string ClientCertificateOid = "1.3.6.1.5.5.7.3.2";
+    public const string ClientCertificateOid = "1.3.6.1.5.5.7.3.2";
 
     /// <summary>
     /// Loads a certificate from the certificate store.
@@ -76,7 +76,7 @@ public static class ClientCertificateLoader
         }
     }
 
-    internal static bool IsCertificateAllowedForClientCertificate(X509Certificate2 certificate)
+    public static bool IsCertificateAllowedForClientCertificate(X509Certificate2 certificate)
     {
         /* If the Extended Key Usage extension is included, then we check that the serverAuth usage is included. (http://oid-info.com/get/1.3.6.1.5.5.7.3.1)
          * If the Extended Key Usage extension is not included, then we assume the certificate is allowed for all usages.
@@ -110,10 +110,10 @@ public static class ClientCertificateLoader
         return !hasEkuExtension;
     }
 
-    internal static bool DoesCertificateHaveAnAccessiblePrivateKey(X509Certificate2 certificate)
+    public static bool DoesCertificateHaveAnAccessiblePrivateKey(X509Certificate2 certificate)
         => certificate.HasPrivateKey;
 
-    internal static void DisposeCertificates(X509CertificateCollection? certificates, X509Certificate? except)
+    public static void DisposeCertificates(X509CertificateCollection? certificates, X509Certificate? except)
     {
         if (certificates != null)
         {

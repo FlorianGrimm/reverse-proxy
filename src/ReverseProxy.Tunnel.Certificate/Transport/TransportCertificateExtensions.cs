@@ -94,11 +94,7 @@ public static class TransportCertificateExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthenticator, TransportTunnelWebSocketAuthenticatorCertificate>());
 
         // CertificateLoader
-        services.TryAddSingleton<CertificatePathWatcher>();
-        services.TryAddSingleton<ICertificateLoader, CertificateLoader>();
-        services.AddOptions<CertificateLoaderOptions>()
-            .PostConfigure<IHostEnvironment>(static (options, hostEnvironment) => options.PostConfigure(hostEnvironment));
-
+        services.AddReverseProxyCertificateLoader();
 
         {
             var optionsBuilder = services.AddOptions<TransportTunnelAuthenticationCertificateOptions>();
