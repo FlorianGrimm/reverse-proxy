@@ -14,7 +14,7 @@ namespace Yarp.ReverseProxy.Utilities;
 /// </summary>
 public static class ClientCertificateLoader
 {
-    internal static bool IsClientCertificate(string? mode)
+    public static bool IsClientCertificate(string? mode)
         => string.Equals(mode, "ClientCertificate", System.StringComparison.OrdinalIgnoreCase);
 
     private const string ClientCertificateOid = "1.3.6.1.5.5.7.3.2";
@@ -113,7 +113,7 @@ public static class ClientCertificateLoader
     internal static bool DoesCertificateHaveAnAccessiblePrivateKey(X509Certificate2 certificate)
         => certificate.HasPrivateKey;
 
-    internal static void DisposeCertificates(X509CertificateCollection? certificates, X509Certificate? except)
+    public static void DisposeCertificates(X509CertificateCollection? certificates, X509Certificate? except)
     {
         if (certificates != null)
         {

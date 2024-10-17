@@ -88,7 +88,7 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
         public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TransportTunnelConfig> tunnels)
-            : this(routes, clusters, [], Guid.NewGuid().ToString())
+            : this(routes, clusters, tunnels, Guid.NewGuid().ToString())
         { }
 
         public InMemoryConfig(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TransportTunnelConfig> tunnels, string revisionId)

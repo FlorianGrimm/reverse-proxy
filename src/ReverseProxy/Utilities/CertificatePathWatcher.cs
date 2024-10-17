@@ -118,7 +118,8 @@ public sealed partial class CertificatePathWatcher : IDisposable
             }
         }
     }
-    internal void AddWatch(CertificateConfig certificateConfig)
+
+    public void AddWatch(CertificateConfig certificateConfig)
     {
         lock (_metadataLock)
         {
