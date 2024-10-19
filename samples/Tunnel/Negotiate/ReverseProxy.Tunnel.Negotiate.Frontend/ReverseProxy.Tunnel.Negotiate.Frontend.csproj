@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\src\ReverseProxy.Tunnel.Negotiate\Yarp.ReverseProxy.Tunnel.Negotiate.csproj" />
     <ProjectReference Include="..\..\..\..\src\ReverseProxy\Yarp.ReverseProxy.csproj" />
+    <ProjectReference Include="..\..\..\..\src\ReverseProxy.Transport.JWT\Yarp.ReverseProxy.Transport.JWT.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -36,5 +37,5 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
-  
+
 </Project>

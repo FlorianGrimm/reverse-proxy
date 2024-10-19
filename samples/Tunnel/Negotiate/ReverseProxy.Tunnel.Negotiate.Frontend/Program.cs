@@ -41,6 +41,7 @@ You need the Application ID URI. It should be in the format `api://{ClientId}`.
 
 using Microsoft.AspNetCore.Authentication.Negotiate;
 
+using Yarp.ReverseProxy.Transport;
 using Yarp.ReverseProxy.Tunnel;
 
 namespace ReverseProxy.Tunnel.Frontend;
@@ -63,6 +64,7 @@ public class Program
         builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
         var reverseProxyBuilder = builder.Services.AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetRequiredSection("ReverseProxy"))
+            .AddTransforms<AuthenticationTransformProvider>()
             .AddTunnelServices() // enable tunnel listener
             .AddTunnelServicesNegotiate()
             ;
