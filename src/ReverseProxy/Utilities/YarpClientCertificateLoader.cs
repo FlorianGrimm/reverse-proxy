@@ -12,7 +12,7 @@ namespace Yarp.ReverseProxy.Utilities;
 /// <summary>
 /// Enables loading client certificates from the certificate store.
 /// </summary>
-public static class ClientCertificateLoader
+public static class YarpClientCertificateLoader
 {
     public static bool IsClientCertificate(string? mode)
         => string.Equals(mode, "ClientCertificate", System.StringComparison.OrdinalIgnoreCase);

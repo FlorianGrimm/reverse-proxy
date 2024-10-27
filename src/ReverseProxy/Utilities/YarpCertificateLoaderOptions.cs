@@ -10,7 +10,7 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Utilities;
 
-public sealed class CertificateLoaderOptions
+public sealed class YarpCertificateLoaderOptions
 {
     public string? CertificateRoot { get; set; }
 

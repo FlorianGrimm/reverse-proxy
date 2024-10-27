@@ -20,12 +20,12 @@ using Yarp.ReverseProxy.Configuration;
 namespace Yarp.ReverseProxy.Utilities;
 
 // copy from https://github.com/dotnet/aspnetcore.git src\Servers\Kestrel\Core\src\Internal\CertificatePathWatcher.cs
-
-public sealed partial class CertificatePathWatcher : IDisposable
+// renamed to avoid conflicts with the original
+public sealed partial class YarpCertificatePathWatcher : IDisposable
 {
     private readonly Func<string, IFileProvider?> _fileProviderFactory;
     private readonly string _contentRootDir;
-    private readonly ILogger<CertificatePathWatcher> _logger;
+    private readonly ILogger<YarpCertificatePathWatcher> _logger;
 
     private readonly object _metadataLock = new();
 
@@ -37,10 +37,10 @@ public sealed partial class CertificatePathWatcher : IDisposable
     private ConfigurationReloadToken _reloadToken = new();
     private bool _disposed;
 
-    public CertificatePathWatcher(
-        IOptions<CertificateLoaderOptions> options,
+    public YarpCertificatePathWatcher(
+        IOptions<YarpCertificateLoaderOptions> options,
         IHostEnvironment hostEnvironment,
-        ILogger<CertificatePathWatcher> logger)
+        ILogger<YarpCertificatePathWatcher> logger)
         : this(
             options.Value.CertificateRoot is { Length: > 0 } certificateRoot ? certificateRoot : hostEnvironment.ContentRootPath,
             logger,
@@ -61,9 +61,9 @@ public sealed partial class CertificatePathWatcher : IDisposable
     /// <remarks>
     /// For testing.
     /// </remarks>
-    internal CertificatePathWatcher(
+    internal YarpCertificatePathWatcher(
         string contentRootPath,
-        ILogger<CertificatePathWatcher> logger,
+        ILogger<YarpCertificatePathWatcher> logger,
         Func<string, IFileProvider?>? fileProviderFactory = null)
     {
         _contentRootDir = contentRootPath;
@@ -348,7 +348,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                    "Directory '{Directory}' does not exist so changes to the certificate '{Path}' will not be tracked.");
 
 
-        public static void DirectoryDoesNotExist(ILogger<CertificatePathWatcher> logger, string directory, string path)
+        public static void DirectoryDoesNotExist(ILogger<YarpCertificatePathWatcher> logger, string directory, string path)
         {
             _directoryDoesNotExistCallback(logger, directory, path, null);
         }
@@ -360,7 +360,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 "Attempted to remove watch from unwatched path '{Path}'.");
 
 
-        public static void UnknownFile(ILogger<CertificatePathWatcher> logger, string path)
+        public static void UnknownFile(ILogger<YarpCertificatePathWatcher> logger, string path)
         {
             _unknownFileCallback(logger, path, null);
         }
@@ -372,7 +372,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 "Attempted to remove unknown observer from path '{Path}'.");
 
 
-        public static void UnknownObserver(ILogger<CertificatePathWatcher> logger, string path)
+        public static void UnknownObserver(ILogger<YarpCertificatePathWatcher> logger, string path)
         {
             _unknownObserverCallback(logger, path, null);
         }
@@ -384,7 +384,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 "Created directory watcher for '{Directory}'.");
 
 
-        public static void CreatedDirectoryWatcher(ILogger<CertificatePathWatcher> logger, string directory)
+        public static void CreatedDirectoryWatcher(ILogger<YarpCertificatePathWatcher> logger, string directory)
         {
             _createdDirectoryWatcherCallback(logger, directory, null);
         }
@@ -396,7 +396,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 "Created file watcher for '{Path}'.");
 
 
-        public static void CreatedFileWatcher(ILogger<CertificatePathWatcher> logger, string path)
+        public static void CreatedFileWatcher(ILogger<YarpCertificatePathWatcher> logger, string path)
         {
             _createdFileWatcherCallback(logger, path, null);
         }
@@ -407,7 +407,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 EventIds.RemovedDirectoryWatcher,
                 "Removed directory watcher for '{Directory}'.");
 
-        public static void RemovedDirectoryWatcher(ILogger<CertificatePathWatcher> logger, string directory)
+        public static void RemovedDirectoryWatcher(ILogger<YarpCertificatePathWatcher> logger, string directory)
         {
             _removedDirectoryWatcherCallback(logger, directory, null);
         }
@@ -419,7 +419,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 "Removed file watcher for '{Path}'.");
 
 
-        public static void RemovedFileWatcher(ILogger<CertificatePathWatcher> logger, string path)
+        public static void RemovedFileWatcher(ILogger<YarpCertificatePathWatcher> logger, string path)
         {
             _removedFileWatcherCallback(logger, path, null);
         }
@@ -431,7 +431,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 "Error retrieving last modified time for '{Path}'.");
 
 
-        public static void LastModifiedTimeError(ILogger<CertificatePathWatcher> logger, string path, Exception e)
+        public static void LastModifiedTimeError(ILogger<YarpCertificatePathWatcher> logger, string path, Exception e)
         {
             _lastModifiedTimeErrorCallback(logger, path, e);
         }
@@ -443,7 +443,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 "Ignored event for presently untracked file '{Path}'.");
 
 
-        public static void UntrackedFileEvent(ILogger<CertificatePathWatcher> logger, string path)
+        public static void UntrackedFileEvent(ILogger<YarpCertificatePathWatcher> logger, string path)
         {
             _untrackedFileEventCallback(logger, path, null);
         }
@@ -455,7 +455,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 "Reused existing observer on file watcher for '{Path}'.");
 
 
-        public static void ReusedObserver(ILogger<CertificatePathWatcher> logger, string path)
+        public static void ReusedObserver(ILogger<YarpCertificatePathWatcher> logger, string path)
         {
             _reusedObserverCallback(logger, path, null);
         }
@@ -466,7 +466,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 EventIds.AddedObserver,
                 "Added observer to file watcher for '{Path}'.");
 
-        public static void AddedObserver(ILogger<CertificatePathWatcher> logger, string path)
+        public static void AddedObserver(ILogger<YarpCertificatePathWatcher> logger, string path)
         {
             _addedObserverCallback(logger, path, null);
         }
@@ -477,7 +477,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 EventIds.RemovedObserver,
                 "Removed observer from file watcher for '{Path}'.");
 
-        public static void RemovedObserver(ILogger<CertificatePathWatcher> logger, string path)
+        public static void RemovedObserver(ILogger<YarpCertificatePathWatcher> logger, string path)
         {
             _removedObserverCallback(logger, path, null);
         }
@@ -487,7 +487,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 LogLevel.Trace,
                 EventIds.ObserverCount, "File '{Path}' now has {Count} observers.");
 
-        public static void ObserverCount(ILogger<CertificatePathWatcher> logger, string path, int count)
+        public static void ObserverCount(ILogger<YarpCertificatePathWatcher> logger, string path, int count)
         {
             _observerCountCallback(logger, path, count, null);
         }
@@ -498,7 +498,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 EventIds.FileCount,
                 "Directory '{Directory}' now has watchers on {Count} files.");
 
-        public static void FileCount(ILogger<CertificatePathWatcher> logger, string directory, int count)
+        public static void FileCount(ILogger<YarpCertificatePathWatcher> logger, string directory, int count)
         {
             _fileCountCallback(logger, directory, count, null);
         }
@@ -508,7 +508,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 LogLevel.Trace,
                 EventIds.EventWithoutFile,
                 "Flagged {Count} observers of '{Path}' as changed.");
-        public static void FlaggedObservers(ILogger<CertificatePathWatcher> logger, string path, int count)
+        public static void FlaggedObservers(ILogger<YarpCertificatePathWatcher> logger, string path, int count)
         {
             _flaggedObservers(logger, count, path, null);
         }
@@ -519,7 +519,7 @@ public sealed partial class CertificatePathWatcher : IDisposable
                 EventIds.EventWithoutFileCallback,
                 "Ignored event since '{Path}' was unavailable.");
 
-        public static void EventWithoutFile(ILogger<CertificatePathWatcher> logger, string path)
+        public static void EventWithoutFile(ILogger<YarpCertificatePathWatcher> logger, string path)
         {
             _eventWithoutFileCallback(logger, path, null);
         }

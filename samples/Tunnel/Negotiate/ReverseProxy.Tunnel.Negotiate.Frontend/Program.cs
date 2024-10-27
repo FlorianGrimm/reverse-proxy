@@ -64,7 +64,7 @@ public class Program
         builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
         var reverseProxyBuilder = builder.Services.AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetRequiredSection("ReverseProxy"))
-            .AddTransforms<AuthenticationTransformProvider>()
+            .AddTransforms<AuthenticationTransportTransformProvider>()
             .AddTunnelServices() // enable tunnel listener
             .AddTunnelServicesNegotiate()
             ;

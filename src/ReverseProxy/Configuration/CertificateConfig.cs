@@ -19,6 +19,7 @@ public sealed record CertificateConfig : IEquatable<CertificateConfig>
 
     public string Password { get; init; } = default!;
 
+
     private bool _fileHasChanged;
 
     /// <remarks>

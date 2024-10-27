@@ -55,12 +55,12 @@ internal sealed class TunnelAuthenticationCertificateHttp2
     public const string AuthenticationScheme = "Certificate";
     public const string AuthenticationName = "ClientCertificate";
     public const string CookieName = "YarpTunnelAuth";
-    private readonly ClientCertificateValidationUtility _clientCertificateValidationUtility;
+    private readonly YarpClientCertificateValidationUtility _clientCertificateValidationUtility;
     private readonly TunnelAuthenticationCertificateOptions _options;
     private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
     private readonly ITunnelAuthenticationCookieService _cookieService;
-    private readonly ICertificateLoader _certificateConfigLoader;
-    private readonly CertificatePathWatcher _certificatePathWatcher;
+    private readonly IYarpCertificateLoader _certificateConfigLoader;
+    private readonly YarpCertificatePathWatcher _certificatePathWatcher;
     private readonly ILogger _logger;
     private IDisposable? _unregisterCertificatePathWatcher;
     private ImmutableDictionary<string, X509Certificate2>? _validCertificatesByThumbprint;
@@ -69,10 +69,10 @@ internal sealed class TunnelAuthenticationCertificateHttp2
     public TunnelAuthenticationCertificateHttp2(
         IOptions<TunnelAuthenticationCertificateOptions> options,
         ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
-        ClientCertificateValidationUtility clientCertificateValidationUtility,
+        YarpClientCertificateValidationUtility clientCertificateValidationUtility,
         ITunnelAuthenticationCookieService cookieService,
-        ICertificateLoader certificateConfigLoader,
-        CertificatePathWatcher certificatePathWatcher,
+        IYarpCertificateLoader certificateConfigLoader,
+        YarpCertificatePathWatcher certificatePathWatcher,
         ILogger<TunnelAuthenticationCertificateHttp2> logger
         )
     {
@@ -155,7 +155,7 @@ internal sealed class TunnelAuthenticationCertificateHttp2
         foreach (var cluster in proxyConfigManager.GetTransportTunnelClusters())
         {
             var config = cluster.Model.Config;
-            if (!ClientCertificateLoader.IsClientCertificate(config.Authentication.Mode))
+            if (!YarpClientCertificateLoader.IsClientCertificate(config.Authentication.Mode))
             {
                 continue;
             }
@@ -164,7 +164,7 @@ internal sealed class TunnelAuthenticationCertificateHttp2
                 // TODO: does this work??
                 // var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificateNoPrivateKey(clientCertificate, cluster.ClusterId);
                 var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificateWithPrivateKey(clientCertificate, cluster.ClusterId);
-                ClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
+                YarpClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
                 if (certificate is not null)
                 {
                     var thumbprint = certificate.Thumbprint;

@@ -15,23 +15,34 @@ using Yarp.ReverseProxy.Configuration;
 namespace Yarp.ReverseProxy.Utilities;
 
 // based on https://github.com/dotnet/aspnetcore.git src\Servers\Kestrel\Core\src\Internal\Certificates\CertificateConfigLoader.cs
+// renamed to avoid conflicts with the original
 
-public interface ICertificateLoader
+/// <summary>
+/// Provides methods for loading certificates from the certificate store or file system.
+/// </summary>
+public interface IYarpCertificateLoader
 {
+    /// <summary>
+    /// Loads a certificate from the certificate store or file system without the private key.
+    /// </summary>
     (X509Certificate2?, X509Certificate2Collection?) LoadCertificateNoPrivateKey(CertificateConfig? certInfo, string name);
+
+    /// <summary>
+    /// Loads a certificate from the certificate store or file system with the private key.
+    /// </summary>
     (X509Certificate2?, X509Certificate2Collection?) LoadCertificateWithPrivateKey(CertificateConfig? certInfo, string name);
 }
 
-public sealed partial class CertificateLoader : ICertificateLoader
+public sealed partial class YarpCertificateLoader : IYarpCertificateLoader
 {
-    private readonly ILogger<CertificateLoader> _logger;
+    private readonly ILogger<YarpCertificateLoader> _logger;
     private readonly string _certificateRoot;
     private readonly Func<CertificateConfig, string?> _getCertificatePassword;
 
-    public CertificateLoader(
-        IOptions<CertificateLoaderOptions> options,
+    public YarpCertificateLoader(
+        IOptions<YarpCertificateLoaderOptions> options,
         IHostEnvironment hostEnvironment,
-        ILogger<CertificateLoader> logger)
+        ILogger<YarpCertificateLoader> logger)
     {
         _logger = logger;
         var optionsValue = options.Value;
@@ -257,7 +268,7 @@ public sealed partial class CertificateLoader : ICertificateLoader
         }
         var allowInvalid = certInfo.AllowInvalid ?? false;
 
-        return ClientCertificateLoader.LoadFromStoreCert(subject, storeName, storeLocation, allowInvalid, needPrivateKey);
+        return YarpClientCertificateLoader.LoadFromStoreCert(subject, storeName, storeLocation, allowInvalid, needPrivateKey);
     }
 
     internal static class Log

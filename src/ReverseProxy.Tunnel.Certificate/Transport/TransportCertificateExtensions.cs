@@ -129,11 +129,11 @@ public static class TransportCertificateExtensions
     public static IReverseProxyBuilder ConfigureCertificateLoaderOptions
         (
             this IReverseProxyBuilder builder,
-            Action<CertificateLoaderOptions>? configure = default,
+            Action<YarpCertificateLoaderOptions>? configure = default,
             IConfiguration? configuration = default
         )
     {
-        var optionsBuilder = builder.Services.AddOptions<CertificateLoaderOptions>();
+        var optionsBuilder = builder.Services.AddOptions<YarpCertificateLoaderOptions>();
         if (configuration is { })
         {
             _ = optionsBuilder.Configure((options) =>
