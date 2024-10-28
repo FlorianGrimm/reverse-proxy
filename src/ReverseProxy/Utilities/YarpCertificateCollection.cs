@@ -20,13 +20,14 @@ namespace Yarp.ReverseProxy.Utilities;
 /// <summary>
 /// Abstracts the loading/house-keeping of certificates.
 /// </summary>
-public sealed class YarpCertificateCollection
+public sealed partial class YarpCertificateCollection
     : IDisposable
 {
     private readonly IYarpCertificateLoader _certificateLoader;
-    private readonly YarpCertificatePathWatcher? _certificatePathWatcher;
+    private readonly IYarpCertificatePathWatcher? _certificatePathWatcher;
     private readonly string _id;
     private readonly bool _loadWithPrivateKey;
+    private readonly TimeProvider _timeProvider;
     private LoadParameter? _currentParameter;
     private State? _currentState;
 
@@ -36,18 +37,21 @@ public sealed class YarpCertificateCollection
     /// <param name="certificateLoader">The certificate loader</param>
     /// <param name="certificatePathWatcher">The filewatche</param>
     /// <param name="id">A id - like the cluster id</param>
-    /// <param name="loadWithPrivateKey">load with private key.</param>
+    /// <param name="loadWithPrivateKey">load with private key - or without if false.</param>
+    /// <param name="timeProvider">The TimeProvider</param>
     public YarpCertificateCollection(
         IYarpCertificateLoader certificateLoader,
-        YarpCertificatePathWatcher? certificatePathWatcher,
+        IYarpCertificatePathWatcher? certificatePathWatcher,
         string id,
-        bool loadWithPrivateKey = true
+        bool loadWithPrivateKey,
+        TimeProvider timeProvider
         )
     {
         _certificateLoader = certificateLoader;
         _certificatePathWatcher = certificatePathWatcher;
         _id = id;
         _loadWithPrivateKey = loadWithPrivateKey;
+        _timeProvider = timeProvider;
     }
 
     /// <summary>
@@ -100,7 +104,7 @@ public sealed class YarpCertificateCollection
 
     }
 
-    public bool TryGet(
+    internal bool TryGet(
         [MaybeNullWhen(false)] out X509CertificateCollection collection,
         [MaybeNullWhen(false)] out DateTime notBefore,
         [MaybeNullWhen(false)] out DateTime notAfter
@@ -142,13 +146,13 @@ public sealed class YarpCertificateCollection
     /// </summary>
     /// <param name="parameter">The certificate configurations.</param>
     /// <returns>Fluent this.</returns>
-    public YarpCertificateCollection Load(
+    internal YarpCertificateCollection Load(
         LoadParameter parameter
         )
     {
         {
             // fast path if not changed
-            var refresh = (_currentState is null) || HasChanged(parameter);
+            var refresh = (_currentState is null) || NeedsReload(parameter);
             if (!refresh) { return this; }
         }
         {
@@ -157,18 +161,16 @@ public sealed class YarpCertificateCollection
             {
                 {
                     // test again after lock
-                    var refresh = (_currentState is null) || HasChanged(parameter);
+                    var refresh = (_currentState is null) || NeedsReload(parameter);
                     if (!refresh) { return this; }
                 }
                 {
-                    State state = (_loadWithPrivateKey)
-                        ? new StateWithPrivateKey(_certificateLoader, _certificatePathWatcher)
-                        : new StateNoPrivateKey(_certificateLoader, _certificatePathWatcher);
-
+                    var state = new State(this);
+                    var utcNow = _timeProvider.GetUtcNow();
                     {
                         if (parameter.CertificateConfig is { } certificateConfigItem)
                         {
-                            state.Load(certificateConfigItem, _id);
+                            state.Load(certificateConfigItem, _id, utcNow);
                         }
                     }
 
@@ -179,13 +181,13 @@ public sealed class YarpCertificateCollection
                             if (authenticationClientCertificates[index] is { } certificateConfigItem)
                             {
                                 var keyname = $"{_id}-{index}";
-                                state.Load(certificateConfigItem, keyname);
+                                state.Load(certificateConfigItem, keyname, utcNow);
                             }
                         }
                     }
                     if (parameter.X509CertificateCollection is { } x509CertificateCollection)
                     {
-                        state.AddShared(x509CertificateCollection);
+                        state.AddShared(x509CertificateCollection, utcNow);
                     }
                     _currentParameter = parameter;
                     _currentState = state;
@@ -199,7 +201,27 @@ public sealed class YarpCertificateCollection
         }
     }
 
-    public bool HasChanged(LoadParameter nextCertificateCollectionRequest)
+    /// <summary>
+    /// Check if the certificates needs to be reloaded.
+    /// </summary>
+    /// <param name="certificateConfig">configuration for loading the certificates.</param>
+    /// <param name="listCertificateConfig">configuration for loading the certificates.</param>
+    /// <param name="x509CertificateCollection">predefined certificates</param>
+    /// <returns>true - reload; false - no need to reload</returns>
+    public bool NeedsReload(
+        CertificateConfig? certificateConfig,
+        List<CertificateConfig>? listCertificateConfig,
+        X509CertificateCollection? x509CertificateCollection)
+    {
+        return NeedsReload(new LoadParameter(certificateConfig, listCertificateConfig, x509CertificateCollection));
+    }
+
+    /// <summary>
+    /// Check if the certificates needs to be reloaded.
+    /// </summary>
+    /// <param name="nextLoadParameter">the next request</param>
+    /// <returns>true - reload; false - no need to reload</returns>
+    public bool NeedsReload(LoadParameter nextLoadParameter)
     {
         if (!(_currentParameter is { } currentCertificateCollectionRequest)
             || _currentState is null)
@@ -213,12 +235,12 @@ public sealed class YarpCertificateCollection
             return true;
         }
 
-        if (!AreEqualCertificateConfig(currentCertificateCollectionRequest.CertificateConfig, nextCertificateCollectionRequest.CertificateConfig))
+        if (!AreEqualCertificateConfig(currentCertificateCollectionRequest.CertificateConfig, nextLoadParameter.CertificateConfig))
         {
             return true;
         }
 
-        return !AreEqualListCertificateConfig(currentCertificateCollectionRequest.ListCertificateConfig, nextCertificateCollectionRequest.ListCertificateConfig);
+        return !AreEqualListCertificateConfig(currentCertificateCollectionRequest.ListCertificateConfig, nextLoadParameter.ListCertificateConfig);
     }
 
     private bool AreEqualListCertificateConfig(List<CertificateConfig>? a, List<CertificateConfig>? b)
@@ -240,6 +262,23 @@ public sealed class YarpCertificateCollection
         return a.Equals(b);
     }
 
+    public X509Certificate? GetX509Certificate()
+    {
+        if (_currentState is { Collection: { Count: > 0 } collection })
+        {
+            if (0 <= _currentState.Valid)
+            {
+                return collection[_currentState.Valid];
+            }
+            else
+            {
+                // REVIEW: is this possible?
+                return collection[0];
+            }
+        }
+        return null;
+    }
+
     public void Dispose()
     {
         // TODO: Is it ok to Dispose them - they might be in use
@@ -258,18 +297,27 @@ public sealed class YarpCertificateCollection
         }
     }
 
-    public partial record struct LoadParameter(
+}
+
+// utliity part
+public partial class YarpCertificateCollection
+{
+    /// <summary>
+    /// The parameter to load the certificates.
+    /// </summary>
+    /// <param name="CertificateConfig">configuration for loading the certificates.</param>
+    /// <param name="ListCertificateConfig">configuration for loading the certificates.</param>
+    /// <param name="X509CertificateCollection">predefined certificates</param>
+    public record struct LoadParameter(
         CertificateConfig? CertificateConfig,
         List<CertificateConfig>? ListCertificateConfig,
         X509CertificateCollection? X509CertificateCollection);
 
-    internal abstract partial class State(
-        IYarpCertificateLoader certificateLoader,
-        YarpCertificatePathWatcher? certificatePathWatcher
+    internal sealed class State(
+        YarpCertificateCollection yarpCertificateCollection
         ) : IDisposable
     {
-        private readonly IYarpCertificateLoader _certificateLoader = certificateLoader;
-        private readonly YarpCertificatePathWatcher? _certificatePathWatcher = certificatePathWatcher;
+        private readonly YarpCertificateCollection _yarpCertificateCollection = yarpCertificateCollection;
 
         private X509CertificateCollection? _collectionToDispose;
 
@@ -282,20 +330,37 @@ public sealed class YarpCertificateCollection
 
         public int ReferenceCounter = 0;
         public bool DisposeCertificates = true;
+        public int Valid = -1;
 
         /// <summary>
         /// Load the certificates defined by the config
         /// </summary>
         /// <param name="certificateConfig">the configuration that specifies the certificates to load.</param>
         /// <param name="keyname"></param>
-        public abstract void Load(
+        /// <param name="utcNow"></param>
+        public void Load(
             CertificateConfig certificateConfig,
-            string keyname);
+            string keyname,
+            DateTimeOffset utcNow)
+        {
+            if (_yarpCertificateCollection._loadWithPrivateKey)
+            {
+                var (certificate, certificateCollection) = _yarpCertificateCollection._certificateLoader.LoadCertificateWithPrivateKey(certificateConfig, keyname);
+                PostLoad(certificateConfig, certificate, certificateCollection, utcNow);
+            }
+            else
+            {
+                var (certificate, certificateCollection) = _yarpCertificateCollection._certificateLoader.LoadCertificateNoPrivateKey(certificateConfig, keyname);
+                PostLoad(certificateConfig, certificate, certificateCollection, utcNow));
+            }
+        }
 
-        protected void PostLoad(
+        private void PostLoad(
             CertificateConfig certificateConfig,
             X509Certificate2? certificate,
-            X509Certificate2Collection? clientCertificateCollection)
+            X509Certificate2Collection? clientCertificateCollection,
+            DateTimeOffset utcNow
+            )
         {
             if (certificate is not null)
             {
@@ -303,33 +368,30 @@ public sealed class YarpCertificateCollection
                 {
                     _collectionToDispose = Collection = new X509CertificateCollection();
                 }
-                Collection.Add(certificate);
 
-                var certNotBefore = certificate.NotBefore;
-                var certNotAfter = certificate.NotAfter;
-                if (certNotBefore < NotBefore) { NotBefore = certNotBefore; }
-                if (NotAfter < certNotAfter) { NotAfter = certNotAfter; }
+                AddCertificateIfValid(Collection, certificate, utcNow);
 
                 YarpClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
 
                 if (certificateConfig.IsFileCert())
                 {
-                    _certificatePathWatcher?.AddWatch(certificateConfig);
-
-                    if (CertificateChangeToken is null
-                        && _certificatePathWatcher is { } certificatePathWatcher)
+                    if (_yarpCertificateCollection._certificatePathWatcher is { } certificatePathWatcher)
                     {
-                        CertificateChangeToken = certificatePathWatcher.GetChangeToken();
+                        certificatePathWatcher.AddWatch(certificateConfig);
+                        if (CertificateChangeToken is null)
+                        {
+                            CertificateChangeToken = certificatePathWatcher.GetChangeToken();
+                        }
                     }
                 }
             }
             else
             {
                 YarpClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
-            }           
+            }
         }
 
-        internal void AddShared(X509CertificateCollection x509CertificateCollection)
+        internal void AddShared(X509CertificateCollection x509CertificateCollection, DateTimeOffset utcNow)
         {
             var nextCollection = new X509CertificateCollection();
             if (Collection is { } collection)
@@ -339,17 +401,36 @@ public sealed class YarpCertificateCollection
                     nextCollection.Add(certificate);
                 }
             }
-            
+
             foreach (var certificate in x509CertificateCollection)
             {
-                nextCollection.Add(certificate);
-                if (certificate is X509Certificate2 certificate2)
-                {
-                    if (certificate2.NotBefore < NotBefore) { NotBefore = certificate2.NotBefore; }
-                    if (NotAfter < certificate2.NotAfter) { NotAfter = certificate2.NotAfter; }
-                }
+                AddCertificateIfValid(nextCollection, certificate, utcNow);
             }
+
             Collection = nextCollection;
+        }
+
+        private void AddCertificateIfValid(
+            X509CertificateCollection nextCollection,
+            X509Certificate certificate,
+            DateTimeOffset utcNow)
+        {
+            if (certificate is not X509Certificate2 certificate2)
+            {
+                throw new InvalidOperationException("Only X509Certificate2 is supported");
+            }
+
+            if (certificate2.NotBefore <= utcNow && utcNow < certificate2.NotAfter)
+            {
+                // valid
+                if (Valid < 0)
+                {
+                    Valid = nextCollection.Count;
+                }
+                nextCollection.Add(certificate);
+                if (certificate2.NotBefore < NotBefore) { NotBefore = certificate2.NotBefore; }
+                if (NotAfter < certificate2.NotAfter) { NotAfter = certificate2.NotAfter; }
+            }
         }
 
         public void Dispose()
@@ -372,74 +453,39 @@ public sealed class YarpCertificateCollection
                 }
             }
         }
-
-        internal partial class StateWithPrivateKey(
-                IYarpCertificateLoader certificateLoader,
-                YarpCertificatePathWatcher? certificatePathWatcher
-            ) : State(
-                certificateLoader,
-                certificatePathWatcher
-            )
-        {
-            public override void Load(CertificateConfig certificateConfig, string keyname)
-            {
-                var (certificate, clientCertificateCollection) = _certificateLoader.LoadCertificateWithPrivateKey(certificateConfig, keyname);
-                PostLoad(certificateConfig, certificate, clientCertificateCollection);
-            }
-        }
-
-        internal partial class StateNoPrivateKey(
-                IYarpCertificateLoader certificateLoader,
-                YarpCertificatePathWatcher? certificatePathWatcher
-            ) : State(
-                certificateLoader,
-                certificatePathWatcher
-            )
-        {
-            public override void Load(CertificateConfig certificateConfig, string keyname)
-            {
-                var (certificate, clientCertificateCollection) = _certificateLoader.LoadCertificateNoPrivateKey(certificateConfig, keyname);
-                PostLoad(certificateConfig, certificate, clientCertificateCollection);
-            }
-        }
     }
 
-
+    /// <summary>
+    /// Get the certificate collection based on the configuration.
+    /// </summary>
+    /// <param name="clientCertifiacteCollectionByTunnelId"></param>
+    /// <param name="certificateCollectionFactory"></param>    
+    /// <param name="configTunnelId"></param>
+    /// <param name="loadWithPrivateKey">load with private key - or without if false.</param>
+    /// <param name="certificateConfig"></param>
+    /// <param name="listCertificateConfig"></param>
+    /// <param name="x509CertificateCollection"></param>
+    /// <param name="logger"></param>
+    /// <returns></returns>
     public static YarpCertificateCollection GetCertificateCollection(
         ConcurrentDictionary<string, YarpCertificateCollection> clientCertifiacteCollectionByTunnelId,
-        IYarpCertificateLoader certificateLoader,
-        YarpCertificatePathWatcher? certificatePathWatcher,
+        IYarpCertificateCollectionFactory certificateCollectionFactory,
         string configTunnelId,
-
+        bool loadWithPrivateKey,
         CertificateConfig? certificateConfig,
         List<CertificateConfig>? listCertificateConfig,
         X509CertificateCollection? x509CertificateCollection,
         ILogger logger
-        ) => GetCertificateCollection(
-            clientCertifiacteCollectionByTunnelId,
-            certificateLoader,
-            certificatePathWatcher,
-            configTunnelId,
-            new LoadParameter(certificateConfig, listCertificateConfig, x509CertificateCollection),
-            logger
-            );
-
-    public static YarpCertificateCollection GetCertificateCollection(
-        ConcurrentDictionary<string, YarpCertificateCollection> clientCertifiacteCollectionByTunnelId,
-        IYarpCertificateLoader certificateLoader,
-        YarpCertificatePathWatcher? certificatePathWatcher,
-        string configTunnelId,
-        YarpCertificateCollection.LoadParameter certificateCollectionRequest,
-        ILogger logger
         )
     {
+        var certificateCollectionRequest = new LoadParameter(certificateConfig, listCertificateConfig, x509CertificateCollection);
         YarpCertificateCollection? clientCertifiacteCollection = null;
         while (clientCertifiacteCollection is null)
         {
 
             if (clientCertifiacteCollectionByTunnelId.TryGetValue(configTunnelId, out clientCertifiacteCollection))
             {
-                if (!clientCertifiacteCollection.HasChanged(certificateCollectionRequest)
+                if (!clientCertifiacteCollection.NeedsReload(certificateCollectionRequest)
                     // TODO: && clientCertifiacteCollection.IsValidDateRange()
                     )
                 {
@@ -452,7 +498,7 @@ public sealed class YarpCertificateCollection
             {
                 if (clientCertifiacteCollectionByTunnelId.TryGetValue(configTunnelId, out clientCertifiacteCollection))
                 {
-                    if (!clientCertifiacteCollection.HasChanged(certificateCollectionRequest)
+                    if (!clientCertifiacteCollection.NeedsReload(certificateCollectionRequest)
                     // TODO: && clientCertifiacteCollection.IsValidDateRange()
                         )
                     {
@@ -461,8 +507,7 @@ public sealed class YarpCertificateCollection
                 }
 
                 {
-                    var nextClientCertifiacteCollection = new YarpCertificateCollection(
-                        certificateLoader, certificatePathWatcher, configTunnelId, true);
+                    var nextClientCertifiacteCollection = certificateCollectionFactory.Create(configTunnelId, loadWithPrivateKey);
                     nextClientCertifiacteCollection.Load(certificateCollectionRequest);
 
                     if (clientCertifiacteCollection is null)

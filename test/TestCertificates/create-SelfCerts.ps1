@@ -1,4 +1,8 @@
 # createcerts.ps1
+if ([System.IO.Path]::GetFileName((Get-Location).Path) -ne "TestCertificates"){
+    Set-Location -LiteralPath ([System.IO.Path]::Combine((Get-Location).Path, './test/TestCertificates'))
+}
+
 
 # 1
 
@@ -45,5 +49,3 @@ $cert1.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::P
 $cert1 | gm
 
 #$cert1.PublicKey.Oid.Value
-
-<# #>

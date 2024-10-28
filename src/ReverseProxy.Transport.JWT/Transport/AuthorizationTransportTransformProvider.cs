@@ -1,39 +1,33 @@
 using System.Collections.Concurrent;
-
 using Microsoft.Extensions.Options;
-
 using Yarp.ReverseProxy.Transforms.Builder;
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
 
-public class AuthenticationTransportTransformProvider : ITransformProvider
+public class AuthorizationTransportTransformProvider : ITransformProvider
 {
     private readonly AuthorizationTransportOptions _options;
-    private readonly AuthenticationTransportSigningCertificate _signingCertificate;
+    private readonly AuthorizationTransportSigningCertificate _signingCertificate;
 
-    public AuthenticationTransportTransformProvider(
-        IYarpCertificateLoader certificateLoader,
-        YarpCertificatePathWatcher? certificatePathWatcher,
+    public AuthorizationTransportTransformProvider(
+        IYarpCertificateCollectionFactory yarpCertificateCollectionFactory,
         IOptions<AuthorizationTransportOptions> options
-        )
+    )
     {
         _options = options.Value;
-        _signingCertificate = new AuthenticationTransportSigningCertificate(
-            certificateLoader,
-            certificatePathWatcher,
+        _signingCertificate = new AuthorizationTransportSigningCertificate(
+            yarpCertificateCollectionFactory,
             _options);
     }
 
-    public void ValidateCluster(TransformClusterValidationContext context) {
-        if (context.Cluster is { } cluster && cluster.IsTunnelTransport())
+    public void ValidateCluster(TransformClusterValidationContext context)
+    {
+        if (_options.IsEnabled(context.Cluster))
         {
-            if (_options.SigningCertificateConfig is { } config)
+            if (_signingCertificate.GetCertificate() is null)
             {
-                if (_signingCertificate.GetCertificate() is null)
-                {
-                    context.Errors.Add(new System.ArgumentException("SigningCertificate", "No signing certificate found."));
-                }
+                context.Errors.Add(new System.ArgumentException("No signing certificate found.","SigningCertificate"));
             }
         }
     }
@@ -42,7 +36,7 @@ public class AuthenticationTransportTransformProvider : ITransformProvider
 
     public void Apply(TransformBuilderContext context)
     {
-        var requestTransform = new AuthenticationTransportRequestTransform(_options, _signingCertificate);
+        var requestTransform = new AuthorizationTransportRequestTransform(_options, _signingCertificate);
         context.RequestTransforms.Add(requestTransform);
     }
 }

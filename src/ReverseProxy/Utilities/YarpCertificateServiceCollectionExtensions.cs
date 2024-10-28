@@ -11,9 +11,9 @@ public static class YarpCertificateServiceCollectionExtensions
     {
         services.AddReverseProxyCertificateLoader();
 
-        services.TryAddSingleton<ICertificateCollectionFactory, CertificateCollectionFactory>();
-        services.TryAddSingleton<YarpCertificatePathWatcher>();
+        services.TryAddSingleton<IYarpCertificatePathWatcher, YarpCertificatePathWatcher>();
         services.TryAddSingleton<IYarpCertificateLoader, YarpCertificateLoader>();
+        services.TryAddSingleton<IYarpCertificateCollectionFactory, YarpCertificateCollectionFactory>();
         services.AddOptions<YarpCertificateLoaderOptions>()
             .PostConfigure<IHostEnvironment>(static (options, hostEnvironment) => options.PostConfigure(hostEnvironment));
 

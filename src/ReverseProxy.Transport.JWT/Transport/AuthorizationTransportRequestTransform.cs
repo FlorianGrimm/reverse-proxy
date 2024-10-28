@@ -1,37 +1,27 @@
 using System;
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
-using System.Net;
-using System.Net.Http;
-using System.Runtime.CompilerServices;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.DataProtection.KeyManagement;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.Net.Http.Headers;
 
 using Yarp.ReverseProxy.Transforms;
 
 
 namespace Yarp.ReverseProxy.Transport;
 
-public class AuthenticationTransportRequestTransform : RequestTransform
+internal class AuthorizationTransportRequestTransform : RequestTransform
 {
     private const string Authorization = "Authorization";
+    private const string WWWAuthenticate = "WWW-Authenticate";
 
     private readonly AuthorizationTransportOptions _options;
-    private readonly AuthenticationTransportSigningCertificate _signingCertificate;
+    private readonly AuthorizationTransportSigningCertificate _signingCertificate;
 
-    public AuthenticationTransportRequestTransform(
+    internal AuthorizationTransportRequestTransform(
         AuthorizationTransportOptions options,
-        AuthenticationTransportSigningCertificate signingCertificate)
+        AuthorizationTransportSigningCertificate signingCertificate)
     {
         _options = options;
         _signingCertificate = signingCertificate;
@@ -64,6 +54,10 @@ public class AuthenticationTransportRequestTransform : RequestTransform
             {
                 if (string.Equals(authorization.Scheme, "Baerer"))
                 {
+                    if (_options.RemoveHeaderAuthenticate)
+                    {
+                        context.ProxyRequest.Headers.Remove(WWWAuthenticate);
+                    }
                     return;
                 }
             }
@@ -71,43 +65,61 @@ public class AuthenticationTransportRequestTransform : RequestTransform
 
         using var shareSigningCertificate = _signingCertificate.GetCertificate();
         if (shareSigningCertificate is null
-            || shareSigningCertificate.Value is not { Count:>0} collection
+            || shareSigningCertificate.Value is not { Count: > 0 } collection
             || collection[0] is not X509Certificate2 signingCertificate2)
         {
             return;
         }
 
         var httpContext = context.HttpContext;
-        var sourceUser = context.HttpContext.User;
-        if (sourceUser is null
-            || sourceUser.Identity is null
-            || sourceUser.Identity.IsAuthenticated
-            )
-        {
 
-            var ticket = await httpContext.AuthenticateAsync(_options.Scheme);
-            if (ticket.Succeeded && ticket.Principal is { } principal)
+        // their must be an inboundUser
+        ClaimsPrincipal inboundUser;
+        {
+            var contextUser = context.HttpContext.User;
+
+            if (contextUser.Identity is null
+                || contextUser.Identity.IsAuthenticated)
             {
-                sourceUser = principal;
+                var ticket = await httpContext.AuthenticateAsync(_options.Scheme);
+                if (ticket is { Succeeded: true, Principal: { } principal })
+                {
+                    inboundUser = principal;
+                }
+                else
+                {
+                    if (_options.RemoveHeaderAuthenticate)
+                    {
+                        context.ProxyRequest.Headers.Remove(WWWAuthenticate);
+                        context.ProxyRequest.Headers.Remove(Authorization);
+                    }
+                    return;
+                }
+            }
+            else
+            {
+                inboundUser = contextUser;
             }
         }
-        if (sourceUser is null) { return; }
 
         var outboundClaimsIdentity = new ClaimsIdentity();
-        foreach (var sourceClaim in sourceUser.Claims)
+        foreach (var inboundClaim in inboundUser.Claims)
         {
-            if (_options.ExcludeClaimType.Contains(sourceClaim.Type))
+            if (_options.ExcludeClaimType.Contains(inboundClaim.Type))
             {
                 continue;
             }
-            if (_options.TransformClaimType.TryGetValue(sourceClaim.Type, out var destinationClaimType))
+
+            if (_options.TransformClaimType.TryGetValue(inboundClaim.Type, out var destinationClaimType))
             {
-                var outboundClaim = new Claim(type: destinationClaimType, value: sourceClaim.Value, valueType: sourceClaim.ValueType);
+                var outboundClaim = new Claim(type: destinationClaimType, value: inboundClaim.Value,
+                    valueType: inboundClaim.ValueType);
                 outboundClaimsIdentity.AddClaim(outboundClaim);
             }
-            else if (_options.IncludeClaimType.Contains(sourceClaim.Type))
+            else if (_options.IncludeClaimType.Contains(inboundClaim.Type))
             {
-                var outboundClaim = new Claim(type: sourceClaim.Type, value: sourceClaim.Value, valueType: sourceClaim.ValueType);
+                var outboundClaim = new Claim(type: inboundClaim.Type, value: inboundClaim.Value,
+                    valueType: inboundClaim.ValueType);
                 outboundClaimsIdentity.AddClaim(outboundClaim);
             }
         }
@@ -121,8 +133,8 @@ public class AuthenticationTransportRequestTransform : RequestTransform
             Issuer = _options.Issuer,
             Audience = _options.Audience,
             IssuedAt = now,
-            NotBefore = now.Add(_options.NotBefore),
-            Expires = now.Add(_options.Expires),
+            NotBefore = now.Add(_options.AdjustNotBefore),
+            Expires = now.Add(_options.AdjustExpires),
             Subject = outboundClaimsIdentity,
             SigningCredentials = signingCredentials
         };
@@ -130,14 +142,18 @@ public class AuthenticationTransportRequestTransform : RequestTransform
         Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler jsonWebTokenHandler = new();
 
         var jwtToken = jsonWebTokenHandler.CreateToken(descriptor);
-        
-        context.ProxyRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", jwtToken);
+
+        context.ProxyRequest.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", jwtToken);
+
+        if (_options.RemoveHeaderAuthenticate) {
+            context.ProxyRequest.Headers.Remove(WWWAuthenticate);            
+        }
 
         // https://dev.to/eduardstefanescu/jwt-authentication-with-asymmetric-encryption-using-certificates-in-asp-net-core-2o7e
         // https://stackoverflow.com/questions/38794670/how-to-sign-a-jwt-using-rs256-with-rsa-private-key
         // https://gist.github.com/codeprefect/fd73d8f163cee82a0523721abe3aacd1
-        
+
         return;
     }
 }
-
