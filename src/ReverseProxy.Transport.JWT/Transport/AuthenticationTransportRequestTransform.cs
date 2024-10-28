@@ -22,14 +22,14 @@ using Yarp.ReverseProxy.Transforms;
 
 namespace Yarp.ReverseProxy.Transport;
 
-public class AuthenticationTransportRequestTransform : RequestTransform
+internal class AuthenticationTransportRequestTransform : RequestTransform
 {
     private const string Authorization = "Authorization";
 
     private readonly AuthorizationTransportOptions _options;
     private readonly AuthenticationTransportSigningCertificate _signingCertificate;
 
-    public AuthenticationTransportRequestTransform(
+    internal AuthenticationTransportRequestTransform(
         AuthorizationTransportOptions options,
         AuthenticationTransportSigningCertificate signingCertificate)
     {
@@ -79,19 +79,17 @@ public class AuthenticationTransportRequestTransform : RequestTransform
 
         var httpContext = context.HttpContext;
         var sourceUser = context.HttpContext.User;
-        if (sourceUser is null
-            || sourceUser.Identity is null
+        if (sourceUser.Identity is null
             || sourceUser.Identity.IsAuthenticated
             )
         {
 
             var ticket = await httpContext.AuthenticateAsync(_options.Scheme);
-            if (ticket.Succeeded && ticket.Principal is { } principal)
+            if (ticket is { Succeeded: true, Principal: { } principal })
             {
                 sourceUser = principal;
             }
         }
-        if (sourceUser is null) { return; }
 
         var outboundClaimsIdentity = new ClaimsIdentity();
         foreach (var sourceClaim in sourceUser.Claims)
@@ -121,8 +119,8 @@ public class AuthenticationTransportRequestTransform : RequestTransform
             Issuer = _options.Issuer,
             Audience = _options.Audience,
             IssuedAt = now,
-            NotBefore = now.Add(_options.NotBefore),
-            Expires = now.Add(_options.Expires),
+            NotBefore = now.Add(_options.AdjustNotBefore),
+            Expires = now.Add(_options.AdjustExpires),
             Subject = outboundClaimsIdentity,
             SigningCredentials = signingCredentials
         };
@@ -130,13 +128,13 @@ public class AuthenticationTransportRequestTransform : RequestTransform
         Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler jsonWebTokenHandler = new();
 
         var jwtToken = jsonWebTokenHandler.CreateToken(descriptor);
-        
+
         context.ProxyRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", jwtToken);
 
         // https://dev.to/eduardstefanescu/jwt-authentication-with-asymmetric-encryption-using-certificates-in-asp-net-core-2o7e
         // https://stackoverflow.com/questions/38794670/how-to-sign-a-jwt-using-rs256-with-rsa-private-key
         // https://gist.github.com/codeprefect/fd73d8f163cee82a0523721abe3aacd1
-        
+
         return;
     }
 }
