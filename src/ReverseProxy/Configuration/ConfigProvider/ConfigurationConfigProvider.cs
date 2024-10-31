@@ -197,8 +197,8 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             KeyPath = configSection[nameof(CertificateConfig.KeyPath)] ?? string.Empty,
             Password = configSection[nameof(CertificateConfig.Password)] ?? string.Empty,
             Subject = configSection[nameof(CertificateConfig.Subject)] ?? string.Empty,
-            Store = configSection[nameof(CertificateConfig.Store)] ?? string.Empty,
-            Location = configSection[nameof(CertificateConfig.Location)] ?? string.Empty,
+            StoreName = configSection[nameof(CertificateConfig.StoreName)] ?? string.Empty,
+            StoreLocation = configSection[nameof(CertificateConfig.StoreLocation)] ?? string.Empty,
             AllowInvalid = bool.TryParse(configSection[nameof(CertificateConfig.AllowInvalid)], out var value) && value
         };
     }

@@ -41,6 +41,7 @@ You need the Application ID URI. It should be in the format `api://{ClientId}`.
 
 using Microsoft.AspNetCore.Authentication.Negotiate;
 
+using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Transport;
 using Yarp.ReverseProxy.Tunnel;
 
@@ -62,9 +63,22 @@ public class Program
 
         builder.Configuration.AddUserSecrets("ReverseProxy");
         builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
+        builder.Services.AddReverseProxyCertificateLoader();
+
         var reverseProxyBuilder = builder.Services.AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetRequiredSection("ReverseProxy"))
-            .AddTransforms<AuthenticationTransportTransformProvider>()
+            .AddAuthorizationTransportTransformProvider(options =>
+            {
+                options.Issuer = "itsme";
+                options.Audience = "itsyou";
+                options.SigningCertificateConfig = new CertificateConfig
+                {
+                    Subject = "CN=my jwt sign for localhost",
+                    StoreName = "My",
+                    StoreLocation = "CurrentUser",
+                    AllowInvalid = true,
+                };
+            })
             .AddTunnelServices() // enable tunnel listener
             .AddTunnelServicesNegotiate()
             ;

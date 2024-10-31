@@ -21,36 +21,25 @@ namespace Yarp.ReverseProxy.Transport;
 
 internal sealed class TransportTunnelHttp2AuthenticatorCertificate
     : ITransportTunnelHttp2Authenticator
-    , IDisposable
 {
     private readonly TransportTunnelAuthenticationCertificateOptions _options;
     private readonly RemoteCertificateValidationUtility _remoteCertificateValidation;
-    private readonly IYarpCertificateLoader _certificateConfigLoader;
-    private readonly YarpCertificatePathWatcher _certificatePathWatcher;
+    private readonly IYarpCertificateCollectionFactory _certificateCollectionFactory;
     private readonly ILogger<TransportTunnelHttp2AuthenticatorCertificate> _logger;
 
-    private readonly ConcurrentDictionary<string, YarpCertificateCollection> _clientCertifiacteCollectionByTunnelId;
-    private IDisposable? _unregisterCertificatePathWatcher;
+    private readonly ConcurrentDictionary<string, YarpCertificateCollection> _clientCertifiacteCollectionByTunnelId = new(StringComparer.OrdinalIgnoreCase);
 
     public TransportTunnelHttp2AuthenticatorCertificate(
         IOptions<TransportTunnelAuthenticationCertificateOptions> options,
         RemoteCertificateValidationUtility remoteCertificateValidationUtility,
-        IYarpCertificateLoader certificateConfigLoader,
-        YarpCertificatePathWatcher certificatePathWatcher,
+        IYarpCertificateCollectionFactory certificateCollectionFactory,
         ILogger<TransportTunnelHttp2AuthenticatorCertificate> logger
         )
     {
         _options = options.Value;
         _remoteCertificateValidation = remoteCertificateValidationUtility;
-        _certificateConfigLoader = certificateConfigLoader;
-        _certificatePathWatcher = certificatePathWatcher;
+        _certificateCollectionFactory = certificateCollectionFactory;
         _logger = logger;
-
-        _clientCertifiacteCollectionByTunnelId = new(StringComparer.OrdinalIgnoreCase);
-        _unregisterCertificatePathWatcher = ChangeToken.OnChange(
-            _certificatePathWatcher.GetChangeToken,
-            () => ReloadCertificate()
-            );
     }
 
     public string GetAuthenticationName() => "ClientCertificate";
@@ -64,24 +53,22 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
         }
         try
         {
-            {
-                var currentCertifiacteCollection = YarpCertificateCollection.GetCertificateCollection(
-                    _clientCertifiacteCollectionByTunnelId,
-                    _certificateConfigLoader,
-                    _certificatePathWatcher,
-                    config.TunnelId,
-                    config.Authentication.ClientCertificate,
-                    config.Authentication.ClientCertificates,
-                    config.Authentication.ClientCertificateCollection,
-                    _logger);
+            var currentCertifiacteCollection = YarpCertificateCollection.GetCertificateCollection(
+                _clientCertifiacteCollectionByTunnelId,
+                _certificateCollectionFactory,
+                config.TunnelId,
+                true,
+                config.Authentication.ClientCertificate,
+                config.Authentication.ClientCertificates,
+                config.Authentication.ClientCertificateCollection,
+                _logger);
 
-                if (currentCertifiacteCollection.TryGet(out var collection, out _, out _)
-                    && (0 < collection.Count))
-                {
-                    var sslClientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= [];
-                    sslClientCertificates.AddRange(collection);
-                }
+            if (currentCertifiacteCollection.GiveAway() is { Count: > 0 } collection)
+            {
+                var sslClientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= [];
+                sslClientCertificates.AddRange(collection);
             }
+            // else hopefully ConfigureSslOptions will be called to add the certificate
 
             socketsHttpHandler.SslOptions.TargetHost = config.Url;
             if (_options.ConfigureSslOptions is { } configureSslOptions)
@@ -108,41 +95,4 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
 
     public ValueTask ConfigureHttpRequestMessageAsync(TunnelState tunnel, HttpRequestMessage requestMessage)
         => ValueTask.CompletedTask;
-
-    private void ReloadCertificate()
-    {
-        var certificateCollections = _clientCertifiacteCollectionByTunnelId.Values.ToList();
-        if (0 < certificateCollections.Count)
-        {
-            _clientCertifiacteCollectionByTunnelId.Clear();
-            _logger.LogInformation("Certifactes cache cleared");
-            foreach (var certificateCollection in certificateCollections)
-            {
-                certificateCollection.Dirty();
-            }
-        }
-    }
-
-    private void Dispose(bool disposing)
-    {
-        using (var unregisterCertificatePathWatcher = _unregisterCertificatePathWatcher)
-        {
-            ReloadCertificate();
-            if (disposing)
-            {
-                _unregisterCertificatePathWatcher = null;
-            }
-        }
-    }
-
-    ~TransportTunnelHttp2AuthenticatorCertificate()
-    {
-        Dispose(disposing: false);
-    }
-
-    public void Dispose()
-    {
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
-    }
 }

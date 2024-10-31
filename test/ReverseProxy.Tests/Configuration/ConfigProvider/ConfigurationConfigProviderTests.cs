@@ -223,8 +223,8 @@ public class ConfigurationConfigProviderTests
                                 Path = "test.pfx",
                                 KeyPath = "test.pfx",
                                 Password = "password",
-                                Store = "currentuser",
-                                Location = "my",
+                                StoreName = "currentuser",
+                                StoreLocation = "my",
                                 Subject = "name",
                                 AllowInvalid = true
                             }
@@ -234,8 +234,8 @@ public class ConfigurationConfigProviderTests
                         Path = "test.pfx",
                         KeyPath = "test.pfx",
                         Password = "password",
-                        Store = "currentuser",
-                        Location = "my",
+                        StoreName = "currentuser",
+                        StoreLocation = "my",
                         Subject = "name",
                         AllowInvalid = true
                     },

@@ -23,38 +23,29 @@ namespace Yarp.ReverseProxy.Transport;
 
 internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
     : ITransportTunnelWebSocketAuthenticator
-    , IDisposable
 {
     private readonly TransportTunnelAuthenticationCertificateOptions _options;
     private readonly RemoteCertificateValidationUtility _remoteCertificateValidation;
-    private readonly IYarpCertificateLoader _certificateConfigLoader;
-    private readonly YarpCertificatePathWatcher _certificatePathWatcher;
+    private readonly IYarpCertificateCollectionFactory _certificateCollectionFactory;
     private readonly ILogger<TransportTunnelWebSocketAuthenticatorCertificate> _logger;
 
-    private readonly ConcurrentDictionary<string, X509CertificateCollection> _clientCertifiacteCollectionByTunnelId;
+    private readonly ConcurrentDictionary<string, YarpCertificateCollection> _clientCertifiacteCollectionByTunnelId;
     private readonly HashSet<CertificateConfig> _allCertificateConfig;
-    private IDisposable? _unregisterCertificatePathWatcher;
 
     public TransportTunnelWebSocketAuthenticatorCertificate(
         IOptions<TransportTunnelAuthenticationCertificateOptions> options,
         RemoteCertificateValidationUtility remoteCertificateValidationUtility,
-        IYarpCertificateLoader certificateConfigLoader,
-        YarpCertificatePathWatcher certificatePathWatcher,
+        IYarpCertificateCollectionFactory certificateCollectionFactory,
         ILogger<TransportTunnelWebSocketAuthenticatorCertificate> logger
         )
     {
         _options = options.Value;
         _remoteCertificateValidation = remoteCertificateValidationUtility;
-        _certificateConfigLoader = certificateConfigLoader;
-        _certificatePathWatcher = certificatePathWatcher;
+        _certificateCollectionFactory = certificateCollectionFactory;
         _logger = logger;
 
         _clientCertifiacteCollectionByTunnelId = new(StringComparer.OrdinalIgnoreCase);
         _allCertificateConfig = new();
-        _unregisterCertificatePathWatcher = ChangeToken.OnChange(
-            _certificatePathWatcher.GetChangeToken,
-            () => ReloadCertificate()
-            );
     }
 
     public string GetAuthenticationName() => "ClientCertificate";
@@ -68,113 +59,23 @@ internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
         try
         {
             {
-                X509CertificateCollection? srcClientCertifiacteCollection = null;
-                while (srcClientCertifiacteCollection is null)
-                {
-                    if (_clientCertifiacteCollectionByTunnelId.TryGetValue(config.TunnelId, out srcClientCertifiacteCollection))
-                    {
-                        break;
-                    }
+                var currentCertifiacteCollection = YarpCertificateCollection.GetCertificateCollection(
+                    _clientCertifiacteCollectionByTunnelId,
+                    _certificateCollectionFactory,
+                    config.TunnelId,
+                    true,
+                    config.Authentication.ClientCertificate,
+                    config.Authentication.ClientCertificates,
+                    config.Authentication.ClientCertificateCollection,
+                    _logger);
 
-#warning TODO same as in TransportTunnelHttp2AuthenticatorCertificate
-                    lock (this)
-                    {
-                        if (_clientCertifiacteCollectionByTunnelId.TryGetValue(config.TunnelId, out srcClientCertifiacteCollection))
-                        {
-                            break;
-                        }
-                        else
-                        {
-                            srcClientCertifiacteCollection = [];
-                            {
-                                if (config.Authentication.ClientCertificate is { } certificateConfig)
-                                {
-                                    var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificateWithPrivateKey(certificateConfig, config.TunnelId);
-                                    if (certificate is not null)
-                                    {
-                                        _ = srcClientCertifiacteCollection.Add(certificate);
-
-                                        YarpClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
-
-                                        if (certificateConfig.IsFileCert())
-                                        {
-                                            lock (_allCertificateConfig)
-                                            {
-                                                if (_allCertificateConfig.Add(certificateConfig))
-                                                {
-                                                    _certificatePathWatcher.AddWatch(certificateConfig);
-                                                }
-                                            }
-                                        }
-                                    }
-                                    else
-                                    {
-                                        YarpClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
-                                    }
-                                }
-                            }
-                            if (config.Authentication.ClientCertificates is { Count: > 0 } authenticationClientCertificates)
-                            {
-                                for (var index = 0; index < authenticationClientCertificates.Count; index++)
-                                {
-                                    var certificateConfig = authenticationClientCertificates[index];
-                                    var keyname = $"{config.TunnelId}-{index}";
-                                    var (certificate, clientCertificateCollection) = _certificateConfigLoader.LoadCertificateWithPrivateKey(certificateConfig, keyname);
-                                    if (certificate is not null)
-                                    {
-                                        _ = srcClientCertifiacteCollection.Add(certificate);
-
-                                        YarpClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
-
-                                        if (certificateConfig.IsFileCert())
-                                        {
-                                            lock (_allCertificateConfig)
-                                            {
-                                                if (_allCertificateConfig.Add(certificateConfig))
-                                                {
-                                                    _certificatePathWatcher.AddWatch(certificateConfig);
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            YarpClientCertificateLoader.DisposeCertificates(clientCertificateCollection, certificate);
-                                        }
-                                    }
-                                }
-                            }
-                            if (_clientCertifiacteCollectionByTunnelId.TryAdd(config.TunnelId, srcClientCertifiacteCollection))
-                            {
-                                _logger.LogTrace("Certificates loaded {TunnelId}", config.TunnelId);
-                            }
-                            else
-                            {
-                                // could not be added - so dispose it 
-                                YarpClientCertificateLoader.DisposeCertificates(srcClientCertifiacteCollection, null);
-
-                                // and try again
-                                srcClientCertifiacteCollection = null;
-                            }
-                        }
-                    }
-                }
-
-                if (srcClientCertifiacteCollection is { Count: > 0 }) {
+                if (currentCertifiacteCollection.GiveAway() is { Count: > 0 } collection) {
                     _logger.LogTrace("Certifactes added by config {TunnelId}", config.TunnelId);
                     var sslClientCertificates = clientWebSocket.Options.ClientCertificates ??= [];
-                    sslClientCertificates.AddRange(srcClientCertifiacteCollection);
+                    sslClientCertificates.AddRange(collection);
                 }
             }
 
-            {
-                if (config.Authentication.ClientCertificateCollection is { Count:>0 } srcClientCertifiacteCollection)
-                {
-                    _logger.LogTrace("Certifactes added by config collection {TunnelId}", config.TunnelId);
-                    var sslClientCertificates = clientWebSocket.Options.ClientCertificates ??= [];
-                    sslClientCertificates.AddRange(srcClientCertifiacteCollection);
-                }
-            }
-            
             clientWebSocket.Options.RemoteCertificateValidationCallback = _remoteCertificateValidation.RemoteCertificateValidationCallback;
             if (_options.ConfigureClientWebSocketOptions is { } configureClientWebSocketOptions)
             {
@@ -189,57 +90,4 @@ internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
         return ValueTask.FromResult<HttpMessageInvoker?>(default);
     }
 
-    private void ReloadCertificate()
-    {
-        List<X509CertificateCollection> certificateCollections;
-        List<CertificateConfig> allCertificateConfig;
-        lock (_allCertificateConfig)
-        {
-            certificateCollections = _clientCertifiacteCollectionByTunnelId.Values.ToList();
-            allCertificateConfig = _allCertificateConfig.ToList();
-
-            if (0 == certificateCollections.Count
-                && 0 == allCertificateConfig.Count)
-            {
-                return;
-            }
-
-            _clientCertifiacteCollectionByTunnelId.Clear();
-            _allCertificateConfig.Clear();
-
-            foreach (var certificateConfig in _allCertificateConfig)
-            {
-                _certificatePathWatcher.RemoveWatch(certificateConfig);
-            }
-            foreach (var certificateCollection in certificateCollections)
-            {
-                YarpClientCertificateLoader.DisposeCertificates(certificateCollection, null);
-                certificateCollection.Clear();
-            }
-        }
-        _logger.LogInformation("Certificates cache cleared");
-    }
-
-    private void Dispose(bool disposing)
-    {
-        using (var unregisterCertificatePathWatcher = _unregisterCertificatePathWatcher)
-        {
-            ReloadCertificate();
-            if (disposing)
-            {
-                _unregisterCertificatePathWatcher = null;
-            }
-        }
-    }
-
-    ~TransportTunnelWebSocketAuthenticatorCertificate()
-    {
-        Dispose(disposing: false);
-    }
-
-    public void Dispose()
-    {
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
-    }
 }

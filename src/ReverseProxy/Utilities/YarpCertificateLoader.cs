@@ -259,8 +259,8 @@ public sealed partial class YarpCertificateLoader : IYarpCertificateLoader
     private static X509Certificate2 LoadFromStoreCert(CertificateConfig certInfo, bool needPrivateKey)
     {
         var subject = certInfo.Subject!;
-        var storeName = string.IsNullOrEmpty(certInfo.Store) ? StoreName.My.ToString() : certInfo.Store;
-        var location = certInfo.Location;
+        var storeName = string.IsNullOrEmpty(certInfo.StoreName) ? StoreName.My.ToString() : certInfo.StoreName;
+        var location = certInfo.StoreLocation;
         var storeLocation = StoreLocation.CurrentUser;
         if (!string.IsNullOrEmpty(location))
         {
@@ -268,7 +268,14 @@ public sealed partial class YarpCertificateLoader : IYarpCertificateLoader
         }
         var allowInvalid = certInfo.AllowInvalid ?? false;
 
-        return YarpClientCertificateLoader.LoadFromStoreCert(subject, storeName, storeLocation, allowInvalid, needPrivateKey);
+        return YarpClientCertificateLoader.LoadFromStoreCert(
+            subject,
+            storeName,
+            storeLocation,
+            allowInvalid,
+            //YarpClientCertificateLoader.IsCertificateAllowedForClientCertificate,
+            null,
+            needPrivateKey);
     }
 
     internal static class Log

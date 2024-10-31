@@ -1,4 +1,9 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+
+using Yarp.ReverseProxy.Transport;
 
 namespace ReverseProxy.Tunnel.Backend;
 
@@ -8,8 +13,24 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
+        //builder.Services.AddSingleton<IPostConfigureOptions<JwtBearerOptions>, ConfigureTokenValidationParameters>();
         builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
-           .AddNegotiate();
+            .AddNegotiate()
+            .AddJwtBearer(options =>
+            {
+                options.Authority = "itsme";
+                options.Audience = "itsyou";
+                options.RequireHttpsMetadata = false;
+                options.TokenValidationParameters.ValidateIssuer = true;
+                options.TokenValidationParameters.ValidateAudience = true;
+                options.TokenValidationParameters.ValidIssuer = "itsme";
+                options.TokenValidationParameters.ValidAudience = "itsyou";
+                //options.TokenValidationParameters.IssuerSigningKeyResolver = TokenValidationIssuerSigningKeyResolver.CreateIssuerSigningKeyResolver(
+                //    builder.Services
+                //    );
+                ///(string token, SecurityToken securityToken, string kid, TokenValidationParameters validationParameters)
+                //(token, securityToken, kid, parameters) => new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes("itsme"));
+            });
 
         builder.Services.AddAuthorization(options =>
         {
@@ -48,4 +69,6 @@ public class Program
 
         app.Run();
     }
+
+
 }

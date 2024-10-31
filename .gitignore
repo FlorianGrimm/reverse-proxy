@@ -372,3 +372,9 @@ nohup.out
 /samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.JWTAuth.Backend/LogFiles/
 /samples/Tunnel/JWTAuth/ReverseProxy.Tunnel.JWTAuth.Frontend/LogFiles/
 /LogFiles/
+/samples/Tunnel/Negotiate/ReverseProxy.Tunnel.Negotiate.API/LogFiles/server5_20241029.txt
+/samples/Tunnel/Negotiate/ReverseProxy.Tunnel.Negotiate.API/LogFiles/server5_20241030.txt
+/samples/Tunnel/Negotiate/ReverseProxy.Tunnel.Negotiate.Backend/LogFiles/server3_20241029.txt
+/samples/Tunnel/Negotiate/ReverseProxy.Tunnel.Negotiate.Backend/LogFiles/server3_20241030.txt
+/samples/Tunnel/Negotiate/ReverseProxy.Tunnel.Negotiate.Frontend/LogFiles/server1_20241029.txt
+/samples/Tunnel/Negotiate/ReverseProxy.Tunnel.Negotiate.Frontend/LogFiles/server1_20241030.txt

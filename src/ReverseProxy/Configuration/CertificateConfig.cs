@@ -47,9 +47,9 @@ public sealed record CertificateConfig : IEquatable<CertificateConfig>
 
     public string Subject { get; init; } = default!;
 
-    public string Store { get; init; } = default!;
+    public string StoreName { get; init; } = default!;
 
-    public string Location { get; init; } = default!;
+    public string StoreLocation { get; init; } = default!;
 
     public bool? AllowInvalid { get; init; }
 
@@ -60,9 +60,9 @@ public sealed record CertificateConfig : IEquatable<CertificateConfig>
         Password == other.Password &&
         GetFileHasChanged() == other.GetFileHasChanged() &&
         Subject == other.Subject &&
-        Store == other.Store &&
-        Location == other.Location &&
+        StoreName == other.StoreName &&
+        StoreLocation == other.StoreLocation &&
         (AllowInvalid ?? false) == (other.AllowInvalid ?? false);
 
-    public override int GetHashCode() => HashCode.Combine(Path, KeyPath, Password, GetFileHasChanged(), Subject, Store, Location, AllowInvalid ?? false);
+    public override int GetHashCode() => HashCode.Combine(Path, KeyPath, Password, GetFileHasChanged(), Subject, StoreName, StoreLocation, AllowInvalid ?? false);
 }

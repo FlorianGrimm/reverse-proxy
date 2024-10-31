@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <Description>Reverse proxy toolkit for building fast proxy servers in .NET using the infrastructure from ASP.NET and .NET</Description>
@@ -23,6 +23,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ReverseProxy\Yarp.ReverseProxy.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer">
+      <Version>8.0.10</Version>
+    </PackageReference>
   </ItemGroup>
 
 </Project>

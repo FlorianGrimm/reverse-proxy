@@ -57,10 +57,7 @@ public static class TunnelExtensions
         }
 
         // CertificateLoader
-        services.TryAddSingleton<YarpCertificatePathWatcher>();
-        services.TryAddSingleton<IYarpCertificateLoader, YarpCertificateLoader>();
-        services.AddOptions<YarpCertificateLoaderOptions>()
-            .PostConfigure<IHostEnvironment>(static (options, hostEnvironment) => options.PostConfigure(hostEnvironment));
+        services.AddReverseProxyCertificateLoader();
 
         // ClientCertificateValidationUtility
         services.AddSingleton<YarpClientCertificateValidationUtility>();

@@ -9,8 +9,6 @@ public static class YarpCertificateServiceCollectionExtensions
 {
     public static IServiceCollection AddReverseProxyCertificateLoader(this IServiceCollection services)
     {
-        services.AddReverseProxyCertificateLoader();
-
         services.TryAddSingleton<IYarpCertificatePathWatcher, YarpCertificatePathWatcher>();
         services.TryAddSingleton<IYarpCertificateLoader, YarpCertificateLoader>();
         services.TryAddSingleton<IYarpCertificateCollectionFactory, YarpCertificateCollectionFactory>();

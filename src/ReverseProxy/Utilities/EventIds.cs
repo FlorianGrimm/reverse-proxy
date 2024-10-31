@@ -107,7 +107,8 @@ internal static class EventIds
 
     public static readonly EventId ClusterAuthenticationSuccess = new EventId(95, "ClusterAuthenticationSuccess");
     public static readonly EventId ClusterAuthenticationFailed = new EventId(96, "ClusterAuthenticationFailed");
-    public static readonly EventId SuccessfullyLoadedCertificateKey = new EventId(97, "SuccessfullyLoadedCertificateKey");
+    public static readonly EventId SuccessfullyLoadedCertificate = new EventId(97, "SuccessfullyLoadedCertificate");
+    public static readonly EventId SuccessfullyLoadedCertificateKey = new EventId(98, "SuccessfullyLoadedCertificateKey");
 
     public static readonly EventId NoCertificate = new EventId(120, "NoCertificate");
     public static readonly EventId NotHttps = new EventId(121, "NotHttps");

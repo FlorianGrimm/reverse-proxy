@@ -29,7 +29,7 @@ internal class AuthorizationTransportSigningCertificate(
 
         var shareCollection = _certificateCollection
             .Load(config, default, default)
-            .Share();
+            .ShareCertificateCollection();
         if (shareCollection.Value is { Count: > 0 } )
         {
             return shareCollection;

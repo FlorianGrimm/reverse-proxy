@@ -72,14 +72,14 @@ public sealed partial class YarpCertificateCollection
         }
     }
 
-    public Shared<X509CertificateCollection?> Share()
+    public Shared<X509CertificateCollection>? ShareCertificateCollection()
     {
         if (_currentState is { } currentState
             && currentState.Collection is { } result)
         {
             currentState.ReferenceCounter++;
 
-            return new Shared<X509CertificateCollection?>(
+            return new Shared<X509CertificateCollection>(
                 result,
                 (value, _) => { GiveBack(value); });
 
@@ -97,11 +97,61 @@ public sealed partial class YarpCertificateCollection
         }
         else
         {
-            return new Shared<X509CertificateCollection?>(
-                default,
-                (value, _) => { });
+            return null;
         }
 
+    }
+
+    public X509Certificate? GiveAwayCertificate()
+    {
+        if (_currentState is { Collection: { Count: > 0 } collection })
+        {
+            if (0 <= _currentState.Valid)
+            {
+                _currentState.DisposeCertificates = false;
+                return collection[_currentState.Valid];
+            }
+            else
+            {
+                // REVIEW: is this possible?
+                _currentState.DisposeCertificates = false;
+                return collection[0];
+            }
+        }
+        return null;
+    }
+
+    public Shared<X509Certificate>? ShareCertificate()
+    {
+        if (_currentState is { Collection: { Count: > 0 } collection })
+        {
+            if (0 <= _currentState.Valid)
+            {
+                return new Shared<X509Certificate>(
+                    collection[_currentState.Valid],
+                    (value, _) => { GiveBack(collection); });
+            }
+            else
+            {
+                // REVIEW: is this possible?
+                return new Shared<X509Certificate>(
+                    collection[0],
+                    (value, _) => { GiveBack(collection); });
+            }
+
+            void GiveBack(X509CertificateCollection? value)
+            {
+                if (value is { }
+                    && _currentState is { } state
+                    && state.Collection is { } collection
+                    && ReferenceEquals(value, collection)
+                    )
+                {
+                    state.ReferenceCounter--;
+                }
+            }
+        }
+        return null;
     }
 
     internal bool TryGet(
@@ -262,22 +312,7 @@ public sealed partial class YarpCertificateCollection
         return a.Equals(b);
     }
 
-    public X509Certificate? GetX509Certificate()
-    {
-        if (_currentState is { Collection: { Count: > 0 } collection })
-        {
-            if (0 <= _currentState.Valid)
-            {
-                return collection[_currentState.Valid];
-            }
-            else
-            {
-                // REVIEW: is this possible?
-                return collection[0];
-            }
-        }
-        return null;
-    }
+   
 
     public void Dispose()
     {
@@ -351,7 +386,7 @@ public partial class YarpCertificateCollection
             else
             {
                 var (certificate, certificateCollection) = _yarpCertificateCollection._certificateLoader.LoadCertificateNoPrivateKey(certificateConfig, keyname);
-                PostLoad(certificateConfig, certificate, certificateCollection, utcNow));
+                PostLoad(certificateConfig, certificate, certificateCollection, utcNow);
             }
         }
 
