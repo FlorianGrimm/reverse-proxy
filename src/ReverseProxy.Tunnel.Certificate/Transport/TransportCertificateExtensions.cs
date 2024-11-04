@@ -6,7 +6,6 @@ using System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 using Yarp.ReverseProxy.Transport;
@@ -93,8 +92,7 @@ public static class TransportCertificateExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authenticator, TransportTunnelHttp2AuthenticatorCertificate>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthenticator, TransportTunnelWebSocketAuthenticatorCertificate>());
 
-        // CertificateLoader
-        services.AddReverseProxyCertificateLoader();
+        services.AddReverseProxyCertificateManager();
 
         {
             var optionsBuilder = services.AddOptions<TransportTunnelAuthenticationCertificateOptions>();
@@ -126,14 +124,14 @@ public static class TransportCertificateExtensions
         return builder;
     }
 
-    public static IReverseProxyBuilder ConfigureCertificateLoaderOptions
+    public static IReverseProxyBuilder ConfigureCertificateManagerOptions
         (
             this IReverseProxyBuilder builder,
-            Action<YarpCertificateLoaderOptions>? configure = default,
+            Action<CertificateManagerOptions>? configure = default,
             IConfiguration? configuration = default
         )
     {
-        var optionsBuilder = builder.Services.AddOptions<YarpCertificateLoaderOptions>();
+        var optionsBuilder = builder.Services.AddOptions<CertificateManagerOptions>();
         if (configuration is { })
         {
             _ = optionsBuilder.Configure((options) =>
@@ -149,4 +147,7 @@ public static class TransportCertificateExtensions
 
         return builder;
     }
+
+    public static bool IsClientCertificate(string? mode)
+        => string.Equals(mode, "ClientCertificate", System.StringComparison.OrdinalIgnoreCase);
 }

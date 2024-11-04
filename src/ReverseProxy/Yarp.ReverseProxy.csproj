@@ -16,6 +16,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Utilities\YarpCertificateCollection.cs" />
+    <Compile Remove="Utilities\YarpCertificateCollectionFactory.cs" />
+    <Compile Remove="Utilities\YarpCertificateLoader.cs" />
+    <Compile Remove="Utilities\YarpCertificateLoaderOptions.cs" />
+    <Compile Remove="Utilities\YarpCertificatePathWatcher.cs" />
+    <Compile Remove="Utilities\YarpCertificateServiceCollectionExtensions.cs" />
+    <Compile Remove="Utilities\YarpClientCertificateLoader.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.IO.Hashing" Version="$(SystemIOHashingVersion)" />
     <PackageReference Include="System.Collections.Immutable" Version="$(SystemCollectionsImmutableVersion)" Condition="'$(TargetFramework)' != 'net8.0'" />
     <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="$(MicrosoftBclTimeProviderVersion)" Condition="'$(TargetFramework)' != 'net8.0'" />
@@ -30,6 +40,13 @@
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="Utilities\YarpCertificateCollection.cs" />
+    <None Include="Utilities\YarpCertificateCollectionFactory.cs" />
+    <None Include="Utilities\YarpCertificateLoader.cs" />
+    <None Include="Utilities\YarpCertificateLoaderOptions.cs" />
+    <None Include="Utilities\YarpCertificatePathWatcher.cs" />
+    <None Include="Utilities\YarpCertificateServiceCollectionExtensions.cs" />
+    <None Include="Utilities\YarpClientCertificateLoader.cs" />
   </ItemGroup>
 
   <ItemGroup>

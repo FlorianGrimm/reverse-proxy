@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 
 using Yarp.ReverseProxy.Configuration;
 
@@ -9,30 +9,32 @@ namespace Yarp.ReverseProxy.Utilities;
 /// Where to get the certificate from, which property to use, how to validate it.
 /// </summary>
 public record struct CertificateRequest(
+    string Id,
     CertificateConfig? CertificateConfig,
-    CertificateStoreLocationName? StoreLocationName,
-    string? Subject,
-
-    string? Path,
-    string? KeyPath,
-    string? Password,
-
-    CertificateRequirement Requirement
+    CertificateStoreRequest? StoreRequest,
+    CertificateFileRequest? FileRequest,
+    CertificateRequirement? Requirement
     )
 {
 
     /*
     */
     public CertificateRequest(
+        string Id,
         CertificateConfig certificateConfig,
         CertificateRequirement requirement
         ) : this(
+                Id: Id,
                 CertificateConfig: certificateConfig,
-                StoreLocationName: CertificateStoreLocationName.Convert(certificateConfig.StoreLocation, certificateConfig.StoreName),
-                Subject: certificateConfig.Subject,
-                Path: certificateConfig.Path,
-                KeyPath: certificateConfig.KeyPath,
-                Password: certificateConfig.Password,
+                StoreRequest: CertificateStoreRequest.Convert(
+                    storeLocationName: CertificateStoreLocationName.Convert(certificateConfig.StoreLocation, certificateConfig.StoreName),
+                    subject: certificateConfig.Subject
+                    ),
+                FileRequest: CertificateFileRequest.Convert(
+                    path: certificateConfig.Path,
+                    keyPath: certificateConfig.KeyPath,
+                    password: certificateConfig.Password
+                    ),
                 Requirement: requirement
             )
     {
@@ -40,12 +42,11 @@ public record struct CertificateRequest(
 
     // Cert store
 
-    [MemberNotNullWhen(true, nameof(Subject))]
-    [MemberNotNullWhen(true, nameof(StoreLocationName))]
-    public readonly bool IsStoreCert() => StoreLocationName.HasValue && !string.IsNullOrEmpty(Subject);
+    [MemberNotNullWhen(true, nameof(StoreRequest))]
+    public readonly bool IsStoreCert() => (StoreRequest is { } storeRequest) && storeRequest.IsValid();
 
     // File
 
-    [MemberNotNullWhen(true, nameof(Path))]
-    public readonly bool IsFileCert() => !string.IsNullOrEmpty(Path);
+    [MemberNotNullWhen(true, nameof(FileRequest))]
+    public readonly bool IsFileCert() => (FileRequest is { } fileRequest) && fileRequest.IsValid();
 }

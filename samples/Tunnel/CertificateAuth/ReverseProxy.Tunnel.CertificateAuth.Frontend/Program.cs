@@ -59,9 +59,9 @@ public class Program
                  },
                  default
                  )
-            .ConfigureCertificateLoaderOptions((options) =>
+            .ConfigureCertificateManagerOptions((options) =>
                 {
-                    options.CertificateRoot = System.AppContext.BaseDirectory;
+                    options.CertificateRootPath = System.AppContext.BaseDirectory;
                 }
             );
 

@@ -54,22 +54,25 @@ internal sealed class TunnelAuthenticationCertificateHttp2
     public const string AuthenticationScheme = "Certificate";
     public const string AuthenticationName = "ClientCertificate";
     public const string CookieName = "YarpTunnelAuth";
-    private readonly YarpClientCertificateValidationUtility _clientCertificateValidationUtility;
+    private readonly ClientCertificateValidationUtility _clientCertificateValidationUtility;
     private readonly TunnelAuthenticationCertificateOptions _options;
     private readonly IYarpCertificateCollectionFactory _certificateCollectionFactory;
+    private readonly ICertificateManager _certificateManager;
     private readonly ILogger _logger;
     private readonly ConcurrentDictionary<string, YarpCertificateCollection> _clientCertifiacteCollectionByTunnelId = new();
 
     public TunnelAuthenticationCertificateHttp2(
         IOptions<TunnelAuthenticationCertificateOptions> options,
-        YarpClientCertificateValidationUtility clientCertificateValidationUtility,
+        ClientCertificateValidationUtility clientCertificateValidationUtility,
         IYarpCertificateCollectionFactory certificateCollectionFactory,
+        ICertificateManager certificateManager,
         ILogger<TunnelAuthenticationCertificateHttp2> logger
         )
     {
         _options = options.Value;
         _clientCertificateValidationUtility = clientCertificateValidationUtility;
         _certificateCollectionFactory = certificateCollectionFactory;
+        _certificateManager = certificateManager;
         _logger = logger;
     }
 

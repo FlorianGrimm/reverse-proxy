@@ -25,8 +25,16 @@ namespace Yarp.ReverseProxy.Utilities;
 /// If the certificates reaching the end of their lifetime a refresh will be triggered.
 /// If the certificates are known to be used by a service that cannot be refreshed you have to avoid the dispose.
 /// </summary>
-public partial class CertificateManager
-    : IDisposable
+/// <remarks>
+/// The assumption is that the certificates does not change very often.
+/// TODO: How many certificates does a server have? ClientCertificates, JWT Token, not ServerCertificates these are handled by the kerstel itself.
+/// TODO: Filewatcher for file certificates - revisit <see cref="Refresh(bool)"/>.
+/// TODO: Validate this with a performance test.
+/// TODO: NotBefore and NotAfter must be respected.
+/// </remarks>
+internal partial class CertificateManagerPeriodicalRefresh
+    : ICertificateManager
+    , IDisposable
 {
     private readonly ConcurrentDictionary<string, Timestamped<X509Certificate2Collection>> _previousRequestCollection = new();
     private readonly ConcurrentDictionary<string, CertificateRequestCollection> _currentRequestCollection = new();
@@ -35,16 +43,16 @@ public partial class CertificateManager
     private readonly ConcurrentDictionary<CertificateRequest, StateCurrentCertificate> _currentByRequest = new();
     private readonly ConcurrentDictionary<CertificateRequest, int> _ghostGenerationRequest = new();
     private readonly ConcurrentDictionary<CertificateRequest, StateCurrentCertificate> _cooldownByRequest = new();
-    private readonly ConcurrentDictionary<string, string> _certificateFilewatcher = new();
     private readonly ConcurrentDictionary<CertificateStoreLocationName, CertificateStoreLocationName> _certificateStoreLocationNames = new();
     private IDisposable? _unwireOptionsOnChange;
-    private CertificateManagerFileWatcher _fileWatcher;
     private CancellationTokenSource? _ctsRefresh;
     private int _generationsUntilSleep = 10;
     private string? _certificateRootPath;
+    private ICertificateFileLoader _certificateFileLoader;
+    private readonly ICertificateManagerFileWatcher _certificateManagerFileWatcher;
     private readonly StateReload _stateReload;
-    private readonly ILogger<CertificateManager> _logger;
-    private readonly ICertificatePasswordProvider _certificatePasswordProvider;
+    private readonly ICertificateStoreLoader _certificateStoreLoader;
+    private readonly ILogger<CertificateManagerPeriodicalRefresh> _logger;
 
     public TimeSpan RefreshInterval { get; set; } = TimeSpan.FromMinutes(10);
 
@@ -58,7 +66,7 @@ public partial class CertificateManager
         set
         {
             _certificateRootPath = value;
-            if (FileCertificateLoader is { } loader)
+            if (CertificateFileLoader is { } loader)
             {
                 loader.CertificateRootPath = value;
             }
@@ -68,54 +76,75 @@ public partial class CertificateManager
     public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
 
     // TODO
-    public ICertificateFileLoader FileCertificateLoader { get; set; }
-
-    public CertificateManager(
-        ICertificatePasswordProvider certificatePasswordProvider,
-        ILogger<CertificateManager> logger)
+    public ICertificateFileLoader CertificateFileLoader
     {
-        _stateReload = new StateReload(this);
-        _certificatePasswordProvider = certificatePasswordProvider;
-        _logger = logger;
-        _fileWatcher = new CertificateManagerFileWatcher(CertificateRootPath ?? ".", logger, null);
-        FileCertificateLoader = new CertificateFileLoader(
-            CertificateRootPath ?? ".",
-            _certificatePasswordProvider, logger);
-    }
-
-    public CertificateManager(
-        IOptionsMonitor<CertificateManagerOptions> options,
-        ICertificatePasswordProvider certificatePasswordProvider,
-        ILogger<CertificateManager> logger
-        )
-    {
-        _stateReload = new StateReload(this);
-        _certificatePasswordProvider = certificatePasswordProvider;
-        _logger = logger;
-        onOptionsChanged(options.CurrentValue, null);
-        _unwireOptionsOnChange = options.OnChange(onOptionsChanged);
-        _fileWatcher = new CertificateManagerFileWatcher(CertificateRootPath ?? ".", logger, null);
-        FileCertificateLoader = new CertificateFileLoader(CertificateRootPath ?? ".", _certificatePasswordProvider, logger);
-    }
-
-    private void onOptionsChanged(CertificateManagerOptions options, string? name)
-    {
-        if (!string.IsNullOrEmpty(name)) { return; }
-        RefreshInterval = options.RefreshInterval;
-        CoolDownTime = options.CoolDownTime;
-        if (options.CertificateRootPath is { } certificateRootPath)
+        get
         {
-            if (!string.Equals(CertificateRootPath, certificateRootPath, StringComparison.CurrentCultureIgnoreCase))
+            return _certificateFileLoader;
+        }
+
+        set
+        {
+            _certificateFileLoader = value;
+            if (_certificateFileLoader is { })
             {
-                CertificateRootPath = certificateRootPath;
-                lock (_stateReload)
-                {
-                    _stateReload.SetIsLoadNeeded();
-                }
+                _certificateFileLoader.CertificateRootPath = CertificateRootPath;
             }
         }
     }
 
+    public CertificateManagerPeriodicalRefresh(
+        ICertificateStoreLoader certificateStoreLoader,
+        ICertificateFileLoader certificateFileLoader,
+        ILogger<CertificateManagerPeriodicalRefresh> logger)
+    {
+        _stateReload = new StateReload(this);
+        _certificateManagerFileWatcher = new CertificateManagerFileWatcher(logger);
+        _certificateStoreLoader = certificateStoreLoader;
+        _certificateFileLoader = certificateFileLoader;
+        certificateFileLoader.CertificateManagerFileWatcher = _certificateManagerFileWatcher;
+        _logger = logger;
+    }
+
+    public CertificateManagerPeriodicalRefresh(
+        IOptionsMonitor<CertificateManagerOptions> options,
+        ICertificateStoreLoader certificateStoreLoader,
+        ICertificateFileLoader certificateFileLoader,
+        ILogger<CertificateManagerPeriodicalRefresh> logger
+        )
+    {
+        _stateReload = new StateReload(this);
+        _logger = logger;
+        _certificateManagerFileWatcher = new CertificateManagerFileWatcher(logger);
+        _certificateStoreLoader = certificateStoreLoader;
+        _certificateFileLoader = certificateFileLoader;
+        certificateFileLoader.CertificateManagerFileWatcher = _certificateManagerFileWatcher;
+        OnOptionsChanged(options.CurrentValue, null);
+        _unwireOptionsOnChange = options.OnChange(OnOptionsChanged);
+    }
+
+    private void OnOptionsChanged(CertificateManagerOptions options, string? name)
+    {
+        if (!string.IsNullOrEmpty(name)) { return; }
+
+        RefreshInterval = options.RefreshInterval;
+        CoolDownTime = options.CoolDownTime;
+        var certificateRootPath = options.CertificateRootPath;
+        if (string.IsNullOrEmpty(CertificateRootPath) && string.IsNullOrEmpty(certificateRootPath))
+        {
+            certificateRootPath = ".";
+        }
+        if (!string.Equals(CertificateRootPath, certificateRootPath, StringComparison.CurrentCultureIgnoreCase))
+        {
+            CertificateRootPath = certificateRootPath;
+            lock (_stateReload)
+            {
+                _stateReload.SetIsLoadNeeded();
+            }
+        }
+    }
+
+#if false
     public CertificateRequestCollection AddConfiguration(
         string id,
         CertificateConfig? certificateConfig,
@@ -143,6 +172,7 @@ public partial class CertificateManager
         AddRequestCollection(result);
         return result;
     }
+#endif
 
     public void AddRequestCollection(CertificateRequestCollection result)
     {
@@ -152,10 +182,24 @@ public partial class CertificateManager
             {
                 _currentRequestCollection.TryUpdate(result.Id, result, current);
             }
+            else
+            {
+                return;
+            }
         }
         else
         {
             _currentRequestCollection.TryAdd(result.Id, result);
+        }
+
+        for (var index = 0; index < result.CertificateRequests.Count; index++)
+        {
+            var request = result.CertificateRequests[index];
+            var requestNext = AddRequest(request);
+            if (!request.Equals(requestNext))
+            {
+                result.CertificateRequests[index] = request;
+            }
         }
     }
 
@@ -167,22 +211,20 @@ public partial class CertificateManager
             throw new ArgumentException("The CertificateRequest must be a store or a file certificate.", nameof(request));
         }
 
-        if (!string.IsNullOrEmpty(request.Path))
+        if (request.FileRequest is { } fileRequest)
         {
-            string fullPath;
-            if (!System.IO.Path.IsPathFullyQualified(request.Path))
+            var (path, pathChanged) = GetFullPath(fileRequest.Path);
+            var (keyPath, keyPathChanged) = GetFullPath(fileRequest.KeyPath);
+            if (pathChanged || keyPathChanged)
             {
-                fullPath = System.IO.Path.Combine(CertificateRootPath ?? ".", request.Path);
-                request = request with { Path = fullPath };
-            }
-        }
-        if (!string.IsNullOrEmpty(request.KeyPath))
-        {
-            string fullPath;
-            if (!System.IO.Path.IsPathFullyQualified(request.KeyPath))
-            {
-                fullPath = System.IO.Path.Combine(CertificateRootPath ?? ".", request.KeyPath);
-                request = request with { KeyPath = fullPath };
+                request = request with
+                {
+                    FileRequest = fileRequest with
+                    {
+                        Path = path,
+                        KeyPath = keyPath
+                    }
+                };
             }
         }
 
@@ -190,7 +232,8 @@ public partial class CertificateManager
         {
             if (_currentByRequest.TryAdd(request, new StateCurrentCertificate()))
             {
-                _ghostGenerationRequest[request] = 0;
+                ResetGhostGenerationRequest(request);
+                
                 lock (_stateReload)
                 {
                     _stateReload.SetIsLoadNeeded();
@@ -201,7 +244,36 @@ public partial class CertificateManager
         return request;
     }
 
-    public X509Certificate2Collection? GetCertificateCollection(CertificateRequest request)
+    private (string? result, bool changed) GetFullPath(string? filePathQ)
+    {
+        if (filePathQ is { Length: > 0 } filePath)
+        {
+            if (System.IO.Path.IsPathFullyQualified(filePath))
+            {
+                return (filePath, false);
+            }
+
+            if (CertificateRootPath is { Length: > 0 } certificateRootPath)
+            {
+                var fullPath = System.IO.Path.Combine(certificateRootPath, filePathQ);
+                return (result: fullPath, changed: true);
+            }
+        }
+        return (result: filePathQ, changed: false);
+    }
+
+    /// <summary>
+    /// Get the certificate(s) for the CertificateRequest.
+    /// </summary>
+    /// <param name="request"></param>
+    /// <returns></returns>
+    public IShared<X509Certificate2Collection?> GetCertificateCollection(CertificateRequest request)
+    {
+        var result = GetCertificateCollectionInternal(request);
+        return new Shared<X509Certificate2Collection?>(result, Shared<X509Certificate2Collection?>.Noop);
+    }
+
+    internal X509Certificate2Collection? GetCertificateCollectionInternal(CertificateRequest request)
     {
         // ensure the certificates are loaded
         {
@@ -217,7 +289,7 @@ public partial class CertificateManager
 
         // get the certificates and return them
         {
-            _ghostGenerationRequest[request] = 0;
+            ResetGhostGenerationRequest(request);
 
             if (_currentByRequest.TryGetValue(request, out var state))
             {
@@ -229,11 +301,18 @@ public partial class CertificateManager
         return null;
     }
 
-    public X509Certificate2Collection? GetCertificateCollection(CertificateRequestCollection requestCollection)
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="requestCollection"></param>
+    /// <returns></returns>
+    public IShared<X509Certificate2Collection?> GetCertificateCollection(CertificateRequestCollection requestCollection)
     {
         if (requestCollection.CertificateRequests.Count == 0)
         {
-            return requestCollection.X509Certificate2s;
+            return new Shared<X509Certificate2Collection?>(
+                requestCollection.X509Certificate2s,
+                Shared<X509Certificate2Collection?>.Noop);
         }
         else
         {
@@ -250,7 +329,7 @@ public partial class CertificateManager
                         }
                         else
                         {
-                            _ghostGenerationRequest[request] = 0;
+                            ResetGhostGenerationRequest(request);
                         }
                     }
                     if (refresh)
@@ -259,7 +338,9 @@ public partial class CertificateManager
                     }
                     else
                     {
-                        return timestampedResult.Value;
+                        return new Shared<X509Certificate2Collection?>(
+                            timestampedResult.Value,
+                            Shared<X509Certificate2Collection?>.Noop);
                     }
                 }
             }
@@ -269,9 +350,9 @@ public partial class CertificateManager
             var timestamp = _stateReload.Changed;
             foreach (var request in requestCollection.CertificateRequests)
             {
-                _ghostGenerationRequest[request] = 0;
+                ResetGhostGenerationRequest(request);
 
-                if (GetCertificateCollection(request) is { } collection)
+                if (GetCertificateCollectionInternal(request) is { } collection)
                 {
                     result.AddRange(collection);
                 }
@@ -282,7 +363,9 @@ public partial class CertificateManager
             }
             timestampedResult = new Timestamped<X509Certificate2Collection>(result, timestamp);
             _previousRequestCollection[requestCollection.Id] = timestampedResult;
-            return result;
+            return new Shared<X509Certificate2Collection?>(
+                result,
+                Shared<X509Certificate2Collection?>.Noop);
         }
     }
 
@@ -296,6 +379,7 @@ public partial class CertificateManager
         {
             lock (_stateReload)
             {
+                // TODO: review after the file watcher is implemented
                 try
                 {
                     IncrementGhostGenerationRequest();
@@ -311,6 +395,11 @@ public partial class CertificateManager
                 }
             }
         }
+    }
+
+    private void ResetGhostGenerationRequest(CertificateRequest request)
+    {
+        _ghostGenerationRequest[request] = 0;
     }
 
     private void IncrementGhostGenerationRequest()
@@ -354,6 +443,7 @@ public partial class CertificateManager
 
     private void StartRefresh()
     {
+        // thinkof: is a timer the better solution?
         if (_ctsRefresh is { }) { return; }
         _ctsRefresh = new CancellationTokenSource();
 
@@ -401,7 +491,7 @@ public partial class CertificateManager
 
         foreach (var request in _currentByRequest.Keys.ToList())
         {
-            if (request.IsStoreCert() && request.StoreLocationName is { } storeLocationName)
+            if (request.IsStoreCert() && request.StoreRequest is { StoreLocationName: { } storeLocationName })
             {
                 if (!requestsByStoreLocationName.TryGetValue(storeLocationName, out var requests))
                 {
@@ -476,12 +566,12 @@ public partial class CertificateManager
 
         foreach (var request in _currentByRequest.Keys.ToList())
         {
-            if (!string.IsNullOrEmpty(request.Path))
+            if (request.FileRequest?.Path is { } filePath)
             {
-                if (!requestsByFilename.TryGetValue(request.Path, out var requests))
+                if (!requestsByFilename.TryGetValue(filePath, out var requests))
                 {
                     requests = new List<CertificateRequest>();
-                    requestsByFilename.Add(request.Path, requests);
+                    requestsByFilename.Add(filePath, requests);
                 }
                 requests.Add(request);
             }
@@ -491,7 +581,9 @@ public partial class CertificateManager
         {
             foreach (var (filename, requests) in requestsByFilename)
             {
-                var certificateCollection = LoadCertificateFromFile(requests);
+                var (fileRequest, requirement) = CombineFileCertificateRequest(new(), requests);
+                var certificateCollection = CertificateFileLoader.LoadCertificateFromFile(requests, fileRequest, requirement);
+
                 // check which CertificateRequest is interested in this certificate
                 var isInterested = false;
                 foreach (var request in requests)
@@ -530,6 +622,39 @@ public partial class CertificateManager
         _stateReload.FileLoaded = TimeProvider.GetUtcNow();
     }
 
+    // for testing
+    internal (
+        CertificateFileRequest fileRequest,
+        CertificateRequirement requirement
+        ) CombineFileCertificateRequest(
+        CertificateRequirement requirement,
+        List<CertificateRequest> requests)
+    {
+        string? path = null;
+        string? keyPath = null;
+        string? password = null;
+        foreach (var request in requests)
+        {
+            if (request.FileRequest is { } requestFileRequest)
+            {
+                if (requestFileRequest.Path is { Length: > 0 } requestPath)
+                {
+                    path = requestPath;
+                }
+                if (requestFileRequest.KeyPath is { Length: > 0 } requestKeyPath)
+                {
+                    keyPath = requestKeyPath;
+                }
+                if (requestFileRequest.Password is { Length: > 0 } requestPassword)
+                {
+                    password = requestPassword;
+                }
+            }
+            requirement = CertificateManagerExtensions.CombineQ(requirement, request.Requirement);
+        }
+
+        return (new CertificateFileRequest(path, keyPath, password), requirement);
+    }
     private void PostLoadHandleChanges()
     {
         var changed = false;
@@ -538,7 +663,7 @@ public partial class CertificateManager
         {
             if (_loadedByRequest.TryRemove(request, out var stateLoaded))
             {
-                if (PostLoadHandleChangesForOne(request, stateLoaded, loaded))
+                if (PostLoadHandleChangesForOne(request, stateLoaded))
                 {
                     changed = true;
                 }
@@ -551,7 +676,7 @@ public partial class CertificateManager
         }
     }
 
-    private bool PostLoadHandleChangesForOne(CertificateRequest request, StateLoadedCertificate stateLoaded, DateTimeOffset loaded)
+    private bool PostLoadHandleChangesForOne(CertificateRequest request, StateLoadedCertificate stateLoaded)
     {
         // check if the certificate is matches _previousByRequest
 
@@ -586,7 +711,7 @@ public partial class CertificateManager
             }
             else
             {
-                // if the certificate(s) are different                
+                // if the certificate(s) are different
                 _previousByRequest.TryAdd(request, stateLoaded);
             }
         }
@@ -610,57 +735,69 @@ public partial class CertificateManager
         return true;
     }
 
+    // TODO: Is it better placed i a extension?
     public bool DoesStoreCertificateMatchesRequest(CertificateRequest request, X509Certificate2 certificate)
     {
-        if (request.Subject is { Length: > 0 } subject)
+        if (request.StoreRequest is { Subject: { Length: > 0 } subject })
         {
             if (!string.Equals(certificate.Subject, subject, StringComparison.OrdinalIgnoreCase)) { return false; }
         }
         return DoesAnyCertificateMatchesRequest(request, certificate);
     }
 
+    // TODO: Is it better placed i a extension?
     public bool DoesFileCertificateMatchesRequest(CertificateRequest request, X509Certificate2 certificate)
     {
         return DoesAnyCertificateMatchesRequest(request, certificate);
     }
 
+    // TODO: Is it better placed i a extension?
     public bool DoesAnyCertificateMatchesRequest(CertificateRequest request, X509Certificate2 certificate)
     {
-
-        if (request.Requirement.NeedPrivateKey)
+        // requirements that we can check without the chain
         {
-            if (!certificate.HasPrivateKey)
+            if (request.Requirement is { } requestRequirement)
             {
-                return false;
-            }
-        }
-        if (request.Requirement.ClientCertificate)
-        {
-            if (!certificate.IsCertificateAllowedForClientCertificate())
-            {
-                return false;
-            }
-        }
-        if (request.Requirement.SignCertificate)
-        {
-            if (!certificate.IsCertificateAllowedForX509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature))
-            {
-                return false;
+                if (requestRequirement.NeedPrivateKey)
+                {
+                    if (!certificate.HasPrivateKey)
+                    {
+                        return false;
+                    }
+                }
+                if (requestRequirement.ClientCertificate)
+                {
+                    if (!certificate.IsCertificateAllowedForClientCertificate())
+                    {
+                        return false;
+                    }
+                }
+                if (requestRequirement.SignCertificate)
+                {
+                    if (!certificate.IsCertificateAllowedForX509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature))
+                    {
+                        return false;
+                    }
+                }
             }
         }
         using (X509Chain chain = new())
         {
-            if (request.Requirement.RevocationMode.HasValue)
+            // convert the requrement to the chain policy
+            if (request.Requirement is { } requestRequirement)
             {
-                chain.ChainPolicy.RevocationMode = request.Requirement.RevocationMode.Value;
-            }
-            if (request.Requirement.RevocationFlag.HasValue)
-            {
-                chain.ChainPolicy.RevocationFlag = request.Requirement.RevocationFlag.Value;
-            }
-            if (request.Requirement.VerificationFlags.HasValue)
-            {
-                chain.ChainPolicy.VerificationFlags = request.Requirement.VerificationFlags.Value;
+                if (requestRequirement.RevocationMode.HasValue)
+                {
+                    chain.ChainPolicy.RevocationMode = requestRequirement.RevocationMode.Value;
+                }
+                if (requestRequirement.RevocationFlag.HasValue)
+                {
+                    chain.ChainPolicy.RevocationFlag = requestRequirement.RevocationFlag.Value;
+                }
+                if (requestRequirement.VerificationFlags.HasValue)
+                {
+                    chain.ChainPolicy.VerificationFlags = requestRequirement.VerificationFlags.Value;
+                }
             }
             chain.ChainPolicy.VerificationTime = TimeProvider.GetUtcNow().DateTime;
 #if NET7_0_OR_GREATER
@@ -674,7 +811,10 @@ public partial class CertificateManager
             {
                 if (chainStatus.Status == X509ChainStatusFlags.RevocationStatusUnknown)
                 {
-                    continue;
+                    if (chain.ChainPolicy.RevocationMode == X509RevocationMode.NoCheck)
+                    {
+                        continue;
+                    }
                 }
                 return false;
             }
@@ -704,14 +844,11 @@ public partial class CertificateManager
         }
     }
 
-    internal void RemoveRequest(CertificateRequest request)
-    {
-        throw new NotImplementedException();
-    }
+    // TODO: is their a need for internal void RemoveRequest(CertificateRequest request) or is ghosting good enough?
 
     internal class StateReload
     {
-        private readonly CertificateManager _certificateManager;
+        private readonly CertificateManagerPeriodicalRefresh _certificateManager;
         private bool _isLoadNeededNow;
         private DateTimeOffset? _isLoadNeedRefreshTime;
         private DateTimeOffset? _isDisposePastNeeded;
@@ -725,7 +862,7 @@ public partial class CertificateManager
 
         internal DateTimeOffset Changed;
 
-        public StateReload(CertificateManager certificateManager)
+        public StateReload(CertificateManagerPeriodicalRefresh certificateManager)
         {
             _certificateManager = certificateManager;
         }

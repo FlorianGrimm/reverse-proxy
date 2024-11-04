@@ -21,7 +21,7 @@ public sealed class ClientCertificateValidationOptions
     public Func<X509Certificate2, X509Chain?, SslPolicyErrors, bool, bool>? CustomValidation { get; set; }
 }
 
-public sealed class YarpClientCertificateValidationUtility
+public sealed class ClientCertificateValidationUtility
     : IDisposable
 {
     private SslPolicyErrors _ignoreSslPolicyErrors;
@@ -29,7 +29,7 @@ public sealed class YarpClientCertificateValidationUtility
     private readonly ILogger _logger;
     private IDisposable? _ReleaseOnChange;
 
-    public YarpClientCertificateValidationUtility
+    public ClientCertificateValidationUtility
         (
         ClientCertificateValidationOptions options,
         ILogger logger
@@ -41,10 +41,10 @@ public sealed class YarpClientCertificateValidationUtility
     }
 
     [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor()]
-    public YarpClientCertificateValidationUtility
+    public ClientCertificateValidationUtility
         (
         IOptionsMonitor<ClientCertificateValidationOptions> options,
-        ILogger<YarpClientCertificateValidationUtility> logger
+        ILogger<ClientCertificateValidationUtility> logger
         ) : this(options.CurrentValue, logger)
     {
         _ReleaseOnChange = options.OnChange(updateOptions);

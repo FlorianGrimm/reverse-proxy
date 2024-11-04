@@ -18,7 +18,7 @@ public sealed record TransportTunnelAuthenticationConfig
     /// <summary>
     /// for in-memory configuration
     /// </summary>
-    public X509CertificateCollection? ClientCertificateCollection { get; init; }
+    public X509Certificate2Collection? ClientCertificateCollection { get; init; }
 
     /// <inheritdoc/>
     public bool Equals(TransportTunnelAuthenticationConfig? other)

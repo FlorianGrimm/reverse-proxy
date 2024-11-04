@@ -1,31 +1,60 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.FileProviders.Physical;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 
-using Yarp.ReverseProxy.Configuration;
-
 namespace Yarp.ReverseProxy.Utilities;
-public partial class CertificateManager
+
+public sealed record class FileWatcherRequest(
+    string Id,
+    string FullName);
+
+public sealed class FileChanged(FileWatcherRequest fileWatcherRequest)
 {
+    public string Id { get; } = fileWatcherRequest.Id;
+    public string FullName { get; } = fileWatcherRequest.FullName;
+    public bool HasChanged { get; set; }
 }
 
-internal class CertificateManagerFileWatcher : IDisposable
+public interface ICertificateManagerFileWatcher
+    : IDisposable
+{
+    /// <summary>
+    /// Returns a token that will fire when any watched <see cref="FileWatcherRequest"/> is changed on disk.
+    /// </summary>
+    IChangeToken GetChangeToken();
+
+    /// <summary>
+    /// Start watching a certificate's file path for changes.
+    /// </summary>
+    /// <param name="fileWatcherRequest">the file path.</param>
+    FileChanged? AddWatch(FileWatcherRequest fileWatcherRequest);
+
+    /// <summary>
+    /// Stop watching a certificate's file path for changes.
+    /// </summary>
+    /// <param name="fileWatcherRequest">the file path.</param>
+    void RemoveWatch(FileWatcherRequest fileWatcherRequest);
+
+    /// <summary>
+    /// Remove all watches.
+    /// </summary>
+    void Reset();
+}
+
+internal class CertificateManagerFileWatcher
+    : ICertificateManagerFileWatcher
+    , IDisposable
 {
     private readonly Func<string, IFileProvider?> _fileProviderFactory;
-    private readonly string _contentRootDir;
     private readonly ILogger _logger;
 
     private readonly object _metadataLock = new();
@@ -40,11 +69,8 @@ internal class CertificateManagerFileWatcher : IDisposable
     private bool _disposed;
 
     public CertificateManagerFileWatcher(
-        IOptions<YarpCertificateLoaderOptions> options,
-        IHostEnvironment hostEnvironment,
         ILogger logger)
         : this(
-            options.Value.CertificateRoot is { Length: > 0 } certificateRoot ? certificateRoot : hostEnvironment.ContentRootPath,
             logger,
             null)
     { }
@@ -60,89 +86,58 @@ internal class CertificateManagerFileWatcher : IDisposable
             }
             : null);
 
-    /// <remarks>
-    /// For testing.
-    /// </remarks>
     internal CertificateManagerFileWatcher(
-        string contentRootPath,
         ILogger logger,
         Func<string, IFileProvider?>? fileProviderFactory = null)
     {
-        _contentRootDir = contentRootPath;
         _logger = logger;
         _fileProviderFactory = fileProviderFactory ?? CreatePhysicalFileProvider;
     }
 
     /// <summary>
-    /// Returns a token that will fire when any watched <see cref="CertificateConfig"/> is changed on disk.
-    /// The affected <see cref="CertificateConfig"/> will have <see cref="CertificateConfig.GetFileHasChanged()"/>
-    /// set to <code>true</code>.
+    /// Returns a token that will fire when any watched <see cref="FileWatcherRequest"/> is changed on disk.
     /// </summary>
     public IChangeToken GetChangeToken() => _reloadToken;
 
-    /// <summary>
-    /// Update the set of <see cref="CertificateConfig"/>s being watched for file changes.
-    /// If a given <see cref="CertificateConfig"/> appears in both lists, it is first removed and then added.
-    /// </summary>
-    /// <remarks>
-    /// Does not consider targets when watching files that are symlinks.
-    /// </remarks>
-    public void UpdateWatches(List<CertificateConfig> certificateConfigsToRemove, List<CertificateConfig> certificateConfigsToAdd)
-    {
-        var addSet = new HashSet<CertificateConfig>(certificateConfigsToAdd, ReferenceEqualityComparer.Instance);
-        var removeSet = new HashSet<CertificateConfig>(certificateConfigsToRemove, ReferenceEqualityComparer.Instance);
-
-        // Don't remove anything we're going to re-add anyway.
-        // Don't remove such items from addSet to guard against the (hypothetical) possibility
-        // that a caller might remove a config that isn't already present.
-        removeSet.ExceptWith(certificateConfigsToAdd);
-
-        if (addSet.Count == 0 && removeSet.Count == 0)
-        {
-            return;
-        }
-
-        lock (_metadataLock)
-        {
-            // Adds before removes to increase the chances of watcher reuse.
-            // Since removeSet doesn't contain any of these configs, this won't change the semantics.
-            foreach (var certificateConfig in addSet)
-            {
-                AddWatchUnsynchronized(certificateConfig);
-            }
-
-            foreach (var certificateConfig in removeSet)
-            {
-                RemoveWatchUnsynchronized(certificateConfig);
-            }
-        }
-    }
+    public ConcurrentDictionary<string, DateTimeOffset> Changed { get; } = new();
 
     /// <summary>
-    /// Start watching a certificate's file path for changes.
+    /// Remove all watches.
     /// </summary>
-    /// <param name="certificateConfig">the config defines the file path.</param>
-    public void AddWatch(CertificateConfig certificateConfig)
+    public void Reset()
     {
         lock (_metadataLock)
         {
-            AddWatchUnsynchronized(certificateConfig);
+            foreach (var fileMetadata in _metadataForFile.Values) {
+                fileMetadata.Dispose();
+                fileMetadata.Requests.Clear();
+            }
+            _metadataForFile.Clear();
+
+            foreach (var directoryWatchMetadata in _metadataForDirectory.Values) {
+                directoryWatchMetadata.Dispose();
+            }
+            _metadataForDirectory.Clear();
         }
     }
 
-    /// <summary>
-    /// Start watching a certificate's file path for changes.
-    /// <paramref name="certificateConfig"/> must have <see cref="CertificateConfig.IsFileCert"/> set to <code>true</code>.
-    /// </summary>
-    /// <remarks>
-    /// Internal for testing.
-    /// </remarks>
-    private void AddWatchUnsynchronized(CertificateConfig certificateConfig)
+    public FileChanged? AddWatch(FileWatcherRequest fileWatcherRequest)
     {
-        Debug.Assert(certificateConfig.IsFileCert(), "AddWatch called on non-file cert");
+        lock (_metadataLock)
+        {
+            return AddWatchUnsynchronized(fileWatcherRequest);
+        }
+    }
 
-        var path = Path.Combine(_contentRootDir, certificateConfig.Path);
-        var dir = Path.GetDirectoryName(path)!;
+    private FileChanged? AddWatchUnsynchronized(FileWatcherRequest fileWatcherRequest)
+    {
+        var fullName = fileWatcherRequest.FullName;
+        if (string.IsNullOrEmpty(fullName))
+        {
+            throw new ArgumentException("FullName is required", nameof(fileWatcherRequest));
+        }
+        var dir = Path.GetDirectoryName(fullName)
+            ?? throw new ArgumentException("GetDirectoryName(FullName) is required", nameof(fileWatcherRequest));
 
         if (!_metadataForDirectory.TryGetValue(dir, out var dirMetadata))
         {
@@ -152,8 +147,8 @@ internal class CertificateManagerFileWatcher : IDisposable
             var fileProvider = _fileProviderFactory(dir);
             if (fileProvider is null)
             {
-                Log.DirectoryDoesNotExist(_logger, dir, path);
-                return;
+                Log.DirectoryDoesNotExist(_logger, dir, fullName);
+                return default;
             }
 
             dirMetadata = new DirectoryWatchMetadata(fileProvider);
@@ -162,32 +157,34 @@ internal class CertificateManagerFileWatcher : IDisposable
             Log.CreatedDirectoryWatcher(_logger, dir);
         }
 
-        if (!_metadataForFile.TryGetValue(path, out var fileMetadata))
+        if (!_metadataForFile.TryGetValue(fullName, out var fileMetadata))
         {
             // PhysicalFileProvider appears to be able to tolerate non-existent files, as long as the directory exists
 
             var disposable = ChangeToken.OnChange(
-                () => dirMetadata.FileProvider.Watch(Path.GetFileName(path)),
-                static tuple => tuple.Item1.OnChange(tuple.Item2),
-                ValueTuple.Create(this, path));
+                () => dirMetadata.FileProvider.Watch(Path.GetFileName(fullName)),
+tuple => tuple.Item1.OnChange(tuple.Item2),
+                ValueTuple.Create(this, fullName));
 
             fileMetadata = new FileWatchMetadata(disposable);
-            _metadataForFile.Add(path, fileMetadata);
+            _metadataForFile.Add(fullName, fileMetadata);
             dirMetadata.FileWatchCount++;
 
-            Log.CreatedFileWatcher(_logger, path);
+            Log.CreatedFileWatcher(_logger, fullName);
         }
 
-        if (!fileMetadata.Configs.Add(certificateConfig))
-        {
-            Log.ReusedObserver(_logger, path);
-            return;
+        if (fileMetadata.Requests.TryGetValue(fileWatcherRequest.Id, out var fileChanged)) {
+            Log.ReusedObserver(_logger, fullName);
+            return fileChanged;
         }
 
-        Log.AddedObserver(_logger, path);
+        fileChanged = new FileChanged(fileWatcherRequest);
+        fileMetadata.Requests.Add(fileWatcherRequest.Id, fileChanged);
+        Log.AddedObserver(_logger, fullName);
 
-        Log.ObserverCount(_logger, path, fileMetadata.Configs.Count);
+        Log.ObserverCount(_logger, fullName, fileMetadata.Requests.Count);
         Log.FileCount(_logger, dir, dirMetadata.FileWatchCount);
+        return fileChanged;
     }
 
     private void OnChange(string path)
@@ -217,14 +214,13 @@ internal class CertificateManagerFileWatcher : IDisposable
                 Log.EventWithoutFile(_logger, path);
                 return;
             }
-
-            var configs = fileMetadata.Configs;
-            foreach (var config in configs)
+            var requests = fileMetadata.Requests;
+            foreach (var request in requests.Values)
             {
-                config.SetFileHasChanged(true);
+                request.HasChanged = true;
             }
 
-            Log.FlaggedObservers(_logger, path, configs.Count);
+            Log.FlaggedObservers(_logger, path, requests.Count);
         }
 
         // AddWatch and RemoveWatch don't affect the token, so this doesn't need to be under the semaphore.
@@ -236,28 +232,24 @@ internal class CertificateManagerFileWatcher : IDisposable
     /// <summary>
     /// Stop watching a certificate's file path for changes.
     /// </summary>
-    /// <param name="certificateConfig">the config defines the file path.</param>
-    public void RemoveWatch(CertificateConfig certificateConfig)
+    /// <param name="fileWatcherRequest">the config defines the file path.</param>
+    public void RemoveWatch(FileWatcherRequest fileWatcherRequest)
     {
         lock (_metadataLock)
         {
-            RemoveWatchUnsynchronized(certificateConfig);
+            RemoveWatchUnsynchronized(fileWatcherRequest);
         }
     }
 
-    /// <summary>
-    /// Stop watching a certificate's file path for changes (previously started by <see cref="AddWatchUnsynchronized"/>.
-    /// <paramref name="certificateConfig"/> must have <see cref="CertificateConfig.IsFileCert"/> set to <code>true</code>.
-    /// </summary>
-    /// <remarks>
-    /// Internal for testing.
-    /// </remarks>
-    private void RemoveWatchUnsynchronized(CertificateConfig certificateConfig)
+    private void RemoveWatchUnsynchronized(FileWatcherRequest fileWatcherRequest)
     {
-        Debug.Assert(certificateConfig.IsFileCert(), "RemoveWatch called on non-file cert");
-
-        var path = Path.Combine(_contentRootDir, certificateConfig.Path);
-        var dir = Path.GetDirectoryName(path)!;
+        var path = fileWatcherRequest.FullName;
+        if (string.IsNullOrEmpty(path))
+        {
+            throw new ArgumentException("Path is required", nameof(fileWatcherRequest));
+        }
+        var dir = Path.GetDirectoryName(path)
+            ?? throw new ArgumentException("GetDirectoryName(path) is required", nameof(fileWatcherRequest));
 
         if (!_metadataForFile.TryGetValue(path, out var fileMetadata))
         {
@@ -265,9 +257,9 @@ internal class CertificateManagerFileWatcher : IDisposable
             return;
         }
 
-        var configs = fileMetadata.Configs;
+        var requests = fileMetadata.Requests;
 
-        if (!configs.Remove(certificateConfig))
+        if (!requests.Remove(fileWatcherRequest.Id))
         {
             Log.UnknownObserver(_logger, path);
             return;
@@ -278,7 +270,7 @@ internal class CertificateManagerFileWatcher : IDisposable
         // If we found fileMetadata, there must be a containing/corresponding dirMetadata
         var dirMetadata = _metadataForDirectory[dir];
 
-        if (configs.Count == 0)
+        if (requests.Count == 0)
         {
             fileMetadata.Dispose();
             _metadataForFile.Remove(path);
@@ -295,7 +287,7 @@ internal class CertificateManagerFileWatcher : IDisposable
             }
         }
 
-        Log.ObserverCount(_logger, path, configs.Count);
+        Log.ObserverCount(_logger, path, requests.Count);
         Log.FileCount(_logger, dir, dirMetadata.FileWatchCount);
     }
 
@@ -306,7 +298,7 @@ internal class CertificateManagerFileWatcher : IDisposable
     internal int TestGetFileWatchCountUnsynchronized(string dir) => _metadataForDirectory.TryGetValue(dir, out var metadata) ? metadata.FileWatchCount : 0;
 
     /// <remarks>Test hook</remarks>
-    internal int TestGetObserverCountUnsynchronized(string path) => _metadataForFile.TryGetValue(path, out var metadata) ? metadata.Configs.Count : 0;
+    internal int TestGetObserverCountUnsynchronized(string path) => _metadataForFile.TryGetValue(path, out var metadata) ? metadata.Requests.Count : 0;
 
     void IDisposable.Dispose()
     {
@@ -341,7 +333,7 @@ internal class CertificateManagerFileWatcher : IDisposable
     private sealed class FileWatchMetadata(IDisposable disposable) : IDisposable
     {
         public readonly IDisposable Disposable = disposable;
-        public readonly HashSet<CertificateConfig> Configs = new(ReferenceEqualityComparer.Instance);
+        public readonly Dictionary<string, FileChanged> Requests = new();
 
         public void Dispose() => Disposable.Dispose();
     }

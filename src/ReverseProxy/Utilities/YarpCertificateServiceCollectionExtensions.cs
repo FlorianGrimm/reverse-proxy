@@ -1,3 +1,5 @@
+using System;
+
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
@@ -7,6 +9,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 
 public static class YarpCertificateServiceCollectionExtensions
 {
+    [Obsolete]
     public static IServiceCollection AddReverseProxyCertificateLoader(this IServiceCollection services)
     {
         services.TryAddSingleton<IYarpCertificatePathWatcher, YarpCertificatePathWatcher>();

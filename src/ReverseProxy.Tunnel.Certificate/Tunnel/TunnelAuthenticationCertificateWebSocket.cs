@@ -54,20 +54,22 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
     public const string AuthenticationScheme = "Certificate";
     public const string AuthenticationName = "ClientCertificate";
     public const string CookieName = "YarpTunnelAuth";
-    private readonly YarpClientCertificateValidationUtility _clientCertificateValidationUtility;
+    private readonly ClientCertificateValidationUtility _clientCertificateValidationUtility;
     private readonly TunnelAuthenticationCertificateOptions _options;
     private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
     private readonly ITunnelAuthenticationCookieService _cookieService;
     private readonly IYarpCertificateCollectionFactory _certificateCollectionFactory;
+    private readonly ICertificateManager _certificateManager;
     private readonly ILogger _logger;
     private readonly ConcurrentDictionary<string, YarpCertificateCollection> _clientCertifiacteCollectionByTunnelId = new();
 
     public TunnelAuthenticationCertificateWebSocket(
         IOptions<TunnelAuthenticationCertificateOptions> options,
         ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
-        YarpClientCertificateValidationUtility clientCertificateValidationUtility,
+        ClientCertificateValidationUtility clientCertificateValidationUtility,
         ITunnelAuthenticationCookieService cookieService,
         IYarpCertificateCollectionFactory certificateCollectionFactory,
+        ICertificateManager certificateManager,
         ILogger<TunnelAuthenticationCertificateWebSocket> logger
         )
     {
@@ -76,6 +78,7 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
         _clientCertificateValidationUtility = clientCertificateValidationUtility;
         _cookieService = cookieService;
         _certificateCollectionFactory = certificateCollectionFactory;
+        _certificateManager = certificateManager;
         _logger = logger;
     }
 
@@ -159,6 +162,24 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
             return false;
         }
 
+        var thatsComesFromTheOptions = new CertificateRequirement(
+                ClientCertificate: true,
+                SignCertificate: false,
+                NeedPrivateKey: true,
+                RevocationFlag: X509RevocationFlag.EntireChain,
+                RevocationMode: X509RevocationMode.NoCheck,
+                VerificationFlags: X509VerificationFlags.NoFlag);
+        var certificateRequestCollection = _certificateManager.AddConfiguration(
+            config.ClusterId,
+            config.Authentication.ClientCertificate,
+            config.Authentication.ClientCertificates,
+            config.Authentication.ClientCertificateCollection,
+            thatsComesFromTheOptions with
+            {
+                ClientCertificate = true,
+                NeedPrivateKey = true,
+            });
+        _certificateManager.GetCertificateCollection(certificateRequestCollection);
         var certificateCollectionOfCluster = YarpCertificateCollection.GetCertificateCollection(
             _clientCertifiacteCollectionByTunnelId,
             _certificateCollectionFactory,

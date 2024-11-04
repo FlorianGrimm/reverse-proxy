@@ -11,7 +11,6 @@ public sealed record ClusterTunnelAuthenticationConfig
 {
     public string? Mode { get; init; }
 
-#warning changed
     public List<CertificateConfig> ClientCertificates { get; init; } = [];
 
     public CertificateConfig? ClientCertificate { get; init; }
@@ -19,7 +18,7 @@ public sealed record ClusterTunnelAuthenticationConfig
     /// <summary>
     /// for in-memory configuration
     /// </summary>
-    public X509CertificateCollection? ClientCertificateCollection { get; init; }
+    public X509Certificate2Collection? ClientCertificateCollection { get; init; }
 
     public string[]? UserNames { get; init; }
 

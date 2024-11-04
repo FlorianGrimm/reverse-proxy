@@ -1,5 +1,8 @@
 using System.Security.Cryptography.X509Certificates;
 
+using Microsoft.Extensions.Options;
+using Microsoft.VisualBasic;
+
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
@@ -7,35 +10,44 @@ namespace Yarp.ReverseProxy.Transport;
 /// <summary>
 /// Represents a class that handles the loading of signing certificates for authentication transport.
 /// </summary>
-/// <param name="certificateCollectionFactory">Factory.</param>
-/// <param name="options">Configuration options for the signing certificate.</param>
-internal class AuthorizationTransportSigningCertificate(
-    IYarpCertificateCollectionFactory certificateCollectionFactory,
-    AuthorizationTransportOptions options)
+internal class AuthorizationTransportSigningCertificate
 {
-    private readonly YarpCertificateCollection _certificateCollection = certificateCollectionFactory.CreateAndLoad(
-        null,
-        "SigningCertificate",
-        true,
-        options.SigningCertificateConfig, null, null
-        );
+    private readonly AuthorizationTransportOptions _options;
+    private readonly ICertificateManager _certificateManager;
+    private readonly CertificateRequestCollection? _certificateRequestCollection;
 
-    internal Shared<X509CertificateCollection?>? GetCertificate()
+    /// <summary>
+    /// Creates a new instance of <see cref="AuthorizationTransportSigningCertificate"/>.
+    /// </summary>
+    /// <param name="certificateManager">certificateManager</param>
+    /// <param name="options">Configuration options for the signing certificate.</param>
+    public AuthorizationTransportSigningCertificate(
+        ICertificateManager certificateManager,
+        AuthorizationTransportOptions options)
     {
-        if (options.SigningCertificateConfig is not { } config)
+        _options = options;
+        _certificateManager = certificateManager;
+
+        if (options.SigningCertificateConfig is { } config)
         {
+            _certificateRequestCollection = certificateManager.AddConfiguration(
+                "AuthorizationTransportSigningCertificate",
+                null,
+                null,
+                null,
+                new CertificateRequirement()
+                {
+                    SignCertificate = true,
+                });
+            certificateManager.AddRequestCollection(_certificateRequestCollection);
+        }
+    }
+
+    internal IShared<X509Certificate2Collection?>? GetCertificate()
+    {
+        if (_certificateRequestCollection is null) {
             return null;
         }
-
-        var shareCollection = _certificateCollection
-            .Load(config, default, default)
-            .ShareCertificateCollection();
-        if (shareCollection.Value is { Count: > 0 } )
-        {
-            return shareCollection;
-        }
-
-        shareCollection.Dispose();
-        return null;
+        return _certificateManager.GetCertificateCollection(_certificateRequestCollection);
     }
 }

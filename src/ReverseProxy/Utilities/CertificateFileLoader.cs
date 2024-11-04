@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -12,119 +13,42 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace Yarp.ReverseProxy.Utilities;
-public partial class CertificateManager
-{
-    // for testing
-    internal X509Certificate2Collection? LoadCertificateFromFile(
-        List<CertificateRequest> requests
-        )
-    {
-        var (requirement, path, keyPath, plainPassword) = CombineRequirements(requests);
-        return FileCertificateLoader.LoadCertificateFromFile(requests, requirement, path, keyPath, plainPassword);
-    }
-
-    // for testing
-    internal (CertificateRequirement requirement,
-        string? path, string? keyPath, string? plainPassword
-        ) CombineRequirements(List<CertificateRequest> requests)
-    {
-        var requirement = new CertificateRequirement(false, false, false, default, default, default);
-        string? path = null;
-        string? keyPath = null;
-        string? plainPassword = null;
-        foreach (var request in requests)
-        {
-            if (request.Path is { Length: > 0 } requestPath)
-            {
-                path = requestPath;
-            }
-            if (request.KeyPath is { Length: > 0 } requestKeyPath)
-            {
-                keyPath = requestKeyPath;
-            }
-            if (request.Password is { Length: > 0 } requestPassword)
-            {
-                plainPassword = _certificatePasswordProvider.DecryptPassword(requestPassword);
-            }
-            if (request.Requirement.ClientCertificate)
-            {
-                requirement = requirement with
-                {
-                    ClientCertificate = true,
-                    NeedPrivateKey = true
-                };
-            }
-            if (request.Requirement.SignCertificate)
-            {
-                requirement = requirement with
-                {
-                    SignCertificate = true
-                };
-            }
-            if (request.Requirement.NeedPrivateKey)
-            {
-                requirement = requirement with
-                {
-                    NeedPrivateKey = true
-                };
-            }
-
-            if (request.Requirement.RevocationFlag.HasValue)
-            {
-                requirement = requirement with
-                {
-                    RevocationFlag = request.Requirement.RevocationFlag.Value
-                };
-            }
-            if (request.Requirement.RevocationMode.HasValue)
-            {
-                requirement = requirement with
-                {
-                    RevocationMode = request.Requirement.RevocationMode.Value
-                };
-            }
-            if (request.Requirement.VerificationFlags.HasValue)
-            {
-                requirement = requirement with
-                {
-                    VerificationFlags = requirement.VerificationFlags.GetValueOrDefault(X509VerificationFlags.NoFlag)
-                        | request.Requirement.VerificationFlags.Value
-                };
-            }
-        }
-
-        return (requirement, path, keyPath, plainPassword);
-    }
-}
-
-public interface ICertificateFileLoaderFactory
-{
-    ICertificateFileLoader Create(string? certificateRootPath);
-}
-
-public class CertificateFileLoaderFactory : ICertificateFileLoaderFactory
-{
-    private readonly ICertificatePasswordProvider _certificatePasswordProvider;
-    private readonly ILogger _logger;
-    public CertificateFileLoaderFactory(
-        ICertificatePasswordProvider certificatePasswordProvider,
-        ILogger<CertificateFileLoader> logger)
-    {
-        _certificatePasswordProvider = certificatePasswordProvider;
-        _logger = logger;
-    }
-    public ICertificateFileLoader Create(string? certificateRootPath)
-    {
-        return new CertificateFileLoader(certificateRootPath, _certificatePasswordProvider, _logger);
-    }
-}
 
 public interface ICertificateFileLoader
 {
     string? CertificateRootPath { get; set; }
+    ICertificateManagerFileWatcher? CertificateManagerFileWatcher { get; set; }
 
-    X509Certificate2Collection? LoadCertificateFromFile(List<CertificateRequest> requests, CertificateRequirement combinedRequirement, string? path = null, string? keyPath = null, string? plainPassword = null);
+    X509Certificate2Collection? LoadCertificateFromFile(
+        List<CertificateRequest> requests,
+        CertificateFileRequest fileRequest,
+        CertificateRequirement requirement);
 }
+
+public record struct CertificateFileRequest(
+    string? Path,
+    string? KeyPath,
+    string? Password
+    )
+{
+    public static CertificateFileRequest? Convert(
+        string? path,
+        string? keyPath,
+        string? password
+        )
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            return null;
+        }
+        return new CertificateFileRequest(path, keyPath, password);
+    }
+
+    [MemberNotNullWhen(true, nameof(Path))]
+    public bool IsValid() =>
+        !string.IsNullOrEmpty(Path);
+}
+
 public class CertificateFileLoader : ICertificateFileLoader
 {
     private readonly ICertificatePasswordProvider _certificatePasswordProvider;
@@ -132,37 +56,35 @@ public class CertificateFileLoader : ICertificateFileLoader
 
     public string? CertificateRootPath { get; set; }
 
+    public ICertificateManagerFileWatcher? CertificateManagerFileWatcher { get; set; }
+
     public CertificateFileLoader(
-        string? certificateRootPath,
         ICertificatePasswordProvider certificatePasswordProvider,
-        ILogger logger)
+        ICertificateManagerFileWatcher? fileWatcher,
+        ILogger<CertificateFileLoader> logger)
     {
-        this.CertificateRootPath = certificateRootPath;
         _certificatePasswordProvider = certificatePasswordProvider;
+        CertificateManagerFileWatcher = fileWatcher;
         _logger = logger;
     }
 
     public X509Certificate2Collection? LoadCertificateFromFile(
         List<CertificateRequest> requests,
-        CertificateRequirement combinedRequirement,
-        string? path = null,
-        string? keyPath = null,
-        string? plainPassword = null
+        CertificateFileRequest fileRequest,
+        CertificateRequirement requirement
         )
     {
+        var (path, keyPath, password) = fileRequest;
+
         if (string.IsNullOrEmpty(path))
         {
             return null;
         }
         {
-            var certificatePath = (string.IsNullOrEmpty(CertificateRootPath))
-                ? path
-                : Path.Combine(CertificateRootPath ?? "", path);
-            var certificateKeyPath = (string.IsNullOrEmpty(keyPath))
-                ? null
-                : ((string.IsNullOrEmpty(CertificateRootPath))
-                    ? keyPath
-                    : Path.Combine(CertificateRootPath ?? "", keyPath));
+            var certificatePath = GetAbsolutePath(path);
+            var certificateKeyPath = GetAbsolutePath(keyPath);
+
+            string? plainPassword = null;
 
             if (string.IsNullOrEmpty(certificatePath))
             {
@@ -179,6 +101,10 @@ public class CertificateFileLoader : ICertificateFileLoader
             X509Certificate2? certificate;
             try
             {
+                if (plainPassword is null && password is { Length: > 0 })
+                {
+                    plainPassword = _certificatePasswordProvider.DecryptPassword(password);
+                }
                 certificate = GetCertificate(certificatePath, plainPassword);
                 if (certificate is { })
                 {
@@ -208,6 +134,10 @@ public class CertificateFileLoader : ICertificateFileLoader
             {
                 try
                 {
+                    if (plainPassword is null && password is { Length: > 0 })
+                    {
+                        plainPassword = _certificatePasswordProvider.DecryptPassword(password);
+                    }
                     fullChain.Import(certificatePath, plainPassword, X509KeyStorageFlags.DefaultKeySet);
                     if (0 < fullChain.Count)
                     {
@@ -240,8 +170,7 @@ public class CertificateFileLoader : ICertificateFileLoader
                 return null;
             }
 
-            if (combinedRequirement.NeedPrivateKey
-                && !certificate.HasPrivateKey)
+            if (requirement.NeedPrivateKey && !certificate.HasPrivateKey)
             {
                 if (certificateKeyPath is { Length: > 0 })
                 {
@@ -251,6 +180,10 @@ public class CertificateFileLoader : ICertificateFileLoader
                     }
                     else
                     {
+                        if (plainPassword is null && password is { Length: > 0 })
+                        {
+                            plainPassword = _certificatePasswordProvider.DecryptPassword(password);
+                        }
                         var certificateKey = LoadCertificateKey(certificate, certificateKeyPath, plainPassword);
                         if (certificateKey != null)
                         {
@@ -289,6 +222,18 @@ public class CertificateFileLoader : ICertificateFileLoader
 
             return fullChain;
         }
+    }
+
+    private string? GetAbsolutePath(string? path)
+    {
+        if (CertificateRootPath is { Length: > 0 } certificateRootPath)
+        {
+            if (path is { Length: > 0 })
+            {
+                return Path.Combine(certificateRootPath, path);
+            }
+        }
+        return path;
     }
 
     protected static X509Certificate2 LoadCertificateKey(X509Certificate2 certificate, string keyPath, string? password)

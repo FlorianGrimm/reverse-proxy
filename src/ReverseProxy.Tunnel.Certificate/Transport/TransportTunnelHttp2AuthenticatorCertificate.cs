@@ -24,21 +24,21 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
 {
     private readonly TransportTunnelAuthenticationCertificateOptions _options;
     private readonly RemoteCertificateValidationUtility _remoteCertificateValidation;
-    private readonly IYarpCertificateCollectionFactory _certificateCollectionFactory;
+    private readonly ICertificateManager _certificateManager;
     private readonly ILogger<TransportTunnelHttp2AuthenticatorCertificate> _logger;
 
-    private readonly ConcurrentDictionary<string, YarpCertificateCollection> _clientCertifiacteCollectionByTunnelId = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, CertificateRequestCollection> _clientCertifiacteCollectionByTunnelId = new(StringComparer.OrdinalIgnoreCase);
 
     public TransportTunnelHttp2AuthenticatorCertificate(
         IOptions<TransportTunnelAuthenticationCertificateOptions> options,
         RemoteCertificateValidationUtility remoteCertificateValidationUtility,
-        IYarpCertificateCollectionFactory certificateCollectionFactory,
+        ICertificateManager certificateManager,
         ILogger<TransportTunnelHttp2AuthenticatorCertificate> logger
         )
     {
         _options = options.Value;
         _remoteCertificateValidation = remoteCertificateValidationUtility;
-        _certificateCollectionFactory = certificateCollectionFactory;
+        _certificateManager = certificateManager;
         _logger = logger;
     }
 
@@ -47,23 +47,75 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
     public ValueTask<HttpMessageInvoker?> ConfigureSocketsHttpHandlerAsync(TunnelState tunnel, SocketsHttpHandler socketsHttpHandler)
     {
         var config = tunnel.Model.Config;
-        if (!YarpClientCertificateLoader.IsClientCertificate(config.Authentication.Mode))
+        if (!Microsoft.AspNetCore.Builder.TransportCertificateExtensions.IsClientCertificate(
+            config.Authentication.Mode))
         {
             return new(default(HttpMessageInvoker));
         }
         try
         {
-            var currentCertifiacteCollection = YarpCertificateCollection.GetCertificateCollection(
-                _clientCertifiacteCollectionByTunnelId,
-                _certificateCollectionFactory,
-                config.TunnelId,
-                true,
-                config.Authentication.ClientCertificate,
-                config.Authentication.ClientCertificates,
-                config.Authentication.ClientCertificateCollection,
-                _logger);
 
-            if (currentCertifiacteCollection.GiveAway() is { Count: > 0 } collection)
+            if (_clientCertifiacteCollectionByTunnelId.TryGetValue(config.TunnelId, out var certificateRequestCollection))
+            {
+                // OK
+            }
+            else
+            {
+                certificateRequestCollection = _certificateManager.TryAddConfiguration(
+                    _clientCertifiacteCollectionByTunnelId,
+                    config.TunnelId,
+                    () => {
+                        var todoThatComesFromTheConfiguration = new CertificateRequirement();
+                        var finallyCertificateRequirement = todoThatComesFromTheConfiguration with
+                        {
+                            ClientCertificate = true
+                        };
+                        var result = _certificateManager.AddConfiguration(
+                            $"TunnelClientCertificate/{config.TunnelId}",
+                            config.Authentication.ClientCertificate,
+                            config.Authentication.ClientCertificates,
+                            config.Authentication.ClientCertificateCollection,
+                            finallyCertificateRequirement
+                            );
+                        return result;
+                    }
+                    );
+            }
+            if (_clientCertifiacteCollectionByTunnelId.TryGetValue(config.TunnelId, out var certificateRequestCollection))
+            {
+                // OK
+            }
+            else
+            {
+                lock (_clientCertifiacteCollectionByTunnelId)
+                {
+                    if (_clientCertifiacteCollectionByTunnelId.TryGetValue(config.TunnelId, out certificateRequestCollection))
+                    {
+                        //OK
+                    }
+                    else
+                    {
+                        var todoThatComesFromTheConfiguration = new CertificateRequirement();
+                        var finallyCertificateRequirement = todoThatComesFromTheConfiguration with
+                        {
+                            ClientCertificate = true
+                        };
+                        certificateRequestCollection = _certificateManager.AddConfiguration(
+                            $"TunnelClientCertificate/{config.TunnelId}",
+                            config.Authentication.ClientCertificate,
+                            config.Authentication.ClientCertificates,
+                            config.Authentication.ClientCertificateCollection,
+                            finallyCertificateRequirement
+                            );
+                        _certificateManager.AddRequestCollection(certificateRequestCollection);
+                    }
+                }
+            }
+            var shareCurrentCertificateCollection = _certificateManager.GetCertificateCollection(certificateRequestCollection);
+            var currentCertificateCollection = shareCurrentCertificateCollection.Value;
+            // shareCurrentCertificateCollection.Dispose is not called because the collection (certificates) are given away
+
+            if (currentCertificateCollection is { Count: > 0 } collection)
             {
                 var sslClientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= [];
                 sslClientCertificates.AddRange(collection);

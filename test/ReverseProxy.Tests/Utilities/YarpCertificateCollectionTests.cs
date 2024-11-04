@@ -23,11 +23,11 @@ public class YarpCertificateCollectionTests
         {
             return;
         }
-
-        var options = Options.Create<YarpCertificateLoaderOptions>(
-            new YarpCertificateLoaderOptions()
+        
+        var options = Options.Create<CertificateManagerOptions>(
+            new CertificateManagerOptions()
             {
-                CertificatePassword = (config) => config.Password
+                //CertificatePassword = (config) => config.Password
             });
         var hostEnvironment = new Mock<IHostEnvironment>().Object;
         var logger = new Mock<ILogger<YarpCertificateLoader>>().Object;

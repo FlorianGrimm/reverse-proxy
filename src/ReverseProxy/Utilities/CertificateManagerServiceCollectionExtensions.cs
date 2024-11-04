@@ -13,8 +13,10 @@ public static class CertificateManagerServiceCollectionExtensions
         string? sectionName = null
         )
     {
-        services.TryAddSingleton<CertificateManager>();
-        services.TryAddSingleton<ICertificateFileLoaderFactory, CertificateFileLoaderFactory>();
+        services.TryAddSingleton<ICertificateManager, CertificateManagerPeriodicalRefresh>();
+        services.TryAddSingleton<ICertificateStoreLoader, CertificateStoreLoader>();
+        services.TryAddSingleton<ICertificateFileLoader, CertificateFileLoader>();
+        services.TryAddSingleton<CertificateManagerFileWatcher>();
         services.AddOptions<CertificateManagerOptions>()
             .Configure<IConfiguration>((options, configuration) => {
                 if (sectionName is not null)

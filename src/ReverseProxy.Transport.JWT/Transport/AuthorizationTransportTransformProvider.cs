@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using Yarp.ReverseProxy.Transforms.Builder;
@@ -11,13 +12,13 @@ public class AuthorizationTransportTransformProvider : ITransformProvider
     private readonly AuthorizationTransportSigningCertificate _signingCertificate;
 
     public AuthorizationTransportTransformProvider(
-        IYarpCertificateCollectionFactory yarpCertificateCollectionFactory,
+        ICertificateManager certificateManager,
         IOptions<AuthorizationTransportOptions> options
     )
     {
         _options = options.Value;
         _signingCertificate = new AuthorizationTransportSigningCertificate(
-            yarpCertificateCollectionFactory,
+            certificateManager,
             _options);
     }
 
@@ -25,9 +26,11 @@ public class AuthorizationTransportTransformProvider : ITransformProvider
     {
         if (_options.IsEnabled(context.Cluster))
         {
-            if (_signingCertificate.GetCertificate() is null)
+            using var certificate = _signingCertificate.GetCertificate();
+            if (certificate?.Value is null)
             {
-                context.Errors.Add(new System.ArgumentException("No signing certificate found.","SigningCertificate"));
+                context.Errors.Add(
+                    new InvalidOperationException("No signing certificate found."));
             }
         }
     }

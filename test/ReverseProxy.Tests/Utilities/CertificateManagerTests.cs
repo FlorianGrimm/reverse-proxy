@@ -36,7 +36,7 @@ public class CertificateManagerTests
             b.Services.AddSingleton<ILoggerProvider>(new TestLoggerProvider(_output));
         });
         services.AddSingleton<ICertificatePasswordProvider, CertificatePasswordProvider>();
-        services.AddSingleton<CertificateManager>();
+        services.AddSingleton<CertificateManagerPeriodicalRefresh>();
         services.AddOptions<CertificateManagerOptions>().Configure(
             options =>
             {
@@ -47,33 +47,37 @@ public class CertificateManagerTests
         var fakeTimeProvider = new FakeTimeProvider();
         fakeTimeProvider.SetUtcNow(new DateTimeOffset(new DateTime(2024, 01, 01), TimeSpan.Zero));
 
-        var certificateManager = provider.GetRequiredService<CertificateManager>();
+        var certificateManager = provider.GetRequiredService<CertificateManagerPeriodicalRefresh>();
         certificateManager.TimeProvider = fakeTimeProvider;
         var request = new CertificateRequest(
+            "test",
             null,
-            new CertificateStoreLocationName(
-                System.Security.Cryptography.X509Certificates.StoreLocation.CurrentUser,
-                System.Security.Cryptography.X509Certificates.StoreName.My
-            ),
-            "CN=my jwt sign for localhost",
-            default, default, default,
+            new CertificateStoreRequest(
+                StoreLocationName: new CertificateStoreLocationName(
+                    System.Security.Cryptography.X509Certificates.StoreLocation.CurrentUser,
+                    System.Security.Cryptography.X509Certificates.StoreName.My
+                ),
+                Subject: "CN=my jwt sign for localhost"),
+            default,
             new CertificateRequirement(
-                false, false, false,
-                System.Security.Cryptography.X509Certificates.X509RevocationFlag.EntireChain,
-                System.Security.Cryptography.X509Certificates.X509RevocationMode.NoCheck,
-                System.Security.Cryptography.X509Certificates.X509VerificationFlags.AllFlags
+                ClientCertificate: false,
+                SignCertificate: false,
+                NeedPrivateKey: false,
+                RevocationFlag: System.Security.Cryptography.X509Certificates.X509RevocationFlag.EntireChain,
+                RevocationMode: System.Security.Cryptography.X509Certificates.X509RevocationMode.NoCheck,
+                VerificationFlags: System.Security.Cryptography.X509Certificates.X509VerificationFlags.AllFlags
             ));
         request = certificateManager.AddRequest(request);
         {
-            var certificateCollection = certificateManager.GetCertificateCollection(request);
-            Assert.Equal(2, certificateCollection.Count);
+            using var certificateCollection = certificateManager.GetCertificateCollection(request);
+            Assert.Equal(2, certificateCollection.Value.Count);
         }
 
         fakeTimeProvider.SetUtcNow(new DateTimeOffset(new DateTime(2024, 06, 01), TimeSpan.Zero));
         certificateManager.Refresh(false);
         {
-            var certificateCollection = certificateManager.GetCertificateCollection(request);
-            Assert.Equal(1, certificateCollection.Count);
+            using var certificateCollection = certificateManager.GetCertificateCollection(request);
+            Assert.Equal(1, certificateCollection.Value.Count);
         }
     }
 }

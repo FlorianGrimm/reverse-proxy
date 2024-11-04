@@ -29,6 +29,7 @@ internal class AuthorizationTransportRequestTransform : RequestTransform
 
     public override async ValueTask ApplyAsync(RequestTransformContext context)
     {
+#warning WEICHEI
         //context.RequestTransforms.Add(new UserToJWTTransformModel());
         // AuthN and AuthZ will have already been completed after request routing.
         /*
@@ -62,11 +63,10 @@ internal class AuthorizationTransportRequestTransform : RequestTransform
                 }
             }
         }
-
         using var shareSigningCertificate = _signingCertificate.GetCertificate();
         if (shareSigningCertificate is null
             || shareSigningCertificate.Value is not { Count: > 0 } collection
-            || collection[0] is not X509Certificate2 signingCertificate2)
+            || collection[0] is not { } signingCertificate2)
         {
             return;
         }

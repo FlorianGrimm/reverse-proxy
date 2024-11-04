@@ -63,7 +63,7 @@ public class Program
 
         builder.Configuration.AddUserSecrets("ReverseProxy");
         builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
-        builder.Services.AddReverseProxyCertificateLoader();
+        builder.Services.AddReverseProxyCertificateManager();
 
         var reverseProxyBuilder = builder.Services.AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetRequiredSection("ReverseProxy"))

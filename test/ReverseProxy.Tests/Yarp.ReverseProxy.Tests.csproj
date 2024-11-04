@@ -9,9 +9,14 @@
 
   <ItemGroup>
     <Content Include="..\TestCertificates\*.*" LinkBase="TestCertificates" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Remove="Utilities\YarpCertificateCollectionTests.cs" />
     <Content Include="validSelfSignedClientEkuCertificate.cer">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Utilities\YarpCertificateCollectionTests.cs" />
   </ItemGroup>
 
   <ItemGroup>

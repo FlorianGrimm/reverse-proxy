@@ -63,7 +63,8 @@ public static class TunnelExtensions
         services.AddSingleton<YarpClientCertificateValidationUtility>();
         services.AddOptions<ClientCertificateValidationOptions>()
             .PostConfigure<IOptions<TunnelAuthenticationCertificateOptions>>(
-                (ClientCertificateValidationOptions options, IOptions<TunnelAuthenticationCertificateOptions> tunnelAuthenticationCertificateOptions) => {
+                (ClientCertificateValidationOptions options, IOptions<TunnelAuthenticationCertificateOptions> tunnelAuthenticationCertificateOptions) =>
+                {
                     var source = tunnelAuthenticationCertificateOptions.Value;
                     options.IgnoreSslPolicyErrors = source.IgnoreSslPolicyErrors;
                     options.CustomValidation = source.CustomValidation;

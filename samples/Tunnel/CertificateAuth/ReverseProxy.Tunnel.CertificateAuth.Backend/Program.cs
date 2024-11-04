@@ -15,9 +15,9 @@ public class Program
                 configureTunnelWebSocket: options => { options.MaxConnectionCount = 1; }
             ) /* for the servers that starts the tunnel transport connections */
             .AddTunnelTransportCertificate()
-            .ConfigureCertificateLoaderOptions(options =>
+            .ConfigureCertificateManagerOptions(options =>
             {
-                options.CertificateRoot = System.AppContext.BaseDirectory;
+                options.CertificateRootPath = System.AppContext.BaseDirectory;
             });
 
         var app = builder.Build();
