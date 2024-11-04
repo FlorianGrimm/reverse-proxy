@@ -26,25 +26,31 @@ internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
 {
     private readonly TransportTunnelAuthenticationCertificateOptions _options;
     private readonly RemoteCertificateValidationUtility _remoteCertificateValidation;
-    private readonly IYarpCertificateCollectionFactory _certificateCollectionFactory;
+    private readonly ICertificateManager _certificateManager;
     private readonly ILogger<TransportTunnelWebSocketAuthenticatorCertificate> _logger;
 
-    private readonly ConcurrentDictionary<string, YarpCertificateCollection> _clientCertifiacteCollectionByTunnelId;
+    private readonly CertificateRequestCollectionDictionary _clientCertificateCollectionByTunnelId;
+
     private readonly HashSet<CertificateConfig> _allCertificateConfig;
 
     public TransportTunnelWebSocketAuthenticatorCertificate(
         IOptions<TransportTunnelAuthenticationCertificateOptions> options,
         RemoteCertificateValidationUtility remoteCertificateValidationUtility,
-        IYarpCertificateCollectionFactory certificateCollectionFactory,
+        ICertificateManager certificateManager,
         ILogger<TransportTunnelWebSocketAuthenticatorCertificate> logger
         )
     {
         _options = options.Value;
         _remoteCertificateValidation = remoteCertificateValidationUtility;
-        _certificateCollectionFactory = certificateCollectionFactory;
+        _certificateManager = certificateManager;
         _logger = logger;
 
-        _clientCertifiacteCollectionByTunnelId = new(StringComparer.OrdinalIgnoreCase);
+#warning TODO
+        var certificateRequirement = new CertificateRequirement()
+        {
+            ClientCertificate = true
+        };
+        _clientCertificateCollectionByTunnelId = new CertificateRequestCollectionDictionary(certificateManager, nameof(TransportTunnelWebSocketAuthenticatorCertificate), certificateRequirement);
         _allCertificateConfig = new();
     }
 
@@ -58,22 +64,19 @@ internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
     {
         try
         {
-            {
-                var currentCertifiacteCollection = YarpCertificateCollection.GetCertificateCollection(
-                    _clientCertifiacteCollectionByTunnelId,
-                    _certificateCollectionFactory,
-                    config.TunnelId,
-                    true,
-                    config.Authentication.ClientCertificate,
-                    config.Authentication.ClientCertificates,
-                    config.Authentication.ClientCertificateCollection,
-                    _logger);
+            var certificateRequestCollection = _clientCertificateCollectionByTunnelId.GetOrAddConfiguration(
+                config.TunnelId,
+                config.Authentication.ClientCertificate,
+                config.Authentication.ClientCertificates,
+                config.Authentication.ClientCertificateCollection);
+            using var shareCurrentCertificateCollection = _certificateManager.GetCertificateCollection(certificateRequestCollection);
+            var currentCertificateCollection = shareCurrentCertificateCollection.GiveAway();
 
-                if (currentCertifiacteCollection.GiveAway() is { Count: > 0 } collection) {
-                    _logger.LogTrace("Certifactes added by config {TunnelId}", config.TunnelId);
-                    var sslClientCertificates = clientWebSocket.Options.ClientCertificates ??= [];
-                    sslClientCertificates.AddRange(collection);
-                }
+            if (currentCertificateCollection is { Count: > 0 } collection)
+            {
+                _logger.LogTrace("Certificates added by config {TunnelId}", config.TunnelId);
+                var sslClientCertificates = clientWebSocket.Options.ClientCertificates ??= [];
+                sslClientCertificates.AddRange(collection);
             }
 
             clientWebSocket.Options.RemoteCertificateValidationCallback = _remoteCertificateValidation.RemoteCertificateValidationCallback;
@@ -88,6 +91,5 @@ internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
         }
 
         return ValueTask.FromResult<HttpMessageInvoker?>(default);
-    }
-
+    } 
 }

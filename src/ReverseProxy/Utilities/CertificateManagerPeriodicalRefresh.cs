@@ -54,6 +54,8 @@ internal partial class CertificateManagerPeriodicalRefresh
     private readonly ICertificateStoreLoader _certificateStoreLoader;
     private readonly ILogger<CertificateManagerPeriodicalRefresh> _logger;
 
+    private readonly Action<FileChanged> _onFileChanged;
+
     public TimeSpan RefreshInterval { get; set; } = TimeSpan.FromMinutes(10);
 
     public TimeSpan CoolDownTime { get; set; } = TimeSpan.FromMinutes(10);
@@ -104,6 +106,7 @@ internal partial class CertificateManagerPeriodicalRefresh
         _certificateFileLoader = certificateFileLoader;
         certificateFileLoader.CertificateManagerFileWatcher = _certificateManagerFileWatcher;
         _logger = logger;
+        _onFileChanged = OnFileChanged;
     }
 
     public CertificateManagerPeriodicalRefresh(
@@ -114,11 +117,13 @@ internal partial class CertificateManagerPeriodicalRefresh
         )
     {
         _stateReload = new StateReload(this);
-        _logger = logger;
         _certificateManagerFileWatcher = new CertificateManagerFileWatcher(logger);
         _certificateStoreLoader = certificateStoreLoader;
         _certificateFileLoader = certificateFileLoader;
         certificateFileLoader.CertificateManagerFileWatcher = _certificateManagerFileWatcher;
+        _logger = logger;
+        _onFileChanged = OnFileChanged;
+
         OnOptionsChanged(options.CurrentValue, null);
         _unwireOptionsOnChange = options.OnChange(OnOptionsChanged);
     }
@@ -205,7 +210,6 @@ internal partial class CertificateManagerPeriodicalRefresh
 
     public CertificateRequest AddRequest(CertificateRequest request)
     {
-
         if (!request.IsStoreCert() || !request.IsFileCert())
         {
             throw new ArgumentException("The CertificateRequest must be a store or a file certificate.", nameof(request));
@@ -226,6 +230,29 @@ internal partial class CertificateManagerPeriodicalRefresh
                     }
                 };
             }
+
+            if (fileRequest.Path is { Length: > 0 } fileRequestPath)
+            {
+                if (_certificateManagerFileWatcher.AddWatch(
+                    new FileWatcherRequest(
+                        $"{request.Id}/Path",
+                        fileRequestPath)
+                    ) is { } fileChanged)
+                {
+                    fileChanged.OnHasChanged = _onFileChanged;
+                }
+            }
+            if (fileRequest.KeyPath is { Length: > 0 } fileRequestKeyPath)
+            {
+                if (_certificateManagerFileWatcher.AddWatch(
+                    new FileWatcherRequest(
+                        $"{request.Id}/KeyPath",
+                        fileRequestKeyPath)
+                    ) is { } fileChanged)
+                {
+                    fileChanged.OnHasChanged = _onFileChanged;
+                }
+            }
         }
 
         if (!_currentByRequest.ContainsKey(request))
@@ -233,7 +260,7 @@ internal partial class CertificateManagerPeriodicalRefresh
             if (_currentByRequest.TryAdd(request, new StateCurrentCertificate()))
             {
                 ResetGhostGenerationRequest(request);
-                
+
                 lock (_stateReload)
                 {
                     _stateReload.SetIsLoadNeeded();
@@ -242,6 +269,13 @@ internal partial class CertificateManagerPeriodicalRefresh
         }
 
         return request;
+    }
+
+
+    private void OnFileChanged(FileChanged changed)
+    {
+        _stateReload.SetIsLoadNeeded(true);
+        changed.HasChanged = false;
     }
 
     private (string? result, bool changed) GetFullPath(string? filePathQ)
@@ -270,7 +304,7 @@ internal partial class CertificateManagerPeriodicalRefresh
     public IShared<X509Certificate2Collection?> GetCertificateCollection(CertificateRequest request)
     {
         var result = GetCertificateCollectionInternal(request);
-        return new Shared<X509Certificate2Collection?>(result, Shared<X509Certificate2Collection?>.Noop);
+        return new Shared<X509Certificate2Collection?>(result);
     }
 
     internal X509Certificate2Collection? GetCertificateCollectionInternal(CertificateRequest request)
@@ -310,9 +344,7 @@ internal partial class CertificateManagerPeriodicalRefresh
     {
         if (requestCollection.CertificateRequests.Count == 0)
         {
-            return new Shared<X509Certificate2Collection?>(
-                requestCollection.X509Certificate2s,
-                Shared<X509Certificate2Collection?>.Noop);
+            return new Shared<X509Certificate2Collection?>(requestCollection.X509Certificate2s);
         }
         else
         {
@@ -338,9 +370,7 @@ internal partial class CertificateManagerPeriodicalRefresh
                     }
                     else
                     {
-                        return new Shared<X509Certificate2Collection?>(
-                            timestampedResult.Value,
-                            Shared<X509Certificate2Collection?>.Noop);
+                        return new Shared<X509Certificate2Collection?>(timestampedResult.Value);
                     }
                 }
             }
@@ -363,9 +393,7 @@ internal partial class CertificateManagerPeriodicalRefresh
             }
             timestampedResult = new Timestamped<X509Certificate2Collection>(result, timestamp);
             _previousRequestCollection[requestCollection.Id] = timestampedResult;
-            return new Shared<X509Certificate2Collection?>(
-                result,
-                Shared<X509Certificate2Collection?>.Noop);
+            return new Shared<X509Certificate2Collection?>(result);
         }
     }
 
@@ -374,6 +402,14 @@ internal partial class CertificateManagerPeriodicalRefresh
     /// </summary>
     /// <param name="force">false - only if needed; true - always</param>
     public void Refresh(bool force)
+    {
+        if (RefreshInternal(force))
+        {
+            StartRefresh();
+        }
+    }
+
+    internal bool RefreshInternal(bool force)
     {
         if (force || _stateReload.IsLoadNeeded())
         {
@@ -387,7 +423,7 @@ internal partial class CertificateManagerPeriodicalRefresh
                     LoadFileCertificates();
                     PostLoadHandleChanges();
                     _stateReload.SetIsLoadNeeded(false);
-                    StartRefresh();
+                    return true;
                 }
                 catch (System.Exception error)
                 {
@@ -395,6 +431,7 @@ internal partial class CertificateManagerPeriodicalRefresh
                 }
             }
         }
+        return false;
     }
 
     private void ResetGhostGenerationRequest(CertificateRequest request)
@@ -453,23 +490,8 @@ internal partial class CertificateManagerPeriodicalRefresh
             while (ctStop.IsCancellationRequested)
             {
                 await Task.Delay(RefreshInterval, ctStop);
-                lock (_stateReload)
-                {
-                    if (!_stateReload.IsLoadNeeded()) { continue; }
-                    {
-                        try
-                        {
-                            LoadStoreCertificates();
-                            LoadFileCertificates();
-                            PostLoadHandleChanges();
-                        }
-                        catch (System.Exception error)
-                        {
-                            _logger.LogError(error, "Refresh failed");
-                        }
-                    }
-                }
 
+                RefreshInternal(false);
             }
         }, ctStop).ContinueWith((t) =>
         {
@@ -506,53 +528,25 @@ internal partial class CertificateManagerPeriodicalRefresh
         {
             foreach (var (storeLocationName, requests) in requestsByStoreLocationName)
             {
-                using (var store = new X509Store(storeLocationName.StoreName, storeLocationName.StoreLocation))
+                _certificateStoreLoader.Load(storeLocationName, (certificate) =>
                 {
-                    X509Certificate2Collection? storeCertificates = null;
+                    var isInterested = false;
 
-                    try
+                    foreach (var request in requests)
                     {
-                        store.Open(OpenFlags.ReadOnly);
-                        storeCertificates = store.Certificates;
-                        for (var i = storeCertificates.Count - 1; 0 <= i; i--)
+                        if (CertificateManagerUtility.DoesStoreCertificateMatchesRequest(request, certificate, TimeProvider))
                         {
-                            var certificate = storeCertificates[i];
-                            // check which CertificateRequest is interested in this certificate
-                            var isInterested = false;
-
-                            foreach (var request in requests)
+                            isInterested = true;
+                            if (!_loadedByRequest.TryGetValue(request, out var stateLoaded))
                             {
-                                if (DoesStoreCertificateMatchesRequest(request, certificate))
-                                {
-                                    isInterested = true;
-                                    if (!_loadedByRequest.TryGetValue(request, out var stateLoaded))
-                                    {
-                                        stateLoaded = new StateLoadedCertificate(request);
-                                        _loadedByRequest.TryAdd(request, stateLoaded);
-                                    }
-                                    stateLoaded.Add(certificate);
-                                }
+                                stateLoaded = new StateLoadedCertificate(request);
+                                _loadedByRequest.TryAdd(request, stateLoaded);
                             }
-
-                            if (isInterested)
-                            {
-                                storeCertificates.RemoveAt(i);
-                            }
-                            else
-                            {
-                                // if no CertificateRequest is interested in this certificate dispose it finally
-                            }
-                        }
-
-                    }
-                    finally
-                    {
-                        if (storeCertificates is { })
-                        {
-                            for (var i = 0; i < storeCertificates.Count; i++) { storeCertificates[i].Dispose(); }
+                            stateLoaded.Add(certificate);
                         }
                     }
-                }
+                    return isInterested;
+                });
             }
         }
 
@@ -604,13 +598,13 @@ internal partial class CertificateManagerPeriodicalRefresh
 
                 void check(CertificateRequest request, X509Certificate2 certificate)
                 {
-                    if (DoesFileCertificateMatchesRequest(request, certificate))
+                    if (CertificateManagerUtility.DoesFileCertificateMatchesRequest(request, certificate, TimeProvider))
                     {
                         isInterested = true;
                         if (!_loadedByRequest.TryGetValue(request, out var stateLoaded))
                         {
                             stateLoaded = new StateLoadedCertificate(request);
-                            _loadedByRequest.TryAdd(request, stateLoaded);
+                            _ = _loadedByRequest.TryAdd(request, stateLoaded);
                         }
                         stateLoaded.Add(certificate);
                     }
@@ -650,7 +644,7 @@ internal partial class CertificateManagerPeriodicalRefresh
                     password = requestPassword;
                 }
             }
-            requirement = CertificateManagerExtensions.CombineQ(requirement, request.Requirement);
+            requirement = CertificateRequirementUtility.CombineQ(requirement, request.Requirement);
         }
 
         return (new CertificateFileRequest(path, keyPath, password), requirement);
@@ -733,93 +727,6 @@ internal partial class CertificateManagerPeriodicalRefresh
             _currentByRequest[request] = stateCurrent;
         }
         return true;
-    }
-
-    // TODO: Is it better placed i a extension?
-    public bool DoesStoreCertificateMatchesRequest(CertificateRequest request, X509Certificate2 certificate)
-    {
-        if (request.StoreRequest is { Subject: { Length: > 0 } subject })
-        {
-            if (!string.Equals(certificate.Subject, subject, StringComparison.OrdinalIgnoreCase)) { return false; }
-        }
-        return DoesAnyCertificateMatchesRequest(request, certificate);
-    }
-
-    // TODO: Is it better placed i a extension?
-    public bool DoesFileCertificateMatchesRequest(CertificateRequest request, X509Certificate2 certificate)
-    {
-        return DoesAnyCertificateMatchesRequest(request, certificate);
-    }
-
-    // TODO: Is it better placed i a extension?
-    public bool DoesAnyCertificateMatchesRequest(CertificateRequest request, X509Certificate2 certificate)
-    {
-        // requirements that we can check without the chain
-        {
-            if (request.Requirement is { } requestRequirement)
-            {
-                if (requestRequirement.NeedPrivateKey)
-                {
-                    if (!certificate.HasPrivateKey)
-                    {
-                        return false;
-                    }
-                }
-                if (requestRequirement.ClientCertificate)
-                {
-                    if (!certificate.IsCertificateAllowedForClientCertificate())
-                    {
-                        return false;
-                    }
-                }
-                if (requestRequirement.SignCertificate)
-                {
-                    if (!certificate.IsCertificateAllowedForX509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature))
-                    {
-                        return false;
-                    }
-                }
-            }
-        }
-        using (X509Chain chain = new())
-        {
-            // convert the requrement to the chain policy
-            if (request.Requirement is { } requestRequirement)
-            {
-                if (requestRequirement.RevocationMode.HasValue)
-                {
-                    chain.ChainPolicy.RevocationMode = requestRequirement.RevocationMode.Value;
-                }
-                if (requestRequirement.RevocationFlag.HasValue)
-                {
-                    chain.ChainPolicy.RevocationFlag = requestRequirement.RevocationFlag.Value;
-                }
-                if (requestRequirement.VerificationFlags.HasValue)
-                {
-                    chain.ChainPolicy.VerificationFlags = requestRequirement.VerificationFlags.Value;
-                }
-            }
-            chain.ChainPolicy.VerificationTime = TimeProvider.GetUtcNow().DateTime;
-#if NET7_0_OR_GREATER
-            chain.ChainPolicy.VerificationTimeIgnored = false;
-#endif
-            if (!chain.Build(certificate))
-            {
-                return false;
-            }
-            foreach (var chainStatus in chain.ChainStatus)
-            {
-                if (chainStatus.Status == X509ChainStatusFlags.RevocationStatusUnknown)
-                {
-                    if (chain.ChainPolicy.RevocationMode == X509RevocationMode.NoCheck)
-                    {
-                        continue;
-                    }
-                }
-                return false;
-            }
-            return true;
-        }
     }
 
     private void DisposePastAfterCoolDown()
@@ -945,7 +852,6 @@ internal partial class CertificateManagerPeriodicalRefresh
 
         internal bool IsDisposePastNeeded() => _isDisposePastNeeded.HasValue;
     }
-
 
     internal class StateLoadedCertificate
     {

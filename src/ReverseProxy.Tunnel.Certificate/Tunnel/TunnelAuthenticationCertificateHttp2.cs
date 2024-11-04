@@ -56,24 +56,32 @@ internal sealed class TunnelAuthenticationCertificateHttp2
     public const string CookieName = "YarpTunnelAuth";
     private readonly ClientCertificateValidationUtility _clientCertificateValidationUtility;
     private readonly TunnelAuthenticationCertificateOptions _options;
-    private readonly IYarpCertificateCollectionFactory _certificateCollectionFactory;
     private readonly ICertificateManager _certificateManager;
     private readonly ILogger _logger;
-    private readonly ConcurrentDictionary<string, YarpCertificateCollection> _clientCertifiacteCollectionByTunnelId = new();
+
+    private readonly CertificateRequestCollectionDictionary _clientCertificateCollectionByTunnelId;
 
     public TunnelAuthenticationCertificateHttp2(
         IOptions<TunnelAuthenticationCertificateOptions> options,
         ClientCertificateValidationUtility clientCertificateValidationUtility,
-        IYarpCertificateCollectionFactory certificateCollectionFactory,
         ICertificateManager certificateManager,
         ILogger<TunnelAuthenticationCertificateHttp2> logger
         )
     {
         _options = options.Value;
         _clientCertificateValidationUtility = clientCertificateValidationUtility;
-        _certificateCollectionFactory = certificateCollectionFactory;
         _certificateManager = certificateManager;
         _logger = logger;
+
+#warning TODO
+        var certificateRequirement = new CertificateRequirement(
+            ClientCertificate: true,
+            SignCertificate: false,
+            NeedPrivateKey: true,
+            RevocationFlag: X509RevocationFlag.EntireChain,
+            RevocationMode: X509RevocationMode.NoCheck,
+            VerificationFlags: X509VerificationFlags.NoFlag);
+        _clientCertificateCollectionByTunnelId = new CertificateRequestCollectionDictionary(certificateManager, nameof(TunnelAuthenticationCertificateHttp2), certificateRequirement);
     }
 
     public string GetAuthenticationMode() => AuthenticationName;
@@ -150,44 +158,30 @@ internal sealed class TunnelAuthenticationCertificateHttp2
         }
 
         var config = cluster.Model.Config;
-        if (!YarpClientCertificateLoader.IsClientCertificate(config.Authentication.Mode))
+        if (!IsClientCertificate(config.Authentication.Mode))
         {
             return false;
         }
 
-        var certificateCollectionOfCluster = YarpCertificateCollection.GetCertificateCollection(
-            _clientCertifiacteCollectionByTunnelId,
-            _certificateCollectionFactory,
+        var certificateRequestCollection = _clientCertificateCollectionByTunnelId.GetOrAddConfiguration(
             cluster.ClusterId,
-            true,
             config.Authentication.ClientCertificate,
             config.Authentication.ClientCertificates,
-            config.Authentication.ClientCertificateCollection,
-            _logger);
-
-        using var sharedCertificateCollection = certificateCollectionOfCluster.ShareCertificateCollection();
-        if (sharedCertificateCollection is null)
-        {
-            _logger.LogWarning("No Certificate for cluster.");
-            return false;
-        }
-        var knownClusterCertificates = sharedCertificateCollection.Value;
-
-        if (0==knownClusterCertificates.Count)
+            config.Authentication.ClientCertificateCollection);
+        using var shareCurrentCertificateCollection = _certificateManager.GetCertificateCollection(certificateRequestCollection);
+        if (!(shareCurrentCertificateCollection?.Value is { Count: > 0 } currentCertificateCollection))
         {
             _logger.LogWarning("No certificates for cluster {ClusterId}.", cluster.ClusterId);
             return false;
         }
 
-        foreach(var clusterCertificate in knownClusterCertificates)
+        foreach (var clusterCertificate in currentCertificateCollection)
         {
-            if (clusterCertificate is X509Certificate2 clusterCertificate2)
+            if (string.Equals(clusterCertificate.Thumbprint, clientCertificate.Thumbprint, System.StringComparison.Ordinal)
+                && clusterCertificate.Equals(clientCertificate))
             {
-                if (string.Equals(clusterCertificate2.Thumbprint, clientCertificate.Thumbprint, System.StringComparison.Ordinal))
-                {
-                    Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, AuthenticationName, clusterCertificate2.Subject);
-                    return true;
-                }
+                Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, AuthenticationName, clusterCertificate.Subject);
+                return true;
             }
         }
 
@@ -292,6 +286,9 @@ internal sealed class TunnelAuthenticationCertificateHttp2
 
         return chainPolicy;
     }
+
+    public static bool IsClientCertificate(string? mode)
+        => string.Equals(mode, "ClientCertificate", System.StringComparison.OrdinalIgnoreCase);
 
     private static class Log
     {

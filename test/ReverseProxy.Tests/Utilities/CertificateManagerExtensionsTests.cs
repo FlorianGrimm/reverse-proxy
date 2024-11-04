@@ -12,7 +12,7 @@ public class CertificateManagerExtensionsTests
         {
             var a = new CertificateRequirement();
             var b = new CertificateRequirement();
-            var result = CertificateManagerExtensions.Combine(a, b);
+            var result = CertificateRequirementUtility.Combine(a, b);
             Assert.False(result.ClientCertificate);
         }
         {
@@ -21,7 +21,7 @@ public class CertificateManagerExtensionsTests
             {
                 ClientCertificate = true,
             };
-            var result = CertificateManagerExtensions.Combine(a, b);
+            var result = CertificateRequirementUtility.Combine(a, b);
             Assert.True(result.ClientCertificate);
             Assert.True(result.NeedPrivateKey);
         }
@@ -30,7 +30,7 @@ public class CertificateManagerExtensionsTests
                 ClientCertificate = true,
             };
             var b = new CertificateRequirement();
-            var result = CertificateManagerExtensions.Combine(a, b);
+            var result = CertificateRequirementUtility.Combine(a, b);
             Assert.True(result.ClientCertificate);
             Assert.True(result.NeedPrivateKey);
         }
@@ -42,7 +42,7 @@ public class CertificateManagerExtensionsTests
         {
             var a = new CertificateRequirement();
             var b = new CertificateRequirement();
-            var result = CertificateManagerExtensions.Combine(a, b);
+            var result = CertificateRequirementUtility.Combine(a, b);
             Assert.False(result.SignCertificate);
         }
         {
@@ -51,7 +51,7 @@ public class CertificateManagerExtensionsTests
             {
                 SignCertificate = true,
             };
-            var result = CertificateManagerExtensions.Combine(a, b);
+            var result = CertificateRequirementUtility.Combine(a, b);
             Assert.True(result.SignCertificate);
             Assert.False(result.NeedPrivateKey);
         }
@@ -61,7 +61,7 @@ public class CertificateManagerExtensionsTests
                 SignCertificate = true,
             };
             var b = new CertificateRequirement();
-            var result = CertificateManagerExtensions.Combine(a, b);
+            var result = CertificateRequirementUtility.Combine(a, b);
             Assert.True(result.SignCertificate);
             Assert.False(result.NeedPrivateKey);
         }
@@ -73,7 +73,7 @@ public class CertificateManagerExtensionsTests
         {
             var a = new CertificateRequirement();
             var b = new CertificateRequirement();
-            var result = CertificateManagerExtensions.Combine(a, b);
+            var result = CertificateRequirementUtility.Combine(a, b);
             Assert.False(result.RevocationFlag.HasValue);
         }
     }
@@ -88,7 +88,7 @@ public class CertificateManagerExtensionsTests
             {
                 RevocationFlag = X509RevocationFlag.EntireChain,
             };
-            var result = CertificateManagerExtensions.Combine(a, b);
+            var result = CertificateRequirementUtility.Combine(a, b);
             Assert.True(result.RevocationFlag.HasValue);
             Assert.Equal(X509RevocationFlag.EntireChain, result.RevocationFlag.Value);
         }
@@ -98,7 +98,7 @@ public class CertificateManagerExtensionsTests
                 RevocationFlag = X509RevocationFlag.EntireChain,
             };
             var b = new CertificateRequirement();
-            var result = CertificateManagerExtensions.Combine(a, b);
+            var result = CertificateRequirementUtility.Combine(a, b);
             Assert.True(result.RevocationFlag.HasValue);
             Assert.Equal(X509RevocationFlag.EntireChain, result.RevocationFlag.Value);
         }
@@ -115,7 +115,7 @@ public class CertificateManagerExtensionsTests
             {
                 RevocationFlag = X509RevocationFlag.EndCertificateOnly,
             };
-            var result = CertificateManagerExtensions.Combine(a, b);
+            var result = CertificateRequirementUtility.Combine(a, b);
             Assert.True(result.RevocationFlag.HasValue);
             Assert.Equal(X509RevocationFlag.EndCertificateOnly, result.RevocationFlag.Value);
         }
@@ -128,7 +128,7 @@ public class CertificateManagerExtensionsTests
             {
                 RevocationFlag = X509RevocationFlag.EntireChain,
             };
-            var result = CertificateManagerExtensions.Combine(a, b);
+            var result = CertificateRequirementUtility.Combine(a, b);
             Assert.True(result.RevocationFlag.HasValue);
             Assert.Equal(X509RevocationFlag.EntireChain, result.RevocationFlag.Value);
         }
@@ -141,7 +141,7 @@ public class CertificateManagerExtensionsTests
             {
                 RevocationFlag = X509RevocationFlag.EntireChain,
             };
-            var result = CertificateManagerExtensions.Combine(a, b);
+            var result = CertificateRequirementUtility.Combine(a, b);
             Assert.True(result.RevocationFlag.HasValue);
             Assert.Equal(X509RevocationFlag.EntireChain, result.RevocationFlag.Value);
         }

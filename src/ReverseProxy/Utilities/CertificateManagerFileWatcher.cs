@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading;
 
 using Microsoft.Extensions.Configuration;
@@ -19,9 +18,23 @@ public sealed record class FileWatcherRequest(
 
 public sealed class FileChanged(FileWatcherRequest fileWatcherRequest)
 {
+    private bool _hasChanged;
+
     public string Id { get; } = fileWatcherRequest.Id;
+
     public string FullName { get; } = fileWatcherRequest.FullName;
-    public bool HasChanged { get; set; }
+
+    public bool HasChanged
+    {
+        get => _hasChanged;
+        set
+        {
+            _hasChanged = value;
+            if (value && OnHasChanged is { }) { OnHasChanged(this); }
+        }
+    }
+
+    public Action<FileChanged>? OnHasChanged { get; set; }
 }
 
 public interface ICertificateManagerFileWatcher
@@ -108,13 +121,15 @@ internal class CertificateManagerFileWatcher
     {
         lock (_metadataLock)
         {
-            foreach (var fileMetadata in _metadataForFile.Values) {
+            foreach (var fileMetadata in _metadataForFile.Values)
+            {
                 fileMetadata.Dispose();
                 fileMetadata.Requests.Clear();
             }
             _metadataForFile.Clear();
 
-            foreach (var directoryWatchMetadata in _metadataForDirectory.Values) {
+            foreach (var directoryWatchMetadata in _metadataForDirectory.Values)
+            {
                 directoryWatchMetadata.Dispose();
             }
             _metadataForDirectory.Clear();
@@ -173,7 +188,8 @@ tuple => tuple.Item1.OnChange(tuple.Item2),
             Log.CreatedFileWatcher(_logger, fullName);
         }
 
-        if (fileMetadata.Requests.TryGetValue(fileWatcherRequest.Id, out var fileChanged)) {
+        if (fileMetadata.Requests.TryGetValue(fileWatcherRequest.Id, out var fileChanged))
+        {
             Log.ReusedObserver(_logger, fullName);
             return fileChanged;
         }

@@ -106,7 +106,7 @@ public sealed class ClientCertificateValidationUtility
         private static readonly Action<ILogger, string, SslPolicyErrors, Exception?> _ClientCertificateValidationFailed = LoggerMessage.Define<string, SslPolicyErrors>(
             LogLevel.Information,
             EventIds.ClientCertificateValidationFailed,
-            "Client Certifcate validation failed '{clientCertificateSubjet}' '{sslPolicyErrors}.");
+            "Client Certificate validation failed '{clientCertificateSubjet}' '{sslPolicyErrors}.");
 
         public static void ClientCertificateValidationFailed(ILogger logger, string clientCertificateSubjet, SslPolicyErrors sslPolicyErrors)
         {
@@ -116,7 +116,7 @@ public sealed class ClientCertificateValidationUtility
         private static readonly Action<ILogger, string, Exception?> _ClientCertificateValidationSuccess = LoggerMessage.Define<string>(
             LogLevel.Debug,
             EventIds.ClientCertificateValidationSuccess,
-            "Client Certifcate validation succcess '{clientCertificateSubjet}'.");
+            "Client Certificate validation success '{clientCertificateSubjet}'.");
 
         internal static void ClientCertificateValidationSuccess(ILogger logger, string clientCertificateSubjet)
         {

@@ -17,6 +17,7 @@ namespace Yarp.ReverseProxy.Utilities;
 public interface ICertificateFileLoader
 {
     string? CertificateRootPath { get; set; }
+
     ICertificateManagerFileWatcher? CertificateManagerFileWatcher { get; set; }
 
     X509Certificate2Collection? LoadCertificateFromFile(
@@ -121,8 +122,6 @@ public class CertificateFileLoader : ICertificateFileLoader
                         Log.SuccessfullyLoadedCertificate(_logger, certificatePath);
                     }
                     fullChain.Add(certificate);
-
-                    // _fileWatcher.AddWatch(certificatePath, certificate);
                 }
             }
             catch (CryptographicException)

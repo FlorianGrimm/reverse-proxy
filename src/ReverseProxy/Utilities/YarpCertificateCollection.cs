@@ -359,7 +359,7 @@ public partial class YarpCertificateCollection
         public IChangeToken? CertificateChangeToken { get; private set; }
         public X509CertificateCollection? Collection { get; private set; }
 
-        // TODO: Test if we can automagic use the valid certifcate (within the date range)
+        // TODO: Test if we can automagic use the valid certificate (within the date range)
         public DateTime NotBefore = DateTime.MaxValue;
         public DateTime NotAfter = DateTime.MinValue;
 
@@ -549,7 +549,7 @@ public partial class YarpCertificateCollection
                     {
                         if (clientCertifiacteCollectionByTunnelId.TryAdd(configTunnelId, nextClientCertifiacteCollection))
                         {
-                            logger.LogInformation("Certifactes loaded");
+                            logger.LogInformation("Certificates loaded");
                             clientCertifiacteCollection = nextClientCertifiacteCollection;
                             break;
                         }
@@ -564,7 +564,7 @@ public partial class YarpCertificateCollection
                     {
                         if (clientCertifiacteCollectionByTunnelId.TryUpdate(configTunnelId, nextClientCertifiacteCollection, clientCertifiacteCollection))
                         {
-                            logger.LogInformation("Certifactes loaded");
+                            logger.LogInformation("Certificates loaded");
                             clientCertifiacteCollection = nextClientCertifiacteCollection;
                             break;
                         }

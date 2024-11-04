@@ -11,9 +11,9 @@ public sealed record TransportTunnelAuthenticationConfig
 {
     public string? Mode { get; init; }
 
-    public List<CertificateConfig> ClientCertificates { get; init; } = [];
-
     public CertificateConfig? ClientCertificate { get; init; }
+
+    public List<CertificateConfig> ClientCertificates { get; init; } = [];
 
     /// <summary>
     /// for in-memory configuration

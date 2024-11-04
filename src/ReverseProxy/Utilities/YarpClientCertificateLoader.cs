@@ -93,7 +93,7 @@ public static class YarpClientCertificateLoader
     /// <param name="storeName">The certificate store name.</param>
     /// <param name="storeLocation">The certificate store location.</param>
     /// <param name="allowInvalid">Whether or not to load certificates that are considered invalid.</param>
-    /// <param name="checkCertifacte"></param>
+    /// <param name="checkCertificate"></param>
     /// <param name="needPrivateKey">filter only certificates with private key</param>
     /// <returns>The loaded certificate.</returns>
     public static X509Certificate2 LoadFromStoreCert(
@@ -101,7 +101,7 @@ public static class YarpClientCertificateLoader
         string storeName,
         StoreLocation storeLocation,
         bool allowInvalid,
-        Func<X509Certificate2,bool>? checkCertifacte,
+        Func<X509Certificate2,bool>? checkCertificate,
         bool needPrivateKey)
     {
         using (var store = new X509Store(storeName, storeLocation))
@@ -123,8 +123,8 @@ public static class YarpClientCertificateLoader
                                 return false;
                             }
                         }
-                        if (checkCertifacte is not null) {
-                            if (!checkCertifacte(certificate))
+                        if (checkCertificate is not null) {
+                            if (!checkCertificate(certificate))
                             {
                                 return false;
                             }

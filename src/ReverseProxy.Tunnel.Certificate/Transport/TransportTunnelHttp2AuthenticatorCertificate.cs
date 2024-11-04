@@ -27,7 +27,7 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
     private readonly ICertificateManager _certificateManager;
     private readonly ILogger<TransportTunnelHttp2AuthenticatorCertificate> _logger;
 
-    private readonly ConcurrentDictionary<string, CertificateRequestCollection> _clientCertifiacteCollectionByTunnelId = new(StringComparer.OrdinalIgnoreCase);
+    private readonly CertificateRequestCollectionDictionary _clientCertificateCollectionByTunnelId;
 
     public TransportTunnelHttp2AuthenticatorCertificate(
         IOptions<TransportTunnelAuthenticationCertificateOptions> options,
@@ -40,6 +40,13 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
         _remoteCertificateValidation = remoteCertificateValidationUtility;
         _certificateManager = certificateManager;
         _logger = logger;
+
+#warning TODO
+        var certificateRequirement = new CertificateRequirement()
+        {
+            ClientCertificate = true
+        };
+        _clientCertificateCollectionByTunnelId = new CertificateRequestCollectionDictionary(certificateManager, nameof(TransportTunnelHttp2AuthenticatorCertificate), certificateRequirement);
     }
 
     public string GetAuthenticationName() => "ClientCertificate";
@@ -54,66 +61,13 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
         }
         try
         {
-
-            if (_clientCertifiacteCollectionByTunnelId.TryGetValue(config.TunnelId, out var certificateRequestCollection))
-            {
-                // OK
-            }
-            else
-            {
-                certificateRequestCollection = _certificateManager.TryAddConfiguration(
-                    _clientCertifiacteCollectionByTunnelId,
-                    config.TunnelId,
-                    () => {
-                        var todoThatComesFromTheConfiguration = new CertificateRequirement();
-                        var finallyCertificateRequirement = todoThatComesFromTheConfiguration with
-                        {
-                            ClientCertificate = true
-                        };
-                        var result = _certificateManager.AddConfiguration(
-                            $"TunnelClientCertificate/{config.TunnelId}",
-                            config.Authentication.ClientCertificate,
-                            config.Authentication.ClientCertificates,
-                            config.Authentication.ClientCertificateCollection,
-                            finallyCertificateRequirement
-                            );
-                        return result;
-                    }
-                    );
-            }
-            if (_clientCertifiacteCollectionByTunnelId.TryGetValue(config.TunnelId, out var certificateRequestCollection))
-            {
-                // OK
-            }
-            else
-            {
-                lock (_clientCertifiacteCollectionByTunnelId)
-                {
-                    if (_clientCertifiacteCollectionByTunnelId.TryGetValue(config.TunnelId, out certificateRequestCollection))
-                    {
-                        //OK
-                    }
-                    else
-                    {
-                        var todoThatComesFromTheConfiguration = new CertificateRequirement();
-                        var finallyCertificateRequirement = todoThatComesFromTheConfiguration with
-                        {
-                            ClientCertificate = true
-                        };
-                        certificateRequestCollection = _certificateManager.AddConfiguration(
-                            $"TunnelClientCertificate/{config.TunnelId}",
-                            config.Authentication.ClientCertificate,
-                            config.Authentication.ClientCertificates,
-                            config.Authentication.ClientCertificateCollection,
-                            finallyCertificateRequirement
-                            );
-                        _certificateManager.AddRequestCollection(certificateRequestCollection);
-                    }
-                }
-            }
-            var shareCurrentCertificateCollection = _certificateManager.GetCertificateCollection(certificateRequestCollection);
-            var currentCertificateCollection = shareCurrentCertificateCollection.Value;
-            // shareCurrentCertificateCollection.Dispose is not called because the collection (certificates) are given away
+            var certificateRequestCollection = _clientCertificateCollectionByTunnelId.GetOrAddConfiguration(
+                config.TunnelId,
+                config.Authentication.ClientCertificate,
+                config.Authentication.ClientCertificates,
+                config.Authentication.ClientCertificateCollection);
+            using var shareCurrentCertificateCollection = _certificateManager.GetCertificateCollection(certificateRequestCollection);
+            var currentCertificateCollection = shareCurrentCertificateCollection.GiveAway();
 
             if (currentCertificateCollection is { Count: > 0 } collection)
             {

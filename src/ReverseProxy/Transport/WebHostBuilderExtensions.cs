@@ -25,7 +25,7 @@ public static class WebHostBuilderExtensions
 {
     /// <summary>
     /// Enable the tunnel transport on the backend.
-    /// Foreach tunnel-config connections are opend to URL/_tunnel/RemoteTunnelId or URL/_tunnel/TunnelId
+    /// For each tunnel-config connections are opened to URL/_tunnel/RemoteTunnelId or URL/_tunnel/TunnelId
     /// </summary>
     /// <remarks>
     /// Request/Response flow:
@@ -40,7 +40,7 @@ public static class WebHostBuilderExtensions
     /// | Frontend                     |
     /// | AddTunnelServices            |
     /// --------------------------------
-    ///         |     ||(3)  /\
+    ///         ^     ||(3)  /\
     ///         |     ||     ||
     ///         ^ (1) \/     || (6)
     /// --------------------------------

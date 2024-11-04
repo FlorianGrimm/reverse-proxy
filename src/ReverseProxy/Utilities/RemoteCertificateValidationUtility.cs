@@ -99,7 +99,7 @@ public sealed class RemoteCertificateValidationUtility
         private static readonly Action<ILogger, string, SslPolicyErrors, Exception?> _remoteCertificateValidationFailed = LoggerMessage.Define<string, SslPolicyErrors>(
             LogLevel.Information,
             EventIds.RemoteCertificateValidationFailed,
-            "Remote Certifcate validation failed '{clientCertificateSubjet}' '{sslPolicyErrors}.");
+            "Remote Certificate validation failed '{clientCertificateSubjet}' '{sslPolicyErrors}.");
 
         public static void RemoteCertificateValidationFailed(ILogger logger, string clientCertificateSubjet, SslPolicyErrors sslPolicyErrors)
         {
@@ -109,7 +109,7 @@ public sealed class RemoteCertificateValidationUtility
         private static readonly Action<ILogger, string, Exception?> _remoteCertificateValidationSuccess = LoggerMessage.Define<string>(
             LogLevel.Debug,
             EventIds.RemoteCertificateValidationSuccess,
-            "Remote Certifcate validation succcess '{clientCertificateSubjet}'.");
+            "Remote Certificate validation succcess '{clientCertificateSubjet}'.");
 
         internal static void RemoteCertificateValidationSuccess(ILogger logger, string clientCertificateSubjet)
         {
