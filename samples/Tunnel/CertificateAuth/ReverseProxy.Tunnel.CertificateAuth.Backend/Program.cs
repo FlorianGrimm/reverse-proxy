@@ -14,11 +14,14 @@ public class Program
                 configureTunnelHttp2: options => { options.MaxConnectionCount = 1; },
                 configureTunnelWebSocket: options => { options.MaxConnectionCount = 1; }
             ) /* for the servers that starts the tunnel transport connections */
+            .AddReverseProxyCertificateManager(
+                configure: (options) =>
+                {
+                    options.CertificateRootPath = System.AppContext.BaseDirectory;
+                }
+            )
             .AddTunnelTransportCertificate()
-            .ConfigureCertificateManagerOptions(options =>
-            {
-                options.CertificateRootPath = System.AppContext.BaseDirectory;
-            });
+            ;
 
         var app = builder.Build();
 

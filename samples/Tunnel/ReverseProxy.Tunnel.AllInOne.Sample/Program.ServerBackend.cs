@@ -119,9 +119,9 @@ internal partial class Program
                             options.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
                         }
                     )
-                    .ConfigureCertificateLoaderOptions(options =>
+                    .ConfigureReverseProxyCertificateManager(options =>
                     {
-                        options.CertificateRoot = System.AppContext.BaseDirectory;
+                        options.CertificateRootPath = System.AppContext.BaseDirectory;
                     });
             }
 

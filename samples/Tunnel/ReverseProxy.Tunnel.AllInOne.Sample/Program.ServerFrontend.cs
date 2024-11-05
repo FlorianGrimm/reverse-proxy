@@ -54,9 +54,9 @@ internal partial class Program
                         TunnelWebSocket = enableTunnelWS
                     }
                 ) // enable tunnel listener
-                .ConfigureCertificateLoaderOptions(options =>
+                .ConfigureReverseProxyCertificateManager(configure:(options) =>
                 {
-                    options.CertificateRoot = System.AppContext.BaseDirectory;
+                    options.CertificateRootPath = System.AppContext.BaseDirectory;
                 });
 
             if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationAnonymous) {

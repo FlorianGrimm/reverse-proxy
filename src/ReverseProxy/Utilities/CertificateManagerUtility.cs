@@ -77,7 +77,6 @@ public static class CertificateManagerUtility
             // convert the requirement to the chain policy
             if (request.Requirement is { } certificateRequirement)
             {
-#warning TODO
                 var chainPolicy = BuildChainPolicy(certificate, certificateRequirement);
                 if (configureChainPolicy is not null)
                 {
@@ -110,7 +109,6 @@ public static class CertificateManagerUtility
     }
 
 
-#warning TODO
     public static X509ChainPolicy BuildChainPolicy(
         X509Certificate2 certificate,
         CertificateRequirement certificateRequirement

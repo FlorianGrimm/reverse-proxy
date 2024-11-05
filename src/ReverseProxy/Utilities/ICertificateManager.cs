@@ -12,6 +12,6 @@ public interface ICertificateManager
 #endif
     CertificateRequest AddRequest(CertificateRequest request);
     void AddRequestCollection(CertificateRequestCollection result);
-    IShared<X509Certificate2Collection?> GetCertificateCollection(CertificateRequest request);
-    IShared<X509Certificate2Collection?> GetCertificateCollection(CertificateRequestCollection requestCollection);
+    ISharedValue<X509Certificate2Collection?> GetCertificateCollection(CertificateRequest request);
+    ISharedValue<X509Certificate2Collection?> GetCertificateCollection(CertificateRequestCollection requestCollection);
 }

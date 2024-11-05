@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Linq;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -92,7 +93,9 @@ public static class TransportCertificateExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authenticator, TransportTunnelHttp2AuthenticatorCertificate>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthenticator, TransportTunnelWebSocketAuthenticatorCertificate>());
 
-        services.AddReverseProxyCertificateManager();
+        if (!services.Any(sd => typeof(ICertificateManager).Equals(sd.ServiceType))) {
+            services.AddReverseProxyCertificateManager();
+        }
 
         {
             var optionsBuilder = services.AddOptions<TransportTunnelAuthenticationCertificateOptions>();

@@ -43,7 +43,7 @@ internal class AuthorizationTransportSigningCertificate
         }
     }
 
-    internal IShared<X509Certificate2Collection?>? GetCertificate()
+    internal ISharedValue<X509Certificate2Collection?>? GetCertificate()
     {
         if (_certificateRequestCollection is null) {
             return null;
