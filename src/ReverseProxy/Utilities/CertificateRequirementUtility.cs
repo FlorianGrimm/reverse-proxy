@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography.X509Certificates;
+using System.Collections.Generic;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Yarp.ReverseProxy.Utilities;
 
@@ -83,6 +84,39 @@ public static class CertificateRequirementUtility
             TrustMode: trustMode,
             CustomTrustStore: customTrustStore,
             AdditionalChainCertificates: additionalChainCertificates);
+    }
+
+    public static (
+      CertificateFileRequest fileRequest,
+      CertificateRequirement requirement
+      ) CombineFileCertificateRequest(
+      CertificateRequirement requirement,
+      List<CertificateRequest> requests)
+    {
+        string? path = null;
+        string? keyPath = null;
+        string? password = null;
+        foreach (var request in requests)
+        {
+            if (request.FileRequest is { } requestFileRequest)
+            {
+                if (requestFileRequest.Path is { Length: > 0 } requestPath)
+                {
+                    path = requestPath;
+                }
+                if (requestFileRequest.KeyPath is { Length: > 0 } requestKeyPath)
+                {
+                    keyPath = requestKeyPath;
+                }
+                if (requestFileRequest.Password is { Length: > 0 } requestPassword)
+                {
+                    password = requestPassword;
+                }
+            }
+            requirement = CertificateRequirementUtility.CombineQ(requirement, request.Requirement);
+        }
+
+        return (new CertificateFileRequest(path, keyPath, password), requirement);
     }
 
 }

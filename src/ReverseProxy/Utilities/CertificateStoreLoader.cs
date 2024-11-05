@@ -35,19 +35,23 @@ public record struct CertificateStoreRequest(
 
 public interface ICertificateStoreLoader
 {
-    void Load(CertificateStoreLocationName storeLocationName, Func<X509Certificate2, bool> handle);
+    List<X509Certificate2> Load<TArg>(
+        CertificateStoreLocationName storeLocationName,
+        TArg arg,
+        Func<X509Certificate2, TArg, bool> handle);
 }
 
 public class CertificateStoreLoader : ICertificateStoreLoader
 {
-    public void Load(
+    public List<X509Certificate2> Load<TArg>(
         CertificateStoreLocationName storeLocationName,
-        Func<X509Certificate2, bool> handle)
+        TArg arg,
+        Func<X509Certificate2, TArg, bool> handle)
     {
+        var result = new List<X509Certificate2>();
         using (var store = new X509Store(storeLocationName.StoreName, storeLocationName.StoreLocation))
         {
             X509Certificate2Collection? storeCertificates = null;
-
             try
             {
                 store.Open(OpenFlags.ReadOnly);
@@ -56,7 +60,7 @@ public class CertificateStoreLoader : ICertificateStoreLoader
                 {
                     var certificate = storeCertificates[index];
                     // check which CertificateRequest is interested in this certificate
-                    var isInterested = handle(certificate);
+                    var isInterested = handle(certificate, arg);
                     
                     if (isInterested)
                     {
@@ -65,6 +69,7 @@ public class CertificateStoreLoader : ICertificateStoreLoader
                     else
                     {
                         // if no CertificateRequest is interested in this certificate dispose it finally
+                        result.Add(certificate);
                     }
                 }
 
@@ -74,6 +79,6 @@ public class CertificateStoreLoader : ICertificateStoreLoader
                 storeCertificates.DisposeCertificates(null);
             }
         }
-
+        return result;
     }
 }

@@ -57,10 +57,10 @@ public static class TunnelExtensions
         }
 
         // CertificateLoader
-        services.AddReverseProxyCertificateLoader();
+        services.AddReverseProxyCertificateManager();
 
         // ClientCertificateValidationUtility
-        services.AddSingleton<YarpClientCertificateValidationUtility>();
+        services.AddSingleton<ClientCertificateValidationUtility>();
         services.AddOptions<ClientCertificateValidationOptions>()
             .PostConfigure<IOptions<TunnelAuthenticationCertificateOptions>>(
                 (ClientCertificateValidationOptions options, IOptions<TunnelAuthenticationCertificateOptions> tunnelAuthenticationCertificateOptions) =>

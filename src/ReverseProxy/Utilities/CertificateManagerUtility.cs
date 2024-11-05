@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -13,23 +14,35 @@ public static class CertificateManagerUtility
 
 
     // TODO: Is it better placed i a extension?
-    public static bool DoesStoreCertificateMatchesRequest(CertificateRequest request, X509Certificate2 certificate, TimeProvider timeProvider)
+    public static bool DoesStoreCertificateMatchesRequest(
+        CertificateRequest request,
+        X509Certificate2 certificate,
+        Action<X509ChainPolicy>? configureChainPolicy,
+        TimeProvider timeProvider)
     {
         if (request.StoreRequest is { Subject: { Length: > 0 } subject })
         {
             if (!string.Equals(certificate.Subject, subject, StringComparison.OrdinalIgnoreCase)) { return false; }
         }
-        return DoesAnyCertificateMatchesRequest(request, certificate, timeProvider);
+        return DoesAnyCertificateMatchesRequest(request, certificate, configureChainPolicy, timeProvider);
     }
 
     // TODO: Is it better placed i a extension?
-    public static bool DoesFileCertificateMatchesRequest(CertificateRequest request, X509Certificate2 certificate, TimeProvider timeProvider)
+    public static bool DoesFileCertificateMatchesRequest(
+        CertificateRequest request,
+        X509Certificate2 certificate,
+        Action<X509ChainPolicy>? configureChainPolicy,
+        TimeProvider timeProvider)
     {
-        return DoesAnyCertificateMatchesRequest(request, certificate, timeProvider);
+        return DoesAnyCertificateMatchesRequest(request, certificate, configureChainPolicy, timeProvider);
     }
 
     // TODO: Is it better placed i a extension?
-    public static bool DoesAnyCertificateMatchesRequest(CertificateRequest request, X509Certificate2 certificate, TimeProvider timeProvider)
+    public static bool DoesAnyCertificateMatchesRequest(
+        CertificateRequest request,
+        X509Certificate2 certificate,
+        Action<X509ChainPolicy>? configureChainPolicy,
+        TimeProvider timeProvider)
     {
         // requirements that we can check without the chain
         {
@@ -66,6 +79,10 @@ public static class CertificateManagerUtility
             {
 #warning TODO
                 var chainPolicy = BuildChainPolicy(certificate, certificateRequirement);
+                if (configureChainPolicy is not null)
+                {
+                    configureChainPolicy(chainPolicy);
+                }
                 chain.ChainPolicy = chainPolicy;
             }
             chain.ChainPolicy.VerificationTime = timeProvider.GetUtcNow().DateTime;

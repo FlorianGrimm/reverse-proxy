@@ -45,7 +45,6 @@ internal partial class CertificateManagerPeriodicalRefresh
     private readonly ConcurrentDictionary<CertificateRequest, StateCurrentCertificate> _cooldownByRequest = new();
     private readonly ConcurrentDictionary<CertificateStoreLocationName, CertificateStoreLocationName> _certificateStoreLocationNames = new();
     private IDisposable? _unwireOptionsOnChange;
-    private CancellationTokenSource? _ctsRefresh;
     private int _generationsUntilSleep = 10;
     private string? _certificateRootPath;
     private ICertificateFileLoader _certificateFileLoader;
@@ -55,10 +54,17 @@ internal partial class CertificateManagerPeriodicalRefresh
     private readonly ILogger<CertificateManagerPeriodicalRefresh> _logger;
 
     private readonly Action<FileChanged> _onFileChanged;
+    private readonly Func<X509Certificate2, List<CertificateRequest>, bool> _onCheckLoadedStoreCertificate;
+
+    private StateLoadingDateTime _stateLoadingDateTime;
 
     public TimeSpan RefreshInterval { get; set; } = TimeSpan.FromMinutes(10);
 
     public TimeSpan CoolDownTime { get; set; } = TimeSpan.FromMinutes(10);
+
+    public CertificateRequirement CertificateRequirement { get; set; } = new();
+
+    public Action<X509ChainPolicy>? ConfigureChainPolicy { get; set; }
 
     public int GenerationsUntilSleep { get => _generationsUntilSleep; set => _generationsUntilSleep = value > 3 ? value : 3; }
 
@@ -68,9 +74,9 @@ internal partial class CertificateManagerPeriodicalRefresh
         set
         {
             _certificateRootPath = value;
-            if (CertificateFileLoader is { } loader)
+            if (CertificateFileLoader is { } certificateFileLoader)
             {
-                loader.CertificateRootPath = value;
+                certificateFileLoader.CertificateRootPath = value;
             }
         }
     }
@@ -88,9 +94,9 @@ internal partial class CertificateManagerPeriodicalRefresh
         set
         {
             _certificateFileLoader = value;
-            if (_certificateFileLoader is { })
+            if (_certificateFileLoader is { } certificateFileLoader)
             {
-                _certificateFileLoader.CertificateRootPath = CertificateRootPath;
+                certificateFileLoader.CertificateRootPath = CertificateRootPath;
             }
         }
     }
@@ -107,6 +113,8 @@ internal partial class CertificateManagerPeriodicalRefresh
         certificateFileLoader.CertificateManagerFileWatcher = _certificateManagerFileWatcher;
         _logger = logger;
         _onFileChanged = OnFileChanged;
+        _onCheckLoadedStoreCertificate = CheckLoadedStoreCertificate;
+        _stateLoadingDateTime = new(DateTime.MinValue, DateTime.MaxValue);
     }
 
     public CertificateManagerPeriodicalRefresh(
@@ -123,6 +131,8 @@ internal partial class CertificateManagerPeriodicalRefresh
         certificateFileLoader.CertificateManagerFileWatcher = _certificateManagerFileWatcher;
         _logger = logger;
         _onFileChanged = OnFileChanged;
+        _onCheckLoadedStoreCertificate = CheckLoadedStoreCertificate;
+        _stateLoadingDateTime = new(DateTime.MinValue, DateTime.MaxValue);
 
         OnOptionsChanged(options.CurrentValue, null);
         _unwireOptionsOnChange = options.OnChange(OnOptionsChanged);
@@ -132,6 +142,7 @@ internal partial class CertificateManagerPeriodicalRefresh
     {
         if (!string.IsNullOrEmpty(name)) { return; }
 
+        var setIsLoadNeeded = false;
         RefreshInterval = options.RefreshInterval;
         CoolDownTime = options.CoolDownTime;
         var certificateRootPath = options.CertificateRootPath;
@@ -142,6 +153,20 @@ internal partial class CertificateManagerPeriodicalRefresh
         if (!string.Equals(CertificateRootPath, certificateRootPath, StringComparison.CurrentCultureIgnoreCase))
         {
             CertificateRootPath = certificateRootPath;
+            setIsLoadNeeded = true;
+        }
+        if (!CertificateRequirement.Equals(options.CertificateRequirement))
+        {
+            CertificateRequirement = options.CertificateRequirement;
+            setIsLoadNeeded = true;
+        }
+        if (!ReferenceEquals(ConfigureChainPolicy, options.ConfigureChainPolicy))
+        {
+            ConfigureChainPolicy = options.ConfigureChainPolicy;
+            setIsLoadNeeded = true;
+        }
+        if (setIsLoadNeeded)
+        {
             lock (_stateReload)
             {
                 _stateReload.SetIsLoadNeeded();
@@ -274,7 +299,7 @@ internal partial class CertificateManagerPeriodicalRefresh
 
     private void OnFileChanged(FileChanged changed)
     {
-        _stateReload.SetIsLoadNeeded(true);
+        _stateReload.SetIsLoadNeeded();
         changed.HasChanged = false;
     }
 
@@ -418,11 +443,17 @@ internal partial class CertificateManagerPeriodicalRefresh
                 // TODO: review after the file watcher is implemented
                 try
                 {
+                    var dtoLocalNow = TimeProvider.GetLocalNow();
+                    var dtNow = dtoLocalNow.DateTime; //new DateTime(dtoLocalNow.Ticks);
+                    var nextEvent = dtNow.AddDays(1);
+                    _stateLoadingDateTime = new(dtNow, nextEvent);
+
                     IncrementGhostGenerationRequest();
                     LoadStoreCertificates();
                     LoadFileCertificates();
                     PostLoadHandleChanges();
-                    _stateReload.SetIsLoadNeeded(false);
+                    _stateReload.ResetIsLoadNeeded(_stateLoadingDateTime);
+
                     return true;
                 }
                 catch (System.Exception error)
@@ -478,13 +509,29 @@ internal partial class CertificateManagerPeriodicalRefresh
         }
     }
 
+    private System.Timers.Timer? _timer;
+
     private void StartRefresh()
     {
+        if (_timer is null) { return; }
+
+        _timer = new System.Timers.Timer(60 * 1000);
+        _timer.Elapsed += (_, _) =>
+        {
+            Refresh(false);
+            _stateReload.SetIsLoadedNeededRefreshTime();
+            _timer?.Start();
+        };
+        _timer.AutoReset = false;
+        _timer.Start();
+        return;
+#if false
         // thinkof: is a timer the better solution?
         if (_ctsRefresh is { }) { return; }
         _ctsRefresh = new CancellationTokenSource();
 
         var ctStop = _ctsRefresh.Token;
+
         Task.Run(async () =>
         {
             while (ctStop.IsCancellationRequested)
@@ -504,8 +551,9 @@ internal partial class CertificateManagerPeriodicalRefresh
                 _ctsRefresh = null;
             }
         });
-
+#endif
     }
+
 
     private void LoadStoreCertificates()
     {
@@ -528,30 +576,37 @@ internal partial class CertificateManagerPeriodicalRefresh
         {
             foreach (var (storeLocationName, requests) in requestsByStoreLocationName)
             {
-                _certificateStoreLoader.Load(storeLocationName, (certificate) =>
+                var listCertificate = _certificateStoreLoader.Load(storeLocationName, requests, _onCheckLoadedStoreCertificate);
+                foreach (var certificate in listCertificate)
                 {
-                    var isInterested = false;
-
-                    foreach (var request in requests)
-                    {
-                        if (CertificateManagerUtility.DoesStoreCertificateMatchesRequest(request, certificate, TimeProvider))
-                        {
-                            isInterested = true;
-                            if (!_loadedByRequest.TryGetValue(request, out var stateLoaded))
-                            {
-                                stateLoaded = new StateLoadedCertificate(request);
-                                _loadedByRequest.TryAdd(request, stateLoaded);
-                            }
-                            stateLoaded.Add(certificate);
-                        }
-                    }
-                    return isInterested;
-                });
+                    _ = _stateLoadingDateTime.Add(certificate.NotBefore).Add(certificate.NotAfter);
+                }
             }
         }
 
         // finally set the timestamp
         _stateReload.StoreLoaded = TimeProvider.GetUtcNow();
+    }
+
+
+    private bool CheckLoadedStoreCertificate(X509Certificate2 certificate, List<CertificateRequest> requests)
+    {
+        var isInterested = false;
+
+        foreach (var request in requests)
+        {
+            if (CertificateManagerUtility.DoesStoreCertificateMatchesRequest(request, certificate, ConfigureChainPolicy, TimeProvider))
+            {
+                isInterested = true;
+                if (!_loadedByRequest.TryGetValue(request, out var stateLoaded))
+                {
+                    stateLoaded = new StateLoadedCertificate(request);
+                    _ = _loadedByRequest.TryAdd(request, stateLoaded);
+                }
+                stateLoaded.Add(certificate);
+            }
+        }
+        return isInterested;
     }
 
     private void LoadFileCertificates()
@@ -573,20 +628,31 @@ internal partial class CertificateManagerPeriodicalRefresh
 
         // load from file
         {
+            var fromOptions = CertificateRequirement;
             foreach (var (filename, requests) in requestsByFilename)
             {
-                var (fileRequest, requirement) = CombineFileCertificateRequest(new(), requests);
+                var (fileRequest, requirement) = CertificateRequirementUtility.CombineFileCertificateRequest(fromOptions, requests);
                 var certificateCollection = CertificateFileLoader.LoadCertificateFromFile(requests, fileRequest, requirement);
 
                 // check which CertificateRequest is interested in this certificate
                 var isInterested = false;
-                foreach (var request in requests)
+                if (certificateCollection is { })
                 {
-                    if (certificateCollection is { })
+                    foreach (var itemCertificate in certificateCollection)
+                    {
+                        foreach (var request in requests)
+                        {
+                            if (CheckLoadedFileCertificates(request, itemCertificate))
+                            {
+                                isInterested = true;
+                            }
+                        }
+                    }
+                    if (isInterested)
                     {
                         foreach (var itemCertificate in certificateCollection)
                         {
-                            check(request, itemCertificate);
+                            _ = _stateLoadingDateTime.Add(itemCertificate.NotBefore).Add(itemCertificate.NotAfter);
                         }
                     }
                 }
@@ -595,25 +661,26 @@ internal partial class CertificateManagerPeriodicalRefresh
                     // if no CertificateRequest is interested in this certificate dispose it finally
                     certificateCollection.DisposeCertificates(default);
                 }
-
-                void check(CertificateRequest request, X509Certificate2 certificate)
-                {
-                    if (CertificateManagerUtility.DoesFileCertificateMatchesRequest(request, certificate, TimeProvider))
-                    {
-                        isInterested = true;
-                        if (!_loadedByRequest.TryGetValue(request, out var stateLoaded))
-                        {
-                            stateLoaded = new StateLoadedCertificate(request);
-                            _ = _loadedByRequest.TryAdd(request, stateLoaded);
-                        }
-                        stateLoaded.Add(certificate);
-                    }
-                }
             }
         }
 
         // finally set the timestamp
         _stateReload.FileLoaded = TimeProvider.GetUtcNow();
+    }
+
+    private bool CheckLoadedFileCertificates(CertificateRequest request, X509Certificate2 certificate)
+    {
+        if (CertificateManagerUtility.DoesFileCertificateMatchesRequest(request, certificate, ConfigureChainPolicy, TimeProvider))
+        {
+            if (!_loadedByRequest.TryGetValue(request, out var stateLoaded))
+            {
+                stateLoaded = new StateLoadedCertificate(request);
+                _ = _loadedByRequest.TryAdd(request, stateLoaded);
+            }
+            stateLoaded.Add(certificate);
+            return true;
+        }
+        return false;
     }
 
     // for testing
@@ -743,15 +810,46 @@ internal partial class CertificateManagerPeriodicalRefresh
     public void Dispose()
     {
         // since this is a singleton this will be rearly called (in production).
-        _ctsRefresh?.Cancel();
-
-        using (var optionsOnChange = _unwireOptionsOnChange)
-        {
-            _unwireOptionsOnChange = null;
+        using (var timer = _timer) {
+            using (var optionsOnChange = _unwireOptionsOnChange)
+            {
+                _unwireOptionsOnChange = null;
+                _timer = null;
+                timer?.Stop();
+            }
         }
     }
 
     // TODO: is their a need for internal void RemoveRequest(CertificateRequest request) or is ghosting good enough?
+
+
+    internal sealed class StateLoadingDateTime
+    {
+        private readonly DateTime _now;
+#pragma warning disable IDE1006 // Naming Styles
+        internal DateTime NextEvent;
+#pragma warning restore IDE1006 // Naming Styles
+
+        internal StateLoadingDateTime(DateTime now, DateTime nextEvent)
+        {
+            _now = now;
+            NextEvent = nextEvent;
+        }
+
+        internal StateLoadingDateTime Add(DateTime dt)
+        {
+            if (_now < dt && dt < NextEvent)
+            {
+                NextEvent = dt;
+            }
+            return this;
+        }
+
+        internal bool IsLoadNeeded(DateTime now)
+        {
+            return (_now < now && NextEvent < now);
+        }
+    }
 
     internal class StateReload
     {
@@ -761,6 +859,7 @@ internal partial class CertificateManagerPeriodicalRefresh
         private DateTimeOffset? _isDisposePastNeeded;
         private DateTimeOffset _storeLoaded;
         private DateTimeOffset _fileLoaded;
+        private StateLoadingDateTime _stateLoadingDateTime = new StateLoadingDateTime(DateTime.MinValue, DateTime.MinValue);
 
         internal DateTimeOffset StoreLoaded { get => _storeLoaded; set { _storeLoaded = Loaded = value; } }
         internal DateTimeOffset FileLoaded { get => _fileLoaded; set { _fileLoaded = Loaded = value; } }
@@ -776,27 +875,40 @@ internal partial class CertificateManagerPeriodicalRefresh
 
         public DateTimeOffset GetUtcNow() => _certificateManager.TimeProvider.GetUtcNow();
 
-        internal void SetIsLoadNeeded(bool value = true)
+        internal void SetIsLoadNeeded()
         {
-            if (_isLoadNeededNow == value) { return; }
-            _isLoadNeededNow = value;
-
-            SetIsLoadedNeededRefreshTime();
+            if (_isLoadNeededNow) { return; }
+            _isLoadNeededNow = true;
         }
 
-        private void SetIsLoadedNeededRefreshTime()
+        internal void ResetIsLoadNeeded(StateLoadingDateTime stateLoadingDateTime)
         {
-            var next = _certificateManager.TimeProvider.GetUtcNow()
-                            .Add(_certificateManager.RefreshInterval);
-            _isLoadNeedRefreshTime = next;
+            _stateLoadingDateTime = stateLoadingDateTime;
+        }
+
+        internal void SetIsLoadedNeededRefreshTime()
+        {
+            _isLoadNeedRefreshTime = _certificateManager.TimeProvider.GetLocalNow()
+                .Add(_certificateManager.RefreshInterval);
         }
 
         internal bool IsLoadNeeded()
         {
             if (_isLoadNeededNow) { return true; }
 
-            var utcNow = _certificateManager.TimeProvider.GetUtcNow();
-            if (_isLoadNeedRefreshTime.HasValue && _isLoadNeedRefreshTime.Value <= utcNow) { return true; }
+            var now = _certificateManager.TimeProvider.GetLocalNow();
+            if (_isLoadNeedRefreshTime.HasValue
+                && now < _isLoadNeedRefreshTime.Value)
+            {
+                _isLoadNeededNow = true;
+                return true;
+            }
+
+            if (_stateLoadingDateTime.IsLoadNeeded(now.DateTime))
+            {
+                _isLoadNeededNow = true;
+                return true;
+            }
 
             return false;
         }
