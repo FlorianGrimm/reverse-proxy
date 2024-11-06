@@ -56,7 +56,7 @@ public class CertificateStoreLoader : ICertificateStoreLoader
             {
                 store.Open(OpenFlags.ReadOnly);
                 storeCertificates = store.Certificates;
-                for (var index = 0; index < storeCertificates.Count; index--)
+                for (var index = 0; index < storeCertificates.Count; index++)
                 {
                     var certificate = storeCertificates[index];
                     // check which CertificateRequest is interested in this certificate

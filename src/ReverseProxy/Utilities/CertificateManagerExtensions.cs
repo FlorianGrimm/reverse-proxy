@@ -24,7 +24,10 @@ public static class CertificateManagerExtensions
         if (certificateConfig is { })
         {
             var request = new CertificateRequest(id, certificateConfig, requirement);
-            request = that.AddRequest(request);
+            if (that is ICertificateManagerInternal those)
+            {
+                request = those.AddRequest(request);
+            }
             certificateRequests.Add(request);
         }
         if (certificateConfigs is { })
@@ -32,7 +35,10 @@ public static class CertificateManagerExtensions
             foreach (var item in certificateConfigs)
             {
                 var request = new CertificateRequest(id, item, requirement);
-                request = that.AddRequest(request);
+                if (that is ICertificateManagerInternal those)
+                {
+                    request = those.AddRequest(request);
+                }
                 certificateRequests.Add(request);
             }
         }

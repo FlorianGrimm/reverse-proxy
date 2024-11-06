@@ -28,21 +28,18 @@ namespace Yarp.ReverseProxy.Utilities;
 /// <remarks>
 /// The assumption is that the certificates does not change very often.
 /// TODO: How many certificates does a server have? ClientCertificates, JWT Token, not ServerCertificates these are handled by the kerstel itself.
-/// TODO: Filewatcher for file certificates - revisit <see cref="Refresh(bool)"/>.
 /// TODO: Validate this with a performance test.
 /// TODO: NotBefore and NotAfter must be respected.
 /// </remarks>
-internal partial class CertificateManagerPeriodicalRefresh
+internal sealed partial class CertificateManagerPeriodicalRefresh
     : ICertificateManager
+    , ICertificateManagerInternal
     , IDisposable
 {
-    private readonly ConcurrentDictionary<string, Timestamped<X509Certificate2Collection>> _previousRequestCollection = new();
-    private readonly ConcurrentDictionary<string, CertificateRequestCollection> _currentRequestCollection = new();
+    // added + and may be loaded
+    private readonly ConcurrentDictionary<CertificateRequest, StateCurrentCertificate> _currentByRequest = new();
 
-    // added
-    private readonly ConcurrentDictionary<CertificateRequest, StateCurrentCertificate> _registeredByRequest = new();
-
-    // loaded = added - ghosted
+    // loaded - to be used while Refresh only 
     private readonly ConcurrentDictionary<CertificateRequest, StateLoadedCertificate> _loadedByRequest = new();
 
     // loaded at least one generation before
@@ -51,8 +48,9 @@ internal partial class CertificateManagerPeriodicalRefresh
     // level of generations of unused - the higher the number the lesser used
     private readonly ConcurrentDictionary<CertificateRequest, int> _ghostGenerationRequest = new();
 
-    // the old certificates that will be disposed
-    private readonly ConcurrentDictionary<X509Certificate2Collection, StateCurrentCertificate> _cooldownByRequest = new();
+    private readonly ConcurrentDictionary<string, CertificateRequestCollection> _currentByRequestCollection = new();
+
+    private readonly ConcurrentDictionary<string, Timestamped<X509Certificate2Collection>> _cacheByRequestCollection = new();
 
     private IDisposable? _unwireOptionsOnChange;
     private int _generationsUntilSleep = 10;
@@ -69,10 +67,9 @@ internal partial class CertificateManagerPeriodicalRefresh
     private System.Threading.Timer? _timerRefresh;
     private TimeSpan _refreshInterval = TimeSpan.FromMinutes(10);
 
+    // caching delegates
     private readonly Action<FileChanged> _onFileChanged;
     private readonly Func<X509Certificate2, List<CertificateRequest>, bool> _onCheckLoadedStoreCertificate;
-    private readonly Action<X509Certificate2Collection?, CertificateRequest> _getCertificateRequestOnGiveAway;
-    private readonly Action<X509Certificate2Collection?, CertificateRequestCollection> _getCertificateRequestCollectionOnGiveAway;
 
     public TimeSpan RefreshInterval
     {
@@ -84,6 +81,7 @@ internal partial class CertificateManagerPeriodicalRefresh
             _timerRefresh?.Change(value, value);
         }
     }
+
     public TimeSpan CoolDownTime { get; set; } = TimeSpan.FromMinutes(1);
 
     public CertificateRequirement CertificateRequirement { get; set; } = new();
@@ -107,7 +105,6 @@ internal partial class CertificateManagerPeriodicalRefresh
 
     public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
 
-    // TODO
     public ICertificateFileLoader CertificateFileLoader
     {
         get
@@ -134,34 +131,29 @@ internal partial class CertificateManagerPeriodicalRefresh
         _certificateManagerFileWatcher = new CertificateManagerFileWatcher(logger);
         _certificateStoreLoader = certificateStoreLoader;
         _certificateFileLoader = certificateFileLoader;
-        certificateFileLoader.CertificateManagerFileWatcher = _certificateManagerFileWatcher;
         _logger = logger;
         _onFileChanged = OnFileChanged;
         _onCheckLoadedStoreCertificate = CheckLoadedStoreCertificate;
-        _getCertificateRequestOnGiveAway = HandleCertificateRequestOnGiveAway;
-        _getCertificateRequestCollectionOnGiveAway = HandleCertificateRequestCollectionOnGiveAway;
 
-        _stateLoadingDateTime = new(DateTime.MinValue, DateTime.MaxValue);
+        _stateLoadingDateTime = new();
     }
 
     public CertificateManagerPeriodicalRefresh(
         IOptionsMonitor<CertificateManagerOptions> options,
         ICertificateStoreLoader certificateStoreLoader,
         ICertificateFileLoader certificateFileLoader,
+        ILogger<CertificateManagerFileWatcher> loggerCertificateManagerFileWatcher,
         ILogger<CertificateManagerPeriodicalRefresh> logger
         )
     {
         _stateReload = new StateReload(this);
-        _certificateManagerFileWatcher = new CertificateManagerFileWatcher(logger);
+        _certificateManagerFileWatcher = new CertificateManagerFileWatcher(loggerCertificateManagerFileWatcher);
         _certificateStoreLoader = certificateStoreLoader;
         _certificateFileLoader = certificateFileLoader;
-        certificateFileLoader.CertificateManagerFileWatcher = _certificateManagerFileWatcher;
         _logger = logger;
         _onFileChanged = OnFileChanged;
         _onCheckLoadedStoreCertificate = CheckLoadedStoreCertificate;
-        _getCertificateRequestOnGiveAway = HandleCertificateRequestOnGiveAway;
-        _getCertificateRequestCollectionOnGiveAway = HandleCertificateRequestCollectionOnGiveAway;
-        _stateLoadingDateTime = new(DateTime.MinValue, DateTime.MaxValue);
+        _stateLoadingDateTime = new();
 
         OnOptionsChanged(options.CurrentValue, null);
         _unwireOptionsOnChange = options.OnChange(OnOptionsChanged);
@@ -203,38 +195,77 @@ internal partial class CertificateManagerPeriodicalRefresh
         }
     }
 
-    public void AddRequestCollection(CertificateRequestCollection result)
+    public IDisposable AddRequestCollection(CertificateRequestCollection requestCollection)
     {
-        if (_currentRequestCollection.TryGetValue(result.Id, out var current))
+        // ensure AddRequest is called
+        lock (_currentByRequestCollection)
         {
-            if (current != result)
+            for (var index = 0; index < requestCollection.CertificateRequests.Count; index++)
             {
-                _currentRequestCollection.TryUpdate(result.Id, result, current);
+                var request = requestCollection.CertificateRequests[index];
+                var requestNext = AddRequest(request);
+                if (!request.Equals(requestNext))
+                {
+                    requestCollection.CertificateRequests[index] = request;
+                }
+            }
+
+            if (_currentByRequestCollection.TryGetValue(requestCollection.Id, out var current))
+            {
+                if (current == requestCollection)
+                {
+                    return new RemoveRequestCollectionDisposable(requestCollection, this);
+                }
+                else
+                {
+                    _currentByRequestCollection.TryUpdate(requestCollection.Id, requestCollection, current);
+                    return new RemoveRequestCollectionDisposable(requestCollection, this);
+                }
             }
             else
             {
-                return;
+                _currentByRequestCollection.TryAdd(requestCollection.Id, requestCollection);
+                return new RemoveRequestCollectionDisposable(requestCollection, this);
             }
         }
-        else
-        {
-            _currentRequestCollection.TryAdd(result.Id, result);
-        }
+    }
 
-        for (var index = 0; index < result.CertificateRequests.Count; index++)
+    public bool RemoveRequestCollection(CertificateRequestCollection requestCollection)
+        => RemoveRequestCollection(requestCollection.Id);
+
+    private bool RemoveRequestCollection(string requestCollectionId)
+    {
+        lock (_currentByRequestCollection)
         {
-            var request = result.CertificateRequests[index];
-            var requestNext = AddRequest(request);
-            if (!request.Equals(requestNext))
+            if (_currentByRequestCollection.TryRemove(requestCollectionId, out var requestCollection))
             {
-                result.CertificateRequests[index] = request;
+                var remainingCertificateRequests = new HashSet<CertificateRequest>();
+                foreach (var (key, crc) in _currentByRequestCollection)
+                {
+                    foreach (var request in crc.CertificateRequests)
+                    {
+                        remainingCertificateRequests.Add(request);
+                    }
+                }
+                foreach (var request in requestCollection.CertificateRequests)
+                {
+                    if (!remainingCertificateRequests.Contains(request))
+                    {
+                        RemoveRequest(request);
+                    }
+                }
+                return true;
+            }
+            else
+            {
+                return false;
             }
         }
     }
 
     public CertificateRequest AddRequest(CertificateRequest request)
     {
-        if (!request.IsStoreCert() || !request.IsFileCert())
+        if (!(request.IsStoreCert() || request.IsFileCert()))
         {
             throw new ArgumentException("The CertificateRequest must be a store or a file certificate.", nameof(request));
         }
@@ -279,9 +310,9 @@ internal partial class CertificateManagerPeriodicalRefresh
             }
         }
 
-        if (!_registeredByRequest.ContainsKey(request))
+        if (!_currentByRequest.ContainsKey(request))
         {
-            if (_registeredByRequest.TryAdd(request, new StateCurrentCertificate()))
+            if (_currentByRequest.TryAdd(request, new StateCurrentCertificate()))
             {
                 ResetGhostGenerationRequest(request);
 
@@ -293,6 +324,19 @@ internal partial class CertificateManagerPeriodicalRefresh
         }
 
         return request;
+    }
+
+    public bool RemoveRequest(CertificateRequest request)
+    {
+        if (_currentByRequest.TryRemove(request, out var result))
+        {
+            result.Dispose();
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
     private void OnFileChanged(FileChanged changed)
@@ -326,36 +370,6 @@ internal partial class CertificateManagerPeriodicalRefresh
     /// <returns></returns>
     public ISharedValue<X509Certificate2Collection?> GetCertificateCollection(CertificateRequest request)
     {
-        var result = GetCertificateCollectionInternal(request);
-        return new SharedValue<X509Certificate2Collection?, CertificateRequest>(
-            result,
-            request,
-            null,
-            _getCertificateRequestOnGiveAway
-            );
-    }
-
-    private void HandleCertificateRequestOnGiveAway(X509Certificate2Collection? value, CertificateRequest request)
-    {
-        if (_registeredByRequest.TryGetValue(request, out var stateCurrentCertificate))
-        {
-            stateCurrentCertificate.PreventDispose = true;
-        }
-    }
-
-    private void HandleCertificateRequestCollectionOnGiveAway(X509Certificate2Collection? value, CertificateRequestCollection certificateRequestCollection)
-    {
-        foreach (var request in certificateRequestCollection.CertificateRequests)
-        {
-            if (_registeredByRequest.TryGetValue(request, out var stateCurrentCertificate))
-            {
-                stateCurrentCertificate.PreventDispose = true;
-            }
-        }
-    }
-
-    internal X509Certificate2Collection? GetCertificateCollectionInternal(CertificateRequest request)
-    {
         // ensure the certificates are loaded
         {
             if (IsAwakeNeeded(request))
@@ -377,15 +391,9 @@ internal partial class CertificateManagerPeriodicalRefresh
         }
 
         // get the certificates and return them
-        {
-            if (_registeredByRequest.TryGetValue(request, out var state))
-            {
-                return state.GetCertificateCollection();
-            }
-        }
-
-        // or return null
-        return null;
+        _ = _currentByRequest.TryGetValue(request, out var state);
+        var value = state?.GetSharedCertificateCollection();
+        return SharedX509Certificate2CollectionByCertificateRequest.Create(value, request, this);
     }
 
     /// <summary>
@@ -395,66 +403,44 @@ internal partial class CertificateManagerPeriodicalRefresh
     /// <returns></returns>
     public ISharedValue<X509Certificate2Collection?> GetCertificateCollection(CertificateRequestCollection requestCollection)
     {
-        if (requestCollection.CertificateRequests.Count == 0)
+        var refresh = false;
+        foreach (var request in requestCollection.CertificateRequests)
         {
-            return new SharedValue<X509Certificate2Collection?, CertificateRequestCollection>(
-                requestCollection.X509Certificate2s, requestCollection, null, null);
+            if (IsAwakeNeeded(request))
+            {
+                refresh = true;
+            }
+            ResetGhostGenerationRequest(request);
+        }
+
+        if (refresh)
+        {
+            RefreshInternal(true, false);
+        }
+        var timestamp = _stateReload.Changed;
+
+        if (_cacheByRequestCollection.TryGetValue(requestCollection.Id, out var timestampedResult)
+            && timestampedResult.Timestamp == timestamp
+            )
+        {
+            return SharedX509Certificate2CollectionByCertificateRequestCollection.Create(
+                timestampedResult.Value,
+                requestCollection,
+                this);
         }
         else
         {
-            var refresh = false;
-            if (_previousRequestCollection.TryGetValue(requestCollection.Id, out var timestampedResult))
-            {
-                if (timestampedResult.Timestamp == _stateReload.Changed)
-                {
-                    foreach (var request in requestCollection.CertificateRequests)
-                    {
-                        if (IsAwakeNeeded(request))
-                        {
-                            refresh = true;
-                        }
-                        else
-                        {
-                            ResetGhostGenerationRequest(request);
-                        }
-                    }
-                    if (refresh)
-                    {
-                        _stateReload.SetIsLoadNeeded();
-                    }
-                    else
-                    {
-                        return new SharedValue<X509Certificate2Collection?, CertificateRequestCollection>(
-                            timestampedResult.Value,
-                            requestCollection,
-                            null,
-                            _getCertificateRequestCollectionOnGiveAway
-                            );
-                    }
-                }
-            }
-
-            foreach (var request in requestCollection.CertificateRequests)
-            {
-                if (IsAwakeNeeded(request))
-                {
-                    refresh = true;
-                }
-                ResetGhostGenerationRequest(request);
-            }
-            if (refresh)
-            {
-                RefreshInternal(true, false);
-            }
 
             // collect the certificates
             var result = new X509Certificate2Collection();
-            var timestamp = _stateReload.Changed;
             foreach (var request in requestCollection.CertificateRequests)
             {
-                if (GetCertificateCollectionInternal(request) is { } collection)
+                if (_currentByRequest.TryGetValue(request, out var state))
                 {
-                    result.AddRange(collection);
+                    if (state.GetSharedCertificateCollection() is { } collection)
+                    {
+                        result.AddRange(collection);
+                    }
                 }
             }
             if (requestCollection.X509Certificate2s is { } certs)
@@ -462,12 +448,11 @@ internal partial class CertificateManagerPeriodicalRefresh
                 result.AddRange(certs);
             }
             timestampedResult = new Timestamped<X509Certificate2Collection>(result, timestamp);
-            _previousRequestCollection[requestCollection.Id] = timestampedResult;
-            return new SharedValue<X509Certificate2Collection?, CertificateRequestCollection>(
+            _cacheByRequestCollection[requestCollection.Id] = timestampedResult;
+            return SharedX509Certificate2CollectionByCertificateRequestCollection.Create(
                 result,
                 requestCollection,
-                null,
-                _getCertificateRequestCollectionOnGiveAway);
+                this);
         }
     }
 
@@ -524,7 +509,7 @@ internal partial class CertificateManagerPeriodicalRefresh
 
     private void IncrementGhostGenerationRequest()
     {
-        foreach (var request in _registeredByRequest.Keys.ToList())
+        foreach (var request in _currentByRequest.Keys.ToList())
         {
             if (_ghostGenerationRequest.TryGetValue(request, out var counter))
             {
@@ -577,7 +562,7 @@ internal partial class CertificateManagerPeriodicalRefresh
     {
         Dictionary<CertificateStoreLocationName, List<CertificateRequest>> requestsByStoreLocationName = new();
 
-        foreach (var request in _registeredByRequest.Keys)
+        foreach (var request in _currentByRequest.Keys)
         {
             if (request.IsStoreCert() && request.StoreRequest is { StoreLocationName: { } storeLocationName })
             {
@@ -607,7 +592,14 @@ internal partial class CertificateManagerPeriodicalRefresh
                 var listCertificate = _certificateStoreLoader.Load(storeLocationName, requests, _onCheckLoadedStoreCertificate);
                 foreach (var certificate in listCertificate)
                 {
-                    _ = _stateLoadingDateTime.Add(certificate.NotBefore).Add(certificate.NotAfter);
+                    try
+                    {
+                        var notBefore = certificate.NotBefore;
+                        var notAfter = certificate.NotAfter;
+                        _ = _stateLoadingDateTime.Add(notBefore).Add(notAfter);
+                    }
+                    catch (System.Security.Cryptography.CryptographicException) {
+                    }
                 }
             }
         }
@@ -640,7 +632,7 @@ internal partial class CertificateManagerPeriodicalRefresh
     {
         var fromOptions = CertificateRequirement;
 
-        foreach (var (request, stateCurrentCertificate) in _registeredByRequest.ToList())
+        foreach (var (request, stateCurrentCertificate) in _currentByRequest.ToList())
         {
             // the certificate requested by this was not used in the near past.
             if (_ghostGenerationRequest.TryGetValue(request, out var counter))
@@ -672,7 +664,15 @@ internal partial class CertificateManagerPeriodicalRefresh
                     {
                         foreach (var itemCertificate in certificateCollection)
                         {
-                            _ = _stateLoadingDateTime.Add(itemCertificate.NotBefore).Add(itemCertificate.NotAfter);
+                            try
+                            {
+                                var notBefore = itemCertificate.NotBefore;
+                                var notAfter = itemCertificate.NotAfter;
+                                _ = _stateLoadingDateTime.Add(notBefore).Add(notAfter);
+                            }
+                            catch (System.Security.Cryptography.CryptographicException)
+                            {
+                            }
                         }
                     }
                 }
@@ -719,8 +719,14 @@ internal partial class CertificateManagerPeriodicalRefresh
         }
         if (changed)
         {
-            TriggerDisposePastNeeded();
-            _stateReload.Changed = _stateReload.Loaded;
+            var timestamp = _stateReload.Changed = _stateReload.Loaded;
+            foreach (var (key, timestampedCollection) in _cacheByRequestCollection)
+            {
+                if (timestampedCollection.Timestamp < timestamp)
+                {
+                    _ = _cacheByRequestCollection.TryRemove(key, out var _);
+                }
+            }
         }
     }
 
@@ -771,37 +777,18 @@ internal partial class CertificateManagerPeriodicalRefresh
 
         // if the certificate(s) are new or different
         var stateCurrent = new StateCurrentCertificate(stateLoaded.Certificates);
-        if (_registeredByRequest.TryGetValue(request, out var oldStateCurrent))
+        if (_currentByRequest.TryGetValue(request, out var oldStateCurrent))
         {
-            _registeredByRequest[request] = stateCurrent;
-            var certificateCollection = oldStateCurrent.GetCertificateCollection();
-            if (certificateCollection is not null)
-            {
-                _cooldownByRequest[certificateCollection] = oldStateCurrent;
-            }
+            _currentByRequest[request] = stateCurrent;
+            oldStateCurrent.Dispose();
         }
         else
         {
-            _registeredByRequest[request] = stateCurrent;
+            _currentByRequest[request] = stateCurrent;
         }
         return true;
     }
 
-    private void TriggerDisposePastNeeded()
-    {
-        var list = new List<StateCurrentCertificate>();
-        foreach (var key in _cooldownByRequest.Keys)
-        {
-            if (_cooldownByRequest.TryRemove(key, out var stateCooldown))
-            {
-                list.Add(stateCooldown);
-            }
-        }
-        if (0 == list.Count) { return; }
-
-        var state = new StateDisposeCoolDown(list, CoolDownTime);
-        state.Start();
-    }
 
     public void Dispose()
     {
@@ -816,9 +803,35 @@ internal partial class CertificateManagerPeriodicalRefresh
         }
     }
 
-    // TODO: is their a need for internal void RemoveRequest(CertificateRequest request) or is ghosting good enough?
+    private sealed class RemoveRequestCollectionDisposable : IDisposable
+    {
+        private CertificateRequestCollection? _requestCollection;
+        private CertificateManagerPeriodicalRefresh? _certificateManager;
 
-    internal class StateReload
+        internal RemoveRequestCollectionDisposable(
+            CertificateRequestCollection requestCollection,
+            CertificateManagerPeriodicalRefresh certificateManager
+            )
+        {
+            _requestCollection = requestCollection;
+            _certificateManager = certificateManager;
+        }
+
+        public void Dispose()
+        {
+            if (_requestCollection is { } requestCollection
+                && _certificateManager is { } certificateManager
+                )
+            {
+                _requestCollection = null;
+                _certificateManager = null;
+
+                certificateManager.RemoveRequestCollection(requestCollection);
+            }
+        }
+    }
+
+    internal sealed class StateReload
     {
         private readonly CertificateManagerPeriodicalRefresh _certificateManager;
         private bool _isLoadNeededNow;
@@ -884,6 +897,9 @@ internal partial class CertificateManagerPeriodicalRefresh
         internal DateTime NextEvent;
 #pragma warning restore IDE1006 // Naming Styles
 
+        internal StateLoadingDateTime()
+            : this(DateTime.MinValue, DateTime.MaxValue) { }
+
         internal StateLoadingDateTime(DateTime now, DateTime nextEvent)
         {
             _now = now;
@@ -905,7 +921,7 @@ internal partial class CertificateManagerPeriodicalRefresh
         }
     }
 
-    internal class StateLoadedCertificate
+    internal sealed class StateLoadedCertificate
     {
         private readonly CertificateRequest _request;
         internal readonly X509Certificate2Collection Certificates = new();
@@ -921,8 +937,10 @@ internal partial class CertificateManagerPeriodicalRefresh
         }
     }
 
-    internal class StateCurrentCertificate
+    internal sealed class StateCurrentCertificate
     {
+        private bool _disposeIfPossible;
+        private int _referenceCounter;
         private X509Certificate2Collection? _certificate2Collection;
 
         public StateCurrentCertificate()
@@ -938,59 +956,235 @@ internal partial class CertificateManagerPeriodicalRefresh
 
         internal X509Certificate2Collection? GetCertificateCollection() => _certificate2Collection;
 
-        public bool PreventDispose { get; set; }
+        public X509Certificate2Collection? GetSharedCertificateCollection()
+        {
+            System.Threading.Interlocked.Increment(ref _referenceCounter);
+            return _certificate2Collection;
+        }
 
-        internal void DisposeCoolDown()
+        public void DecrementReferenceCounter()
+        {
+            if (0 == System.Threading.Interlocked.Decrement(ref _referenceCounter))
+            {
+                if (_disposeIfPossible)
+                {
+                    Dispose();
+                }
+            }
+        }
+
+        public bool IsDisposePrevented { get; set; }
+
+        internal bool Dispose()
         {
             // already disposed?
             if (_certificate2Collection is null)
             {
-                return;
+                return true;
             }
             // PreventDispose==true means that this was GivenAway and it is not this to dispose.
-            if (PreventDispose)
+            if (IsDisposePrevented)
             {
-                return;
+                return true;
             }
+
+            // Still in use so, do not dispose
+            if (0 < _referenceCounter)
+            {
+                _disposeIfPossible = true;
+                return false;
+            }
+
             var collection = _certificate2Collection;
             _certificate2Collection = null;
             collection.DisposeCertificates(null);
             collection.Clear();
+            return true;
         }
     }
 
-    private sealed class StateDisposeCoolDown(
-      List<StateCurrentCertificate> list,
-      TimeSpan coolDownTime
-      )
+    private sealed class SharedX509Certificate2CollectionByCertificateRequestCollection : ISharedValue<X509Certificate2Collection?>
     {
-        private List<StateCurrentCertificate>? _list = list;
-        private readonly TimeSpan _coolDownTime = coolDownTime;
-        private System.Threading.Timer? _timer;
-
-        internal void Start()
+        internal static ISharedValue<X509Certificate2Collection?> Create(
+            X509Certificate2Collection? value,
+            CertificateRequestCollection certificateRequestCollection,
+            CertificateManagerPeriodicalRefresh certificateManager
+            )
         {
-            _timer = new System.Threading.Timer(
-                Execute,
-                null,
-                _coolDownTime,
-                Timeout.InfiniteTimeSpan);
+            if (value is null)
+            {
+                var result = new SharedX509Certificate2CollectionByCertificateRequestCollection(null, null, null);
+                System.GC.SuppressFinalize(result);
+                return result;
+            }
+            else
+            {
+                var result = new SharedX509Certificate2CollectionByCertificateRequestCollection(
+                    value,
+                    certificateRequestCollection,
+                    certificateManager);
+                return result;
+            }
         }
 
-        private void Execute(object? state)
+        private CertificateRequestCollection? _certificateRequestCollection;
+        private CertificateManagerPeriodicalRefresh? _certificateManager;
+
+        private SharedX509Certificate2CollectionByCertificateRequestCollection(
+            X509Certificate2Collection? value,
+            CertificateRequestCollection? certificateRequestCollection,
+            CertificateManagerPeriodicalRefresh? certificateManager
+            )
         {
-            using (var t = _timer)
+            Value = value;
+            _certificateRequestCollection = certificateRequestCollection;
+            _certificateManager = certificateManager;
+        }
+
+        public X509Certificate2Collection? Value { get; private set; }
+
+        public X509Certificate2Collection? GiveAway()
+        {
+            var value = Value;
+            if (_certificateRequestCollection is { } certificateRequestCollection
+                && _certificateManager is { } certificateManager
+                )
             {
-                _timer = null;
-                if (_list is { } list)
+                _certificateRequestCollection = null;
+                _certificateManager = null;
+                foreach (var request in certificateRequestCollection.CertificateRequests)
                 {
-                    _list = null;
-                    foreach (var item in list)
+                    if (certificateManager._currentByRequest.TryGetValue(request, out var state))
                     {
-                        item.DisposeCoolDown();
+                        state.IsDisposePrevented = true;
                     }
                 }
             }
+            return value;
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (_certificateRequestCollection is { } certificateRequestCollection
+                && _certificateManager is { } certificateManager
+                )
+            {
+                if (disposing)
+                {
+                    Value = null;
+                    _certificateRequestCollection = null;
+                    _certificateManager = null;
+                }
+
+                foreach (var request in certificateRequestCollection.CertificateRequests)
+                {
+                    if (certificateManager._currentByRequest.TryGetValue(request, out var state))
+                    {
+                        state.DecrementReferenceCounter();
+                    }
+                }
+            }
+        }
+
+        ~SharedX509Certificate2CollectionByCertificateRequestCollection()
+        {
+            Dispose(disposing: false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
+    }
+
+    private sealed class SharedX509Certificate2CollectionByCertificateRequest : ISharedValue<X509Certificate2Collection?>
+    {
+        internal static ISharedValue<X509Certificate2Collection?> Create(
+            X509Certificate2Collection? value,
+            CertificateRequest certificateRequest,
+            CertificateManagerPeriodicalRefresh certificateManager
+            )
+        {
+            if (value is null)
+            {
+                var result = new SharedX509Certificate2CollectionByCertificateRequest(null, null, null);
+                System.GC.SuppressFinalize(result);
+                return result;
+            }
+            else
+            {
+                var result = new SharedX509Certificate2CollectionByCertificateRequest(
+                    value,
+                    certificateRequest,
+                    certificateManager);
+                return result;
+            }
+        }
+
+        private CertificateRequest? _certificateRequest;
+        private CertificateManagerPeriodicalRefresh? _certificateManager;
+
+        private SharedX509Certificate2CollectionByCertificateRequest(
+            X509Certificate2Collection? value,
+            CertificateRequest? certificateRequest,
+            CertificateManagerPeriodicalRefresh? certificateManager
+            )
+        {
+            Value = value;
+            _certificateRequest = certificateRequest;
+            _certificateManager = certificateManager;
+        }
+
+        public X509Certificate2Collection? Value { get; private set; }
+
+        public X509Certificate2Collection? GiveAway()
+        {
+            var value = Value;
+            if (_certificateRequest is { } certificateRequest
+                && _certificateManager is { } certificateManager
+                )
+            {
+                _certificateRequest = null;
+                _certificateManager = null;
+                if (certificateManager._currentByRequest.TryGetValue(certificateRequest, out var state))
+                {
+                    state.IsDisposePrevented = true;
+                }
+
+            }
+            return value;
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (_certificateRequest is { } certificateRequest
+                && _certificateManager is { } certificateManager
+                )
+            {
+                if (disposing)
+                {
+                    Value = null;
+                    _certificateRequest = null;
+                    _certificateManager = null;
+                }
+
+                if (certificateManager._currentByRequest.TryGetValue(certificateRequest, out var state))
+                {
+                    state.DecrementReferenceCounter();
+                }
+            }
+        }
+
+        ~SharedX509Certificate2CollectionByCertificateRequest()
+        {
+            Dispose(disposing: false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

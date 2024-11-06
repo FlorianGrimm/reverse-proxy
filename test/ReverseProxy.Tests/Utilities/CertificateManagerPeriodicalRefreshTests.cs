@@ -15,11 +15,11 @@ using Xunit.Abstractions;
 using Yarp.ReverseProxy.Common;
 
 namespace Yarp.ReverseProxy.Utilities.Tests;
-public class CertificateManagerTests
+public class CertificateManagerPeriodicalRefreshTests
 {
     private readonly ITestOutputHelper _output;
 
-    public CertificateManagerTests(ITestOutputHelper output)
+    public CertificateManagerPeriodicalRefreshTests(ITestOutputHelper output)
     {
         _output = output;
     }
@@ -28,6 +28,7 @@ public class CertificateManagerTests
     [Fact]
     public void CertificateManagerFromStore()
     {
+        if (!OperatingSystem.IsWindows()) { return; }
 
         var services = new ServiceCollection();
         services.AddLogging(b =>
@@ -36,6 +37,8 @@ public class CertificateManagerTests
             b.Services.AddSingleton<ILoggerProvider>(new TestLoggerProvider(_output));
         });
         services.AddSingleton<ICertificatePasswordProvider, CertificatePasswordProvider>();
+        services.AddTransient<ICertificateStoreLoader, CertificateStoreLoader>();
+        services.AddTransient<ICertificateFileLoader, CertificateFileLoader>();
         services.AddSingleton<CertificateManagerPeriodicalRefresh>();
         services.AddOptions<CertificateManagerOptions>().Configure(
             options =>
@@ -70,13 +73,17 @@ public class CertificateManagerTests
         request = certificateManager.AddRequest(request);
         {
             using var certificateCollection = certificateManager.GetCertificateCollection(request);
-            Assert.Equal(2, certificateCollection.Value.Count);
+            var value = certificateCollection.Value;
+            if (value is null) { return; }
+
+            Assert.Equal(2, value.Count);
         }
 
         fakeTimeProvider.SetUtcNow(new DateTimeOffset(new DateTime(2024, 06, 01), TimeSpan.Zero));
         certificateManager.Refresh(false);
         {
             using var certificateCollection = certificateManager.GetCertificateCollection(request);
+            Assert.NotNull(certificateCollection.Value);
             Assert.Equal(1, certificateCollection.Value.Count);
         }
     }

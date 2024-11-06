@@ -18,8 +18,6 @@ public interface ICertificateFileLoader
 {
     string? CertificateRootPath { get; set; }
 
-    ICertificateManagerFileWatcher? CertificateManagerFileWatcher { get; set; }
-
     X509Certificate2Collection? LoadCertificateFromFile(
         List<CertificateRequest> requests,
         CertificateFileRequest fileRequest,
@@ -62,15 +60,11 @@ public class CertificateFileLoader : ICertificateFileLoader
 
     public string? CertificateRootPath { get; set; }
 
-    public ICertificateManagerFileWatcher? CertificateManagerFileWatcher { get; set; }
-
     public CertificateFileLoader(
         ICertificatePasswordProvider certificatePasswordProvider,
-        ICertificateManagerFileWatcher? fileWatcher,
         ILogger<CertificateFileLoader> logger)
     {
         _certificatePasswordProvider = certificatePasswordProvider;
-        CertificateManagerFileWatcher = fileWatcher;
         _logger = logger;
     }
 
