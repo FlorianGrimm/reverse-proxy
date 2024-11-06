@@ -17,60 +17,50 @@ namespace Microsoft.AspNetCore.Builder;
 public static class TransportCertificateExtensions
 {
     /// <summary>
-    /// Enable the tunnel transport on the backend.
-    /// For each tunnel-config connections are opened to URL/_tunnel/RemoteTunnelId or URL/_tunnel/TunnelId
+    /// Enable the ClientCertificate authentication tunnel transport on the backend.
     /// </summary>
     /// <remarks>
     /// Request/Response flow:
     /// <code>
     /// --------------------------------
-    /// | Browser                      |
-    /// --------------------------------
-    ///             |(2)        ^
-    ///             |           |
-    ///             v           | (7)
-    /// --------------------------------
     /// | Frontend                     |
     /// | AddTunnelServices            |
+    /// | AddTunnelServicesCertificate |
     /// --------------------------------
-    ///         ^     ||(3)  /\
+    ///         ^     ||     /\
     ///         |     ||     ||
-    ///         ^ (1) \/     || (6)
-    /// --------------------------------
-    /// | Backend                      |
-    /// | AddTunnelTransport           |
-    /// --------------------------------
-    ///              (4) |  ^
-    ///                  |  |
-    ///                  v  | (5)
-    /// --------------------------------
-    /// | API                          |
-    /// | ASP.Net Core Middleware      |
-    /// --------------------------------
+    ///         ^     \/     ||
+    /// ---------------------------------
+    /// | Backend                       |
+    /// | AddTunnelTransport            |
+    /// | AddTunnelTransportCertificate | ***
+    /// ---------------------------------
     ///
-    /// 1) @Backend: Start the tunnel transport connections in a Kestrel IConnectionListener
-    /// 2) @Browser: Request to the Frontend
-    /// 3) @Frontend: Use the Yarp.ReverseProxy to forward the request to the Backend via the tunnel
-    /// 4) @Backend: Use the Yarp.ReverseProxy to forward the request to the API
-    /// 5) @API: Handle the request with the normal ASP.Net Core Middleware
-    /// 6) @Backend: Use the tunnel connection response to send the response back to the Frontend.
-    /// 7) @Frontend: Copy the response  the httpContext.Response
+    /// @Backend: Start the tunnel transport connections - the authentication is done via ClientCertificate
+    /// @Frontend: Use the Yarp.ReverseProxy to forward the request to the Backend via the tunnel
     /// </code>
-    /// 3+6 the inner tunnel transport uses HTTP not HTTPS.
-    /// The outer tunnel transport uses HTTPS - if you use it - and I hope so.
-    /// Therefor the requests through the tunnel conflict with the UseHttpsRedirection.
-    /// app.UseHttpsRedirection() will redirect if the request is a tunnel request;
-    /// which means that the browser is redirected to https://{tunnelId}/... which is not what we want.
+    ///
     /// <code>
-    /// app.UseWhen(
-    ///     static context => !context.TryGetTransportTunnelByUrl(out var _),
-    ///     app => app.UseHttpsRedirection()
-    ///     );
+    /// var reverseProxyBuilder = builder.Services.AddReverseProxy()
+    ///     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+    ///     .AddTunnelTransport()
+    ///     .AddReverseProxyCertificateManager(
+    ///         configure: (options) =>
+    ///         {
+    ///             options.CertificateRootPath = System.AppContext.BaseDirectory;
+    ///             options.CertificateRequirement = options.CertificateRequirement with
+    ///             {
+    ///                 AllowCertificateSelfSigned = true
+    ///             };
+    ///         }
+    ///     )
+    ///     .AddTunnelTransportCertificate()
+    ///     ;
     /// </code>
     /// </remarks>
     /// <param name="builder">this</param>
-    /// <param name="configure"> </param>
-    /// <returns></returns>
+    /// <param name="configure"></param>
+    /// <returns>fluent this</returns>
     /// <example>
     ///    builder.Services.AddReverseProxy()
     ///        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))

@@ -24,6 +24,11 @@ public interface ICertificateFileLoader
         List<CertificateRequest> requests,
         CertificateFileRequest fileRequest,
         CertificateRequirement requirement);
+
+    X509Certificate2Collection? LoadCertificateFromFile(
+        CertificateRequest requests,
+        CertificateFileRequest fileRequest,
+        CertificateRequirement requirement);
 }
 
 public record struct CertificateFileRequest(
@@ -223,6 +228,158 @@ public class CertificateFileLoader : ICertificateFileLoader
         }
     }
 
+    public X509Certificate2Collection? LoadCertificateFromFile(
+        CertificateRequest requests,
+        CertificateFileRequest fileRequest,
+        CertificateRequirement requirement)
+    {
+        var (path, keyPath, password) = fileRequest;
+
+        if (string.IsNullOrEmpty(path))
+        {
+            return null;
+        }
+        {
+            var certificatePath = GetAbsolutePath(path);
+            var certificateKeyPath = GetAbsolutePath(keyPath);
+
+            string? plainPassword = null;
+
+            if (string.IsNullOrEmpty(certificatePath))
+            {
+                return null;
+            }
+            if (!File.Exists(certificatePath))
+            {
+                Log.FailedToLoadCertificate(_logger, certificatePath);
+                return null;
+            }
+
+            var fullChain = new X509Certificate2Collection();
+
+            X509Certificate2? certificate;
+            try
+            {
+                if (plainPassword is null && password is { Length: > 0 })
+                {
+                    plainPassword = _certificatePasswordProvider.DecryptPassword(password);
+                }
+                certificate = GetCertificate(certificatePath, plainPassword);
+                if (certificate is { })
+                {
+                    if (OperatingSystem.IsWindows())
+                    {
+                        Log.SuccessfullyLoadedCertificate(_logger, certificatePath);
+                        if (certificate.HasPrivateKey)
+                        {
+                            certificate = certificate.PersistKey();
+                        }
+                    }
+                    else
+                    {
+                        Log.SuccessfullyLoadedCertificate(_logger, certificatePath);
+                    }
+                    fullChain.Add(certificate);
+                }
+            }
+            catch (CryptographicException)
+            {
+                certificate = default;
+            }
+
+            if (certificate is null)
+            {
+                try
+                {
+                    if (plainPassword is null && password is { Length: > 0 })
+                    {
+                        plainPassword = _certificatePasswordProvider.DecryptPassword(password);
+                    }
+                    fullChain.Import(certificatePath, plainPassword, X509KeyStorageFlags.DefaultKeySet);
+                    if (0 < fullChain.Count)
+                    {
+                        certificate = fullChain[0];
+                        if (certificate is { })
+                        {
+                            if (OperatingSystem.IsWindows())
+                            {
+                                if (certificate.HasPrivateKey)
+                                {
+                                    certificate = certificate.PersistKey();
+                                }
+                                Log.SuccessfullyLoadedCertificateKey(_logger, certificatePath);
+                            }
+                            else
+                            {
+                                Log.SuccessfullyLoadedCertificateKey(_logger, certificatePath);
+                            }
+                        }
+                    }
+                }
+                catch (CryptographicException)
+                {
+                }
+            }
+
+            if (certificate is null)
+            {
+                Log.FailedToLoadCertificate(_logger, certificatePath);
+                return null;
+            }
+
+            if (requirement.NeedPrivateKey && !certificate.HasPrivateKey)
+            {
+                if (certificateKeyPath is { Length: > 0 })
+                {
+                    if (!File.Exists(certificateKeyPath))
+                    {
+                        Log.FailedToLoadCertificateKey(_logger, certificateKeyPath);
+                    }
+                    else
+                    {
+                        if (plainPassword is null && password is { Length: > 0 })
+                        {
+                            plainPassword = _certificatePasswordProvider.DecryptPassword(password);
+                        }
+                        var certificateKey = LoadCertificateKey(certificate, certificateKeyPath, plainPassword);
+                        if (certificateKey != null)
+                        {
+                            if (OperatingSystem.IsWindows())
+                            {
+                                certificateKey = certificateKey.PersistKey();
+                                Log.SuccessfullyLoadedCertificateKey(_logger, certificateKeyPath);
+                            }
+                            else
+                            {
+                                Log.SuccessfullyLoadedCertificateKey(_logger, certificateKeyPath);
+                            }
+
+                            var found = false;
+                            for (var index = 0; index < fullChain.Count; index++)
+                            {
+                                if (ReferenceEquals(fullChain[index], certificate))
+                                {
+                                    fullChain[index] = certificateKey;
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (!found)
+                            {
+                                fullChain.Add(certificateKey);
+                            }
+                            return fullChain;
+                        }
+                    }
+                }
+
+                Log.FailedToLoadCertificateKey(_logger, certificatePath);
+                throw new InvalidOperationException("The provided key file is missing or invalid.");
+            }
+
+            return fullChain;
+        }
+    }
     private string? GetAbsolutePath(string? path)
     {
         if (CertificateRootPath is { Length: > 0 } certificateRootPath)

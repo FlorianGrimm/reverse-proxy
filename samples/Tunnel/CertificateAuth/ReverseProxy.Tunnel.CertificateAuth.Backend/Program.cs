@@ -10,14 +10,15 @@ public class Program
         builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
         var reverseProxyBuilder = builder.Services.AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-            .AddTunnelTransport(
-                configureTunnelHttp2: options => { options.MaxConnectionCount = 1; },
-                configureTunnelWebSocket: options => { options.MaxConnectionCount = 1; }
-            ) /* for the servers that starts the tunnel transport connections */
+            .AddTunnelTransport()
             .AddReverseProxyCertificateManager(
                 configure: (options) =>
                 {
                     options.CertificateRootPath = System.AppContext.BaseDirectory;
+                    options.CertificateRequirement = options.CertificateRequirement with
+                    {
+                        AllowCertificateSelfSigned = true
+                    };
                 }
             )
             .AddTunnelTransportCertificate()
