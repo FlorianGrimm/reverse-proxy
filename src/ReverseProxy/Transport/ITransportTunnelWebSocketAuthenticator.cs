@@ -12,7 +12,7 @@ using Yarp.ReverseProxy.Configuration;
 namespace Yarp.ReverseProxy.Transport;
 
 /// <summary>
-/// Authentification for Http2 tunnels.
+/// Authentication for Http2 tunnels.
 /// </summary>
 /// <example>
 /// register like this:
@@ -31,7 +31,7 @@ public interface ITransportTunnelWebSocketAuthenticator
     void ConfigureWebSocketConnectionOptions(TransportTunnelConfig config, HttpConnectionOptions options);
 
     /// <summary>
-    /// Authentification for the tunnel - configure the connection ClientWebSocket
+    /// Authentication for the tunnel - configure the connection ClientWebSocket
     /// </summary>
     /// <param name="config">the related config</param>
     /// <param name="clientWebSocketocket">the used ClientWebSocket.</param>

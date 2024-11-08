@@ -74,7 +74,25 @@ internal partial class Program
                              options.RevocationMode = X509RevocationMode.NoCheck;
                              options.RevocationFlag = X509RevocationFlag.ExcludeRoot;
                              options.IgnoreSslPolicyErrors = SslPolicyErrors.RemoteCertificateChainErrors;
-                         });
+                         })
+                    .ConfigureCertificateManagerOptions(
+                        configure: (options) =>
+                        {
+                            options.CertificateRootPath = System.AppContext.BaseDirectory;
+                            options.CertificateRequirement = options.CertificateRequirement with
+                            {
+                                AllowCertificateSelfSigned = true
+                            };
+                        }
+                    ).ConfigureTunnelAuthenticationCertificateOptions(
+                        configure: (options) =>
+                        {
+                            options.CertificateRequirement = options.CertificateRequirement with
+                            {
+                                AllowCertificateSelfSigned = true
+                            };
+                        }
+                    );
             }
 
             if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationJwtBearer)

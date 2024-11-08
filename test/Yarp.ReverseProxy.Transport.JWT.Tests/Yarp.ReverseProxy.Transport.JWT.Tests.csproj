@@ -8,10 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="..\TestCertificates\*.*" LinkBase="TestCertificates" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="validSelfSignedClientEkuCertificate.cer">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <Content Include="..\TestCertificates\*.*" Exclude="..\TestCertificates\*.ps1" LinkBase="TestCertificates" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,12 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\ReverseProxy.Transport.JWT\Yarp.ReverseProxy.Transport.JWT.csproj" />
     <ProjectReference Include="..\..\src\ReverseProxy\Yarp.ReverseProxy.csproj" />
     <ProjectReference Include="..\Tests.Common\Yarp.Tests.Common.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Update="..\TestCertificates\localhostclient1.pfx" Link="localhostclient1.pfx" />
   </ItemGroup>
 
 </Project>

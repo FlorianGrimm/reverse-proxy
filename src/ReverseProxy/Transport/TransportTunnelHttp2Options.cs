@@ -26,12 +26,12 @@ public sealed class TransportTunnelHttp2Options
     public int MaxConnectionCount { get; set; } = 10;
 
     /// <summary>
-    /// Allows Authentification for the tunnel.
+    /// Allows Authentication for the tunnel.
     /// </summary>
     public Func<TransportTunnelConfig, SocketsHttpHandler, ITransportTunnelHttp2Authenticator, ValueTask>? ConfigureSocketsHttpHandlerAsync { get; set; }
 
     /// <summary>
-    /// Allows Authentification for the tunnel.
+    /// Allows Authentication for the tunnel.
     /// </summary>
     public Func<TransportTunnelConfig, HttpRequestMessage, ValueTask>? ConfigureHttpRequestMessageAsync { get; set; }
 }

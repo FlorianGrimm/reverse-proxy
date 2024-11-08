@@ -1,66 +1,69 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading.Tasks;
 
-using Yarp.ReverseProxy.Configuration;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace Yarp.ReverseProxy.Utilities;
 
-public class CertificateRequestCollectionDictionary(
+/// <summary>
+/// Cache for <see cref="CertificateRequestCollection"/>.
+/// </summary>
+/// <param name="certificateManager">The certificateManager.</param>
+/// <param name="prefix">The prefix for id.</param>
+/// <param name="certificateRequirement">The default requirement.</param>
+/// <param name="convertConfiguration">convert</param>
+public sealed class CertificateRequestCollectionDictionary(
     ICertificateManager certificateManager,
     string prefix,
-    CertificateRequirement certificateRequirement
+    CertificateRequirement certificateRequirement,
+    Func<CertificateRequirement, CertificateRequirement>? convertConfiguration
     )
 {
     private readonly ICertificateManager _certificateManager = certificateManager;
     private readonly string _prefix = prefix;
     private readonly CertificateRequirement _certificateRequirement = certificateRequirement;
-
+    private readonly Func<CertificateRequirement, CertificateRequirement>? _convertConfiguration = convertConfiguration;
     private readonly ConcurrentDictionary<string, CertificateRequestCollection> _certificateRequestCollectionById = new();
 
+    /// <summary>
+    /// Gets the collection of certificate request collections by id.
+    /// </summary>
+    public ConcurrentDictionary<string, CertificateRequestCollection> GetCertificateRequestCollectionById() => _certificateRequestCollectionById;
+
+    /// <summary>
+    /// Gets the collection of certificate request collections by id.
+    /// </summary>
     public CertificateRequestCollection GetOrAddConfiguration(
-        string id,
-        CertificateConfig? clientCertificate,
-        List<CertificateConfig>? clientCertificates,
-        X509Certificate2Collection? clientCertificateCollection
+        CertificateRequestCollectionParameter parameter
         )
     {
-        if (_certificateRequestCollectionById.TryGetValue(id, out var result))
+        if (_certificateRequestCollectionById.TryGetValue(parameter.Id, out var result))
         {
             return result;
         }
 
         lock (_certificateRequestCollectionById)
         {
-            if (_certificateRequestCollectionById.TryGetValue(id, out result))
+            if (_certificateRequestCollectionById.TryGetValue(parameter.Id, out result))
             {
                 return result;
             }
             {
-                result = Create(id, clientCertificates, clientCertificate, clientCertificateCollection);
+                var requirement = CertificateRequirementUtility.CombineQ(_certificateRequirement, parameter.CertificateRequirement);
+                if (_convertConfiguration is { } convertConfiguration) {
+                    requirement = convertConfiguration(requirement);
+                }
+                result = _certificateManager.AddConfiguration(
+                    id: $"{_prefix}/{parameter.Id}",
+                    certificateConfig: parameter.CertificateConfig,
+                    certificateConfigs: parameter.CertificateConfigs,
+                    x509Certificate2s: parameter.CertificateCollection,
+                    requirement: requirement
+                    );
                 _certificateManager.AddRequestCollection(result);
-                _ = _certificateRequestCollectionById.TryAdd(id, result);
+                _ = _certificateRequestCollectionById.TryAdd(parameter.Id, result);
                 return result;
             }
         }
-    }
-
-    protected CertificateRequestCollection Create(
-        string id,
-        List<CertificateConfig>? clientCertificates,
-        CertificateConfig? clientCertificate,
-        X509Certificate2Collection? clientCertificateCollection)
-    {
-        var result = _certificateManager.AddConfiguration(
-            $"{_prefix}/{id}",
-            clientCertificate,
-            clientCertificates,
-            clientCertificateCollection,
-            _certificateRequirement);
-        return result;
     }
 }

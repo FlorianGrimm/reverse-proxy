@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using Yarp.ReverseProxy.Utilities;
@@ -24,11 +25,11 @@ public static class ReverseProxyBuilderServiceCollectionExtensions
 
     public static IReverseProxyBuilder ConfigureReverseProxyCertificateManager(
         this IReverseProxyBuilder reverseProxyBuilder,
-        Action<CertificateManagerOptions>? configure = default,
-        string? sectionName = default
+       IConfiguration? configuration = default,
+       Action<CertificateManagerOptions>? configure = default
     )
     {
-        reverseProxyBuilder.Services.ConfigureReverseProxyCertificateManager(configure, sectionName);
+        reverseProxyBuilder.Services.ConfigureReverseProxyCertificateManager(configuration, configure);
         return reverseProxyBuilder;
     }
 }

@@ -54,7 +54,7 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
     public const string AuthenticationScheme = "Certificate";
     public const string AuthenticationName = "ClientCertificate";
     public const string CookieName = "YarpTunnelAuth";
-    private readonly ClientCertificateValidationUtility _clientCertificateValidationUtility;
+    private readonly ClientCertificateValidationWebSocket _certificateValidation;
     private readonly TunnelAuthenticationCertificateOptions _options;
     private readonly ILazyRequiredServiceResolver<IProxyStateLookup> _proxyConfigManagerLazy;
     private readonly ITunnelAuthenticationCookieService _cookieService;
@@ -66,7 +66,6 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
     public TunnelAuthenticationCertificateWebSocket(
         IOptions<TunnelAuthenticationCertificateOptions> options,
         ILazyRequiredServiceResolver<IProxyStateLookup> proxyConfigManagerLazy,
-        ClientCertificateValidationUtility clientCertificateValidationUtility,
         ITunnelAuthenticationCookieService cookieService,
         ICertificateManager certificateManager,
         ILogger<TunnelAuthenticationCertificateWebSocket> logger
@@ -74,21 +73,27 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
     {
         _options = options.Value;
         _proxyConfigManagerLazy = proxyConfigManagerLazy;
-        _clientCertificateValidationUtility = clientCertificateValidationUtility;
+        _certificateValidation = new ClientCertificateValidationWebSocket(
+            new ClientCertificateValidationWebSocketOptions()
+            {
+                CustomValidation = _options.CustomValidation,
+                IgnoreSslPolicyErrors = _options.IgnoreSslPolicyErrors
+            },
+            logger
+            );
         _cookieService = cookieService;
         _certificateManager = certificateManager;
         _logger = logger;
 
-#warning TODO
-        var certificateRequirement = new CertificateRequirement(
-            ClientCertificate: true,
-            SignCertificate: false,
-            NeedPrivateKey: true,
-            RevocationFlag: X509RevocationFlag.EntireChain,
-            RevocationMode: X509RevocationMode.NoCheck,
-            VerificationFlags: X509VerificationFlags.NoFlag);
-        _clientCertificateCollectionByTunnelId = new CertificateRequestCollectionDictionary(certificateManager, nameof(TunnelAuthenticationCertificateWebSocket), certificateRequirement);
+        _clientCertificateCollectionByTunnelId = new CertificateRequestCollectionDictionary(
+            certificateManager,
+            nameof(TunnelAuthenticationCertificateWebSocket),
+            _options.CertificateRequirement,
+            adjustRequirement);
     }
+
+    private static CertificateRequirement adjustRequirement(CertificateRequirement requirement)
+        => requirement with { ClientCertificate = true, NeedPrivateKey = true };
 
     public string GetAuthenticationMode() => AuthenticationName;
 
@@ -111,7 +116,7 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
     internal void ConfigureHttpsConnectionAdapterOptions(HttpsConnectionAdapterOptions httpsOptions)
     {
         httpsOptions.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
-        httpsOptions.ClientCertificateValidation = _clientCertificateValidationUtility.ClientCertificateValidationCallback;
+        httpsOptions.ClientCertificateValidation = _certificateValidation.ClientCertificateValidationCallback;
         if (_options.CheckCertificateRevocation.HasValue)
         {
             httpsOptions.CheckCertificateRevocation = _options.CheckCertificateRevocation.Value;
@@ -170,31 +175,45 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
             return false;
         }
 
-        var certificateRequestCollection = _clientCertificateCollectionByTunnelId.GetOrAddConfiguration(
-            cluster.ClusterId,
-            config.Authentication.ClientCertificate,
-            config.Authentication.ClientCertificates,
-            config.Authentication.ClientCertificateCollection);
-        using var shareCurrentCertificateCollection = _certificateManager.GetCertificateCollection(certificateRequestCollection);
-        if (!(shareCurrentCertificateCollection?.Value is { Count: > 0 } currentCertificateCollection))
+        var parameter = config.Authentication.ToParameter(cluster.ClusterId);
+        if (parameter.IsEmpty())
         {
-            _logger.LogWarning("No certificates for cluster {ClusterId}.", cluster.ClusterId);
-            return false;
-        }
-
-        foreach (var clusterCertificate in currentCertificateCollection)
-        {
-            if (string.Equals(clusterCertificate.Thumbprint, clientCertificate.Thumbprint, System.StringComparison.Ordinal)
-                && clusterCertificate.Equals(clientCertificate))
+            if (!ValidateCertificateAsync(clientCertificate))
             {
-                Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, AuthenticationName, clusterCertificate.Subject);
-                return true;
+                Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, AuthenticationName, clientCertificate.Subject);
+                return false;
             }
-        }
 
+            return true;
+        }
+        else
         {
-            Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, clientCertificate.Subject);
-            return false;
+            var certificateRequestCollection = _clientCertificateCollectionByTunnelId.GetOrAddConfiguration(parameter);
+
+            using (var shareCurrentCertificateCollection = _certificateManager.GetCertificateCollection(certificateRequestCollection))
+            {
+                if (!(shareCurrentCertificateCollection?.Value is { Count: > 0 } currentCertificateCollection))
+                {
+                    _logger.LogWarning("No certificates for cluster {ClusterId}.", cluster.ClusterId);
+                    return false;
+                }
+
+                var clientCertificateThumbprint = clientCertificate.Thumbprint;
+                foreach (var clusterCertificate in currentCertificateCollection)
+                {
+                    if (string.Equals(clusterCertificate.Thumbprint, clientCertificateThumbprint, System.StringComparison.Ordinal)
+                        && clusterCertificate.Equals(clientCertificate))
+                    {
+                        Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, AuthenticationName, clusterCertificate.Subject);
+                        return true;
+                    }
+                }
+
+                {
+                    Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, AuthenticationName, clientCertificate.Subject);
+                    return false;
+                }
+            }
         }
     }
 

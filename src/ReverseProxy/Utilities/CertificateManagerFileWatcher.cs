@@ -81,6 +81,14 @@ internal class CertificateManagerFileWatcher
 
     private bool _disposed;
 
+    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
+    public CertificateManagerFileWatcher(
+        ILogger<CertificateManagerFileWatcher> logger)
+        : this(
+            logger,
+            null)
+    { }
+
     public CertificateManagerFileWatcher(
         ILogger logger)
         : this(

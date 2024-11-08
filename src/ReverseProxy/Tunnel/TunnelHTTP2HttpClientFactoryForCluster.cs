@@ -49,7 +49,7 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
 
         if (!string.Equals(clusterId, _clusterId, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Unexpected clusterid");
+            throw new InvalidOperationException("Unexpected clusterId");
         }
 
         if (CanReuseOldClient(context))

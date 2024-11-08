@@ -24,7 +24,6 @@ public class CertificateManagerPeriodicalRefreshTests
         _output = output;
     }
 
-    //[SupportedOSPlatform("windows")]
     [Fact]
     public void CertificateManagerFromStore()
     {
@@ -87,4 +86,90 @@ public class CertificateManagerPeriodicalRefreshTests
             Assert.Equal(1, certificateCollection.Value.Count);
         }
     }
+
+    [Fact]
+    public void CertificateManagerFromFile()
+    {
+        if (!OperatingSystem.IsWindows()) { return; }
+
+        var services = new ServiceCollection();
+        services.AddLogging(b =>
+        {
+            b.SetMinimumLevel(LogLevel.Trace);
+            b.Services.AddSingleton<ILoggerProvider>(new TestLoggerProvider(_output));
+        });
+        services.AddSingleton<ICertificatePasswordProvider, CertificatePasswordProvider>();
+        services.AddTransient<ICertificateStoreLoader, CertificateStoreLoader>();
+        services.AddTransient<ICertificateFileLoader, CertificateFileLoader>();
+        services.AddSingleton<CertificateManagerPeriodicalRefresh>();
+        services.AddOptions<CertificateManagerOptions>().Configure(
+            options =>
+            {
+                options.CertificateRootPath = System.AppContext.BaseDirectory;
+                options.CertificateRequirement = options.CertificateRequirement with
+                {
+                    AllowCertificateSelfSigned = true,
+                    RevocationFlag = System.Security.Cryptography.X509Certificates.X509RevocationFlag.EndCertificateOnly,
+                    RevocationMode = System.Security.Cryptography.X509Certificates.X509RevocationMode.NoCheck,
+                    VerificationFlags = System.Security.Cryptography.X509Certificates.X509VerificationFlags.AllFlags,
+                };
+            });
+        services.AddHttpForwarder();
+        var provider = services.BuildServiceProvider();
+
+        var fakeTimeProvider = new FakeTimeProvider();
+        fakeTimeProvider.SetUtcNow(
+            new DateTimeOffset(new DateTime(2024, 07, 01),
+            fakeTimeProvider.LocalTimeZone.BaseUtcOffset));
+
+        var certificateManager = provider.GetRequiredService<CertificateManagerPeriodicalRefresh>();
+        certificateManager.TimeProvider = fakeTimeProvider;
+        var request = new CertificateRequest(
+            "test",
+            null,
+            default,
+            new CertificateFileRequest(
+                Path: "localhostclient1.pfx",
+                KeyPath: null,
+                Password: "testPassword1"),
+            new CertificateRequirement(
+                ClientCertificate: false,
+                SignCertificate: false,
+                NeedPrivateKey: false,
+                RevocationFlag: System.Security.Cryptography.X509Certificates.X509RevocationFlag.EntireChain,
+                RevocationMode: System.Security.Cryptography.X509Certificates.X509RevocationMode.NoCheck,
+                VerificationFlags: System.Security.Cryptography.X509Certificates.X509VerificationFlags.NoFlag
+            ));
+        var requestCollection = new CertificateRequestCollection("test", [request], null);
+        var removeRequestCollection = certificateManager.AddRequestCollection(requestCollection);
+        Assert.NotEqual("localhostclient1.pfx", requestCollection.CertificateRequests[0].FileRequest.Value.Path);
+        
+        DateTime notAfter;
+        {
+            using (var certificateCollection = certificateManager.GetCertificateCollection(requestCollection))
+            {
+                var value = certificateCollection.Value;
+                if (value is null) { return; }
+
+                Assert.True(1 == value.Count);
+                notAfter = value[0].NotAfter;
+            }
+        }
+        
+        fakeTimeProvider.SetUtcNow(
+            new DateTimeOffset(
+                notAfter,
+                fakeTimeProvider.LocalTimeZone.BaseUtcOffset));
+
+        //certificateManager.Refresh(false);
+
+        {
+            using (var certificateCollection = certificateManager.GetCertificateCollection(request))
+            {
+                Assert.NotNull(certificateCollection.Value);
+                Assert.True(0 == certificateCollection.Value.Count);
+            }
+        }
+    }
+
 }

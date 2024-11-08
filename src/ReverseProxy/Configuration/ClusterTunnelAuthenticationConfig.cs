@@ -3,92 +3,83 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography.X509Certificates;
+
+using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Configuration;
 
+/// <summary>
+/// Cluster tunnel authentication configuration.
+/// </summary>
 public sealed record ClusterTunnelAuthenticationConfig
 {
+    /// <summary>
+    /// The authentication mode. e.g. "Certificate".
+    /// </summary>
     public string? Mode { get; init; }
 
-    public List<CertificateConfig> ClientCertificates { get; init; } = [];
-
+    /// <summary>
+    /// The client certificate.
+    /// </summary>
     public CertificateConfig? ClientCertificate { get; init; }
+
+    /// <summary>
+    /// A list of client certificates.
+    /// </summary>
+    public List<CertificateConfig> ClientCertificates { get; init; } = [];
 
     /// <summary>
     /// for in-memory configuration
     /// </summary>
     public X509Certificate2Collection? ClientCertificateCollection { get; init; }
 
+    /// <summary>
+    /// Gets or sets the certificate requirement.
+    /// </summary>
+    public CertificateRequirement CertificateRequirement { get; set; } = new CertificateRequirement();
+
+    /// <summary>
+    /// Gets or sets the user names, that is allowed.
+    /// </summary>
     public string[]? UserNames { get; init; }
 
     public bool Equals(ClusterTunnelAuthenticationConfig? other)
     {
-        if (other is null)
-        {
-            return false;
-        }
+        if (other is null) { return false; }
+        if (ReferenceEquals(this, other)) { return true; }
 
-        if (!string.Equals(Mode, other.Mode, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
 
-        {
-            if (ClientCertificate is null && other.ClientCertificate is null)
-            {
-                // OK
-            }
-            if (ClientCertificate is null || other.ClientCertificate is null)
-            {
-                return false;
-            }
-            if (!ClientCertificate.Equals(other.ClientCertificate))
-            {
-                return false;
-            }
-        }
-
-        {
-            if (ClientCertificates.Count != other.ClientCertificates.Count)
-            {
-                return false;
-            }
-            for (var index = 0; index < ClientCertificates.Count; index++)
-            {
-                if (!ClientCertificates[index].Equals(other.ClientCertificates[index]))
-                {
-                    return false;
-                }
-            }
-        }
-
-        {
-            if (ClientCertificateCollection is null && other.ClientCertificateCollection is null)
-            {
-            }
-
-            if (ClientCertificateCollection is null || other.ClientCertificateCollection is null)
-            {
-                return false;
-            }
-
-            for (var index = 0; index < ClientCertificates.Count; index++)
-            {
-                if (!ClientCertificateCollection[index].Equals(other.ClientCertificateCollection[index]))
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
+        return string.Equals(Mode, other.Mode, StringComparison.OrdinalIgnoreCase)
+            && CertificateConfigUtility.EqualCertificateConfigQ(ClientCertificate, other.ClientCertificate)
+            && CertificateConfigUtility.EqualCertificateConfigsQ(ClientCertificates, other.ClientCertificates)
+            && CertificateConfigUtility.EqualCertificateCollectionQ(ClientCertificateCollection, other.ClientCertificateCollection)
+            && CertificateRequirement.Equals(other.CertificateRequirement)
+            && (UserNames ?? []).SequenceEqual(other.UserNames ?? [], StringComparer.OrdinalIgnoreCase);
+        ;
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(
-            Mode?.GetHashCode(StringComparison.OrdinalIgnoreCase),
-            ClientCertificate);
+        var result = new HashCode();
+        result.Add(Mode, StringComparer.OrdinalIgnoreCase);
+        result.Add(ClientCertificate);
+        result.Add(ClientCertificates);
+        result.Add(ClientCertificateCollection);
+        result.Add(CertificateRequirement);
+        foreach (var item in UserNames ?? [])
+        {
+            result.Add(item, StringComparer.OrdinalIgnoreCase);
+        }
+        return result.ToHashCode();
     }
+
+    public CertificateRequestCollectionParameter ToParameter(string id)
+        => new CertificateRequestCollectionParameter(
+            id,
+            ClientCertificate,
+            ClientCertificates,
+            ClientCertificateCollection,
+            CertificateRequirement);
 }

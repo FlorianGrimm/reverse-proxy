@@ -2,6 +2,7 @@ using System;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace Yarp.ReverseProxy.Utilities;
@@ -10,6 +11,7 @@ public class RSACertificatePasswordOptions
 {
     public RSAEncryptionPadding RSAEncryptionPadding { get; set; } = RSAEncryptionPadding.OaepSHA256;
     public X509Certificate2? Certificate { get; set; }
+
 }
 
 public class RSACertificatePasswordProvider

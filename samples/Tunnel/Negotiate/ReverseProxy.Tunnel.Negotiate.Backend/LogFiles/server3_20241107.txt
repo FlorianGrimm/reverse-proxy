@@ -1,0 +1,241 @@
+2024-11-07 23:19:57.516 +01:00 [Information] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: User profile is available. Using 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2024-11-07 23:19:58.027 +01:00 [Warning] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Directory '' does not exist so changes to the certificate 'myJwt2024.pfx' will not be tracked.
+2024-11-07 23:19:58.056 +01:00 [Debug] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Created directory watcher for 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0'.
+2024-11-07 23:19:58.061 +01:00 [Debug] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Created file watcher for 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0\myJwt2024.pfx'.
+2024-11-07 23:19:58.062 +01:00 [Trace] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Added observer to file watcher for 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0\myJwt2024.pfx'.
+2024-11-07 23:19:58.064 +01:00 [Trace] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: File 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0\myJwt2024.pfx' now has 1 observers.
+2024-11-07 23:19:58.069 +01:00 [Trace] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Directory 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0' now has watchers on 1 files.
+2024-11-07 23:20:04.386 +01:00 [Trace] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Reused existing observer on file watcher for 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0\myJwt2024.pfx'.
+2024-11-07 23:20:04.429 +01:00 [Information] Yarp.ReverseProxy.Configuration.ConfigProvider.ConfigurationConfigProvider: Loading proxy data from config.
+2024-11-07 23:20:04.501 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Destination 'alpha' has been added.
+2024-11-07 23:20:04.538 +01:00 [Debug] Yarp.ReverseProxy.Forwarder.ForwarderHttpClientFactory: New client created for cluster 'alpha'.
+2024-11-07 23:20:04.539 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Cluster 'alpha' has been added.
+2024-11-07 23:20:04.570 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Destination 'gamma/destination1' has been added.
+2024-11-07 23:20:04.571 +01:00 [Debug] Yarp.ReverseProxy.Forwarder.ForwarderHttpClientFactory: New client created for cluster 'gamma'.
+2024-11-07 23:20:04.571 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Cluster 'gamma' has been added.
+2024-11-07 23:20:04.579 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Route 'routeBEalpha' has been added.
+2024-11-07 23:20:04.579 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Route 'routeBEgamma' has been added.
+2024-11-07 23:20:04.579 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Route 'routeBEroot' has been added.
+2024-11-07 23:20:04.614 +01:00 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting starting
+2024-11-07 23:20:04.631 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-577d9a92-fa91-4165-8833-f05d946bc2c5.xml'.
+2024-11-07 23:20:04.678 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-788ab0d4-9e6c-42b3-b9c4-4351d926df61.xml'.
+2024-11-07 23:20:04.699 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-9f2531df-641f-425a-880e-235532ee7350.xml'.
+2024-11-07 23:20:04.715 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-b8d58b5a-cc7f-4f5e-8381-7b13d57a382e.xml'.
+2024-11-07 23:20:04.730 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-ef70c6ba-cbe8-42f2-9a8f-4878df7da475.xml'.
+2024-11-07 23:20:04.762 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {577d9a92-fa91-4165-8833-f05d946bc2c5}.
+2024-11-07 23:20:04.775 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {788ab0d4-9e6c-42b3-b9c4-4351d926df61}.
+2024-11-07 23:20:04.775 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {9f2531df-641f-425a-880e-235532ee7350}.
+2024-11-07 23:20:04.775 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {b8d58b5a-cc7f-4f5e-8381-7b13d57a382e}.
+2024-11-07 23:20:04.775 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {ef70c6ba-cbe8-42f2-9a8f-4878df7da475}.
+2024-11-07 23:20:04.782 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.DefaultKeyResolver: Considering key {b8d58b5a-cc7f-4f5e-8381-7b13d57a382e} with expiration date 2025-01-14 23:07:27Z as default key.
+2024-11-07 23:20:04.790 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.TypeForwardingActivator: Forwarded activator type request from Microsoft.AspNetCore.DataProtection.XmlEncryption.DpapiXmlDecryptor, Microsoft.AspNetCore.DataProtection, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60 to Microsoft.AspNetCore.DataProtection.XmlEncryption.DpapiXmlDecryptor, Microsoft.AspNetCore.DataProtection, Culture=neutral, PublicKeyToken=adb9793829ddae60
+2024-11-07 23:20:04.791 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.XmlEncryption.DpapiXmlDecryptor: Decrypting secret element using Windows DPAPI.
+2024-11-07 23:20:04.793 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.TypeForwardingActivator: Forwarded activator type request from Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel.AuthenticatedEncryptorDescriptorDeserializer, Microsoft.AspNetCore.DataProtection, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60 to Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel.AuthenticatedEncryptorDescriptorDeserializer, Microsoft.AspNetCore.DataProtection, Culture=neutral, PublicKeyToken=adb9793829ddae60
+2024-11-07 23:20:04.794 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.CngCbcAuthenticatedEncryptorFactory: Opening CNG algorithm 'AES' from provider '(null)' with chaining mode CBC.
+2024-11-07 23:20:04.795 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.CngCbcAuthenticatedEncryptorFactory: Opening CNG algorithm 'SHA256' from provider '(null)' with HMAC.
+2024-11-07 23:20:04.797 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.KeyRingProvider: Using key {b8d58b5a-cc7f-4f5e-8381-7b13d57a382e} as the default key.
+2024-11-07 23:20:04.798 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Internal.DataProtectionHostedService: Key ring with default key {b8d58b5a-cc7f-4f5e-8381-7b13d57a382e} was loaded during application startup.
+2024-11-07 23:20:05.040 +01:00 [Warning] Microsoft.AspNetCore.Server.Kestrel: Overriding address(es) 'https://localhost:5003'. Binding to endpoints defined via IConfiguration and/or UseKestrel() instead.
+2024-11-07 23:20:05.093 +01:00 [Debug] Yarp.ReverseProxy.Transport.TransportTunnelHttp2ConnectionListener: Tunnel 'tunnel5001alpha' create HttpMessageInvoker for 'https://localhost:5001'.
+2024-11-07 23:20:05.123 +01:00 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://https://localhost:5001/_Tunnel/H2/Negotiate/alpha#tunnel5001alpha
+2024-11-07 23:20:05.125 +01:00 [Information] Microsoft.Hosting.Lifetime: Now listening on: https://localhost:5003
+2024-11-07 23:20:05.126 +01:00 [Debug] Microsoft.AspNetCore.Hosting.Diagnostics: Loaded hosting startup assembly ReverseProxy.Tunnel.Negotiate.Backend
+2024-11-07 23:20:05.126 +01:00 [Debug] Microsoft.AspNetCore.Hosting.Diagnostics: Loaded hosting startup assembly Microsoft.WebTools.ApiEndpointDiscovery
+2024-11-07 23:20:05.126 +01:00 [Debug] Microsoft.AspNetCore.Hosting.Diagnostics: Loaded hosting startup assembly Microsoft.AspNetCore.Watch.BrowserRefresh
+2024-11-07 23:20:05.126 +01:00 [Debug] Microsoft.AspNetCore.Hosting.Diagnostics: Loaded hosting startup assembly Microsoft.WebTools.BrowserLink.Net
+2024-11-07 23:20:05.172 +01:00 [Information] Microsoft.AspNetCore.Mvc.Infrastructure.DefaultActionDescriptorCollectionProvider: No action descriptors found. This may indicate an incorrectly configured application or missing application parts. To learn more, visit https://aka.ms/aspnet/mvc/app-parts
+2024-11-07 23:20:05.204 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VF9ABB282" accepted.
+2024-11-07 23:20:05.205 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VF9ABB282" started.
+2024-11-07 23:20:05.236 +01:00 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2024-11-07 23:20:05.238 +01:00 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Development
+2024-11-07 23:20:05.240 +01:00 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\github.com\FlorianGrimm\reverse-proxy\samples\Tunnel\Negotiate\ReverseProxy.Tunnel.Negotiate.Backend
+2024-11-07 23:20:05.240 +01:00 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting started
+2024-11-07 23:20:05.244 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets: Connection id "0HN7VF9ABB282" received FIN.
+2024-11-07 23:20:05.473 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Https.Internal.HttpsConnectionMiddleware: Failed to authenticate HTTPS connection.System.IO.IOException: Received an unexpected EOF or 0 bytes from the transport stream.;    at System.Net.Security.SslStream.ReceiveHandshakeFrameAsync[TIOAdapter](CancellationToken cancellationToken);    at System.Net.Security.SslStream.ForceAuthenticationAsync[TIOAdapter](Boolean receiveFirst, Byte[] reAuthenticationData, CancellationToken cancellationToken);    at System.Net.Security.SslStream.ProcessAuthenticationWithTelemetryAsync(Boolean isAsync, CancellationToken cancellationToken);    at Microsoft.AspNetCore.Server.Kestrel.Https.Internal.HttpsConnectionMiddleware.OnConnectionAsync(ConnectionContext context)
+2024-11-07 23:20:05.527 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VF9ABB282" stopped.
+2024-11-07 23:20:05.529 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets: Connection id "0HN7VF9ABB282" sending FIN because: "The Socket transport's send loop completed gracefully."
+2024-11-07 23:20:06.777 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VF9ABB283" accepted.
+2024-11-07 23:20:06.778 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VF9ABB283" started.
+2024-11-07 23:20:06.787 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VF9ABB284" accepted.
+2024-11-07 23:20:06.788 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VF9ABB284" started.
+2024-11-07 23:20:06.860 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets: Connection id "0HN7VF9ABB283" received FIN.
+2024-11-07 23:20:06.872 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Https.Internal.HttpsConnectionMiddleware: Connection 0HN7VF9ABB283 established using the following protocol: Tls12
+2024-11-07 23:20:06.872 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Https.Internal.HttpsConnectionMiddleware: Connection 0HN7VF9ABB284 established using the following protocol: Tls12
+2024-11-07 23:20:06.908 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Http2: Connection id "0HN7VF9ABB283" is closed. The last processed stream ID was 0.
+2024-11-07 23:20:06.908 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets: Connection id "0HN7VF9ABB283" sending FIN because: "The Socket transport's send loop completed gracefully."
+2024-11-07 23:20:06.921 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Http2: The connection queue processing loop for 0HN7VF9ABB283 completed.
+2024-11-07 23:20:06.926 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VF9ABB283" stopped.
+2024-11-07 23:20:06.921 +01:00 [Trace] Microsoft.AspNetCore.Server.Kestrel.Http2: Connection id "0HN7VF9ABB284" sending SETTINGS frame for stream ID 0 with length 24 and flags NONE.
+2024-11-07 23:20:06.929 +01:00 [Trace] Microsoft.AspNetCore.Server.Kestrel.Http2: Connection id "0HN7VF9ABB284" sending WINDOW_UPDATE frame for stream ID 0 with length 4 and flags 0x0.
+2024-11-07 23:20:06.929 +01:00 [Trace] Microsoft.AspNetCore.Server.Kestrel.Http2: Connection id "0HN7VF9ABB284" received SETTINGS frame for stream ID 0 with length 24 and flags NONE.
+2024-11-07 23:20:06.930 +01:00 [Trace] Microsoft.AspNetCore.Server.Kestrel.Http2: Connection id "0HN7VF9ABB284" sending SETTINGS frame for stream ID 0 with length 0 and flags ACK.
+2024-11-07 23:20:06.930 +01:00 [Trace] Microsoft.AspNetCore.Server.Kestrel.Http2: Connection id "0HN7VF9ABB284" received WINDOW_UPDATE frame for stream ID 0 with length 4 and flags 0x0.
+2024-11-07 23:20:06.930 +01:00 [Trace] Microsoft.AspNetCore.Server.Kestrel.Http2: Connection id "0HN7VF9ABB284" received HEADERS frame for stream ID 1 with length 483 and flags END_STREAM, END_HEADERS, PRIORITY.
+2024-11-07 23:20:06.962 +01:00 [Trace] Microsoft.AspNetCore.Server.Kestrel.Http2: Connection id "0HN7VF9ABB284" received SETTINGS frame for stream ID 0 with length 0 and flags ACK.
+2024-11-07 23:20:06.991 +01:00 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/2 GET https://localhost:5003/weatherforecast - - -
+2024-11-07 23:20:07.143 +01:00 [Debug] Microsoft.AspNetCore.HostFiltering.HostFilteringMiddleware: Wildcard detected, all requests with hosts will be allowed.
+2024-11-07 23:20:07.143 +01:00 [Trace] Microsoft.AspNetCore.HostFiltering.HostFilteringMiddleware: All hosts are allowed.
+2024-11-07 23:20:07.206 +01:00 [Debug] Microsoft.AspNetCore.Routing.Matching.DfaMatcher: 1 candidate(s) found for the request path '/weatherforecast'
+2024-11-07 23:20:07.215 +01:00 [Debug] Microsoft.AspNetCore.Routing.Matching.DfaMatcher: Endpoint 'routeBEroot' with route pattern '{**catch-all}' is valid for the request path '/weatherforecast'
+2024-11-07 23:20:07.218 +01:00 [Debug] Microsoft.AspNetCore.Routing.EndpointRoutingMiddleware: Request matched endpoint 'routeBEroot'
+2024-11-07 23:20:07.220 +01:00 [Trace] Microsoft.AspNetCore.Routing.EndpointRoutingMiddleware: The endpoint does not specify the IRequestSizeLimitMetadata.
+2024-11-07 23:20:07.252 +01:00 [Debug] Microsoft.AspNetCore.Authentication.Negotiate.NegotiateHandler: Negotiate is not supported with HTTP/2.
+2024-11-07 23:20:07.253 +01:00 [Debug] Microsoft.AspNetCore.Authentication.Negotiate.NegotiateHandler: AuthenticationScheme: Negotiate was not authenticated.
+2024-11-07 23:20:07.262 +01:00 [Debug] Microsoft.AspNetCore.Authorization.AuthorizationMiddleware: Policy authentication schemes  did not succeed
+2024-11-07 23:20:07.275 +01:00 [Information] Microsoft.AspNetCore.Authorization.DefaultAuthorizationService: Authorization failed. These requirements were not met:; DenyAnonymousAuthorizationRequirement: Requires an authenticated user.
+2024-11-07 23:20:07.280 +01:00 [Debug] Microsoft.AspNetCore.Authentication.Negotiate.NegotiateHandler: Challenged 401 Negotiate.
+2024-11-07 23:20:07.280 +01:00 [Information] Microsoft.AspNetCore.Authentication.Negotiate.NegotiateHandler: AuthenticationScheme: Negotiate was challenged.
+2024-11-07 23:20:07.285 +01:00 [Trace] Microsoft.AspNetCore.Server.Kestrel.Http2: Connection id "0HN7VF9ABB284" sending HEADERS frame for stream ID 1 with length 60 and flags END_STREAM, END_HEADERS.
+2024-11-07 23:20:07.285 +01:00 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/2 GET https://localhost:5003/weatherforecast - 401 0 - 303.1977ms
+2024-11-07 23:20:07.347 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VF9ABB285" accepted.
+2024-11-07 23:20:07.347 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VF9ABB285" started.
+2024-11-07 23:20:07.350 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Https.Internal.HttpsConnectionMiddleware: Connection 0HN7VF9ABB285 established using the following protocol: Tls12
+2024-11-07 23:20:07.352 +01:00 [Trace] Microsoft.AspNetCore.Server.Kestrel.Http2: Connection id "0HN7VF9ABB284" received RST_STREAM frame for stream ID 1 with length 4 and flags 0x0.
+2024-11-07 23:20:07.403 +01:00 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET https://localhost:5003/weatherforecast - - -
+2024-11-07 23:20:07.410 +01:00 [Trace] Microsoft.AspNetCore.HostFiltering.HostFilteringMiddleware: All hosts are allowed.
+2024-11-07 23:20:07.411 +01:00 [Debug] Microsoft.AspNetCore.Routing.Matching.DfaMatcher: 1 candidate(s) found for the request path '/weatherforecast'
+2024-11-07 23:20:07.411 +01:00 [Debug] Microsoft.AspNetCore.Routing.Matching.DfaMatcher: Endpoint 'routeBEroot' with route pattern '{**catch-all}' is valid for the request path '/weatherforecast'
+2024-11-07 23:20:07.412 +01:00 [Debug] Microsoft.AspNetCore.Routing.EndpointRoutingMiddleware: Request matched endpoint 'routeBEroot'
+2024-11-07 23:20:07.412 +01:00 [Trace] Microsoft.AspNetCore.Routing.EndpointRoutingMiddleware: The endpoint does not specify the IRequestSizeLimitMetadata.
+2024-11-07 23:20:07.420 +01:00 [Information] Microsoft.AspNetCore.Authentication.Negotiate.NegotiateHandler: Incomplete Negotiate handshake, sending an additional 401 Negotiate challenge.
+2024-11-07 23:20:07.441 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VF9ABB285" completed keep alive response.
+2024-11-07 23:20:07.441 +01:00 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request finished HTTP/1.1 GET https://localhost:5003/weatherforecast - 401 0 - 38.1470ms
+2024-11-07 23:20:07.511 +01:00 [Information] Microsoft.AspNetCore.Hosting.Diagnostics: Request starting HTTP/1.1 GET https://localhost:5003/weatherforecast - - -
+2024-11-07 23:20:07.516 +01:00 [Trace] Microsoft.AspNetCore.HostFiltering.HostFilteringMiddleware: All hosts are allowed.
+2024-11-07 23:20:07.516 +01:00 [Debug] Microsoft.AspNetCore.Routing.Matching.DfaMatcher: 1 candidate(s) found for the request path '/weatherforecast'
+2024-11-07 23:20:07.516 +01:00 [Debug] Microsoft.AspNetCore.Routing.Matching.DfaMatcher: Endpoint 'routeBEroot' with route pattern '{**catch-all}' is valid for the request path '/weatherforecast'
+2024-11-07 23:20:07.516 +01:00 [Debug] Microsoft.AspNetCore.Routing.EndpointRoutingMiddleware: Request matched endpoint 'routeBEroot'
+2024-11-07 23:20:07.516 +01:00 [Trace] Microsoft.AspNetCore.Routing.EndpointRoutingMiddleware: The endpoint does not specify the IRequestSizeLimitMetadata.
+2024-11-07 23:20:07.525 +01:00 [Debug] Microsoft.AspNetCore.Authentication.Negotiate.NegotiateHandler: Completed Negotiate authentication.
+2024-11-07 23:20:07.530 +01:00 [Debug] Microsoft.AspNetCore.Authentication.Negotiate.NegotiateHandler: AuthenticationScheme: Negotiate was successfully authenticated.
+2024-11-07 23:20:07.534 +01:00 [Debug] Microsoft.AspNetCore.Authorization.DefaultAuthorizationService: Authorization was successful.
+2024-11-07 23:20:07.535 +01:00 [Information] Microsoft.AspNetCore.Routing.EndpointMiddleware: Executing endpoint 'routeBEroot'
+2024-11-07 23:20:07.697 +01:00 [Information] Yarp.ReverseProxy.Forwarder.HttpForwarder: Proxying to https://localhost:5005/weatherforecast HTTP/2 RequestVersionOrLower 
+2024-11-07 23:25:22.396 +01:00 [Information] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: User profile is available. Using 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2024-11-07 23:25:22.541 +01:00 [Warning] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Directory '' does not exist so changes to the certificate 'myJwt2024.pfx' will not be tracked.
+2024-11-07 23:25:22.555 +01:00 [Debug] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Created directory watcher for 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0'.
+2024-11-07 23:25:22.559 +01:00 [Debug] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Created file watcher for 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0\myJwt2024.pfx'.
+2024-11-07 23:25:22.559 +01:00 [Trace] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Added observer to file watcher for 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0\myJwt2024.pfx'.
+2024-11-07 23:25:22.563 +01:00 [Trace] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: File 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0\myJwt2024.pfx' now has 1 observers.
+2024-11-07 23:25:22.567 +01:00 [Trace] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Directory 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0' now has watchers on 1 files.
+2024-11-07 23:25:22.572 +01:00 [Trace] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Reused existing observer on file watcher for 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0\myJwt2024.pfx'.
+2024-11-07 23:25:22.662 +01:00 [Information] Yarp.ReverseProxy.Configuration.ConfigProvider.ConfigurationConfigProvider: Loading proxy data from config.
+2024-11-07 23:25:22.825 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Destination 'alpha' has been added.
+2024-11-07 23:25:23.031 +01:00 [Debug] Yarp.ReverseProxy.Forwarder.ForwarderHttpClientFactory: New client created for cluster 'alpha'.
+2024-11-07 23:25:23.032 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Cluster 'alpha' has been added.
+2024-11-07 23:25:23.303 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Destination 'gamma/destination1' has been added.
+2024-11-07 23:25:23.303 +01:00 [Debug] Yarp.ReverseProxy.Forwarder.ForwarderHttpClientFactory: New client created for cluster 'gamma'.
+2024-11-07 23:25:23.303 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Cluster 'gamma' has been added.
+2024-11-07 23:25:23.315 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Route 'routeBEalpha' has been added.
+2024-11-07 23:25:23.315 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Route 'routeBEgamma' has been added.
+2024-11-07 23:25:23.315 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Route 'routeBEroot' has been added.
+2024-11-07 23:25:23.384 +01:00 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting starting
+2024-11-07 23:25:23.405 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-577d9a92-fa91-4165-8833-f05d946bc2c5.xml'.
+2024-11-07 23:25:23.424 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-788ab0d4-9e6c-42b3-b9c4-4351d926df61.xml'.
+2024-11-07 23:25:23.425 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-9f2531df-641f-425a-880e-235532ee7350.xml'.
+2024-11-07 23:25:23.426 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-b8d58b5a-cc7f-4f5e-8381-7b13d57a382e.xml'.
+2024-11-07 23:25:23.426 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-ef70c6ba-cbe8-42f2-9a8f-4878df7da475.xml'.
+2024-11-07 23:25:23.432 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {577d9a92-fa91-4165-8833-f05d946bc2c5}.
+2024-11-07 23:25:23.447 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {788ab0d4-9e6c-42b3-b9c4-4351d926df61}.
+2024-11-07 23:25:23.447 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {9f2531df-641f-425a-880e-235532ee7350}.
+2024-11-07 23:25:23.448 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {b8d58b5a-cc7f-4f5e-8381-7b13d57a382e}.
+2024-11-07 23:25:23.448 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {ef70c6ba-cbe8-42f2-9a8f-4878df7da475}.
+2024-11-07 23:25:23.457 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.DefaultKeyResolver: Considering key {b8d58b5a-cc7f-4f5e-8381-7b13d57a382e} with expiration date 2025-01-14 23:07:27Z as default key.
+2024-11-07 23:25:23.473 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.TypeForwardingActivator: Forwarded activator type request from Microsoft.AspNetCore.DataProtection.XmlEncryption.DpapiXmlDecryptor, Microsoft.AspNetCore.DataProtection, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60 to Microsoft.AspNetCore.DataProtection.XmlEncryption.DpapiXmlDecryptor, Microsoft.AspNetCore.DataProtection, Culture=neutral, PublicKeyToken=adb9793829ddae60
+2024-11-07 23:25:23.475 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.XmlEncryption.DpapiXmlDecryptor: Decrypting secret element using Windows DPAPI.
+2024-11-07 23:25:23.477 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.TypeForwardingActivator: Forwarded activator type request from Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel.AuthenticatedEncryptorDescriptorDeserializer, Microsoft.AspNetCore.DataProtection, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60 to Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel.AuthenticatedEncryptorDescriptorDeserializer, Microsoft.AspNetCore.DataProtection, Culture=neutral, PublicKeyToken=adb9793829ddae60
+2024-11-07 23:25:23.480 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.CngCbcAuthenticatedEncryptorFactory: Opening CNG algorithm 'AES' from provider '(null)' with chaining mode CBC.
+2024-11-07 23:25:23.482 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.CngCbcAuthenticatedEncryptorFactory: Opening CNG algorithm 'SHA256' from provider '(null)' with HMAC.
+2024-11-07 23:25:23.484 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.KeyRingProvider: Using key {b8d58b5a-cc7f-4f5e-8381-7b13d57a382e} as the default key.
+2024-11-07 23:25:23.486 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Internal.DataProtectionHostedService: Key ring with default key {b8d58b5a-cc7f-4f5e-8381-7b13d57a382e} was loaded during application startup.
+2024-11-07 23:25:23.805 +01:00 [Warning] Microsoft.AspNetCore.Server.Kestrel: Overriding address(es) 'https://localhost:5003'. Binding to endpoints defined via IConfiguration and/or UseKestrel() instead.
+2024-11-07 23:25:23.887 +01:00 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://https://localhost:5001/_Tunnel/H2/Negotiate/alpha#tunnel5001alpha
+2024-11-07 23:25:23.891 +01:00 [Information] Microsoft.Hosting.Lifetime: Now listening on: https://localhost:5003
+2024-11-07 23:25:23.892 +01:00 [Debug] Microsoft.AspNetCore.Hosting.Diagnostics: Loaded hosting startup assembly ReverseProxy.Tunnel.Negotiate.Backend
+2024-11-07 23:25:23.892 +01:00 [Debug] Microsoft.AspNetCore.Hosting.Diagnostics: Loaded hosting startup assembly Microsoft.WebTools.ApiEndpointDiscovery
+2024-11-07 23:25:23.892 +01:00 [Debug] Microsoft.AspNetCore.Hosting.Diagnostics: Loaded hosting startup assembly Microsoft.AspNetCore.Watch.BrowserRefresh
+2024-11-07 23:25:23.892 +01:00 [Debug] Microsoft.AspNetCore.Hosting.Diagnostics: Loaded hosting startup assembly Microsoft.WebTools.BrowserLink.Net
+2024-11-07 23:25:23.901 +01:00 [Debug] Yarp.ReverseProxy.Transport.TransportTunnelHttp2ConnectionListener: Tunnel 'tunnel5001alpha' create HttpMessageInvoker for 'https://localhost:5001'.
+2024-11-07 23:25:23.923 +01:00 [Information] Microsoft.AspNetCore.Mvc.Infrastructure.DefaultActionDescriptorCollectionProvider: No action descriptors found. This may indicate an incorrectly configured application or missing application parts. To learn more, visit https://aka.ms/aspnet/mvc/app-parts
+2024-11-07 23:25:24.053 +01:00 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2024-11-07 23:25:24.056 +01:00 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Development
+2024-11-07 23:25:24.060 +01:00 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\github.com\FlorianGrimm\reverse-proxy\samples\Tunnel\Negotiate\ReverseProxy.Tunnel.Negotiate.Backend
+2024-11-07 23:25:24.060 +01:00 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting started
+2024-11-07 23:25:24.196 +01:00 [Information] Yarp.ReverseProxy.Transport.TransportTunnelHttp2AuthenticatorNegotiate: ConfigureHttpRequestMessageAsync: https://localhost:5001/_Tunnel/H2/Negotiate/alpha success
+2024-11-07 23:25:24.205 +01:00 [Debug] Yarp.ReverseProxy.Transport.TransportTunnelHttp2ConnectionListener: Send Transport Tunnel 'tunnel5001alpha' POST https://localhost:5001/_Tunnel/H2/Negotiate/alpha (null).
+2024-11-07 23:25:24.242 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets: Connection id "0HN7VFC9DTII0" received FIN.
+2024-11-07 23:25:24.250 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VFC9DTII0" accepted.
+2024-11-07 23:25:24.252 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VFC9DTII0" started.
+2024-11-07 23:25:24.814 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VFC9DTII1" accepted.
+2024-11-07 23:25:24.815 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VFC9DTII1" started.
+2024-11-07 23:25:36.442 +01:00 [Debug] Yarp.ReverseProxy.Transport.TransportTunnelHttp2ConnectionListener: Failed to connect to tunnel 'tunnel5001alpha' at 'https://localhost:5001' TunnelHTTP2.
+2024-11-07 23:25:36.695 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Https.Internal.HttpsConnectionMiddleware: Authentication of the HTTPS connection timed out.
+2024-11-07 23:25:24.548 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Https.Internal.HttpsConnectionMiddleware: Failed to authenticate HTTPS connection.System.IO.IOException: Received an unexpected EOF or 0 bytes from the transport stream.;    at System.Net.Security.SslStream.ReceiveHandshakeFrameAsync[TIOAdapter](CancellationToken cancellationToken);    at System.Net.Security.SslStream.ForceAuthenticationAsync[TIOAdapter](Boolean receiveFirst, Byte[] reAuthenticationData, CancellationToken cancellationToken);    at Microsoft.AspNetCore.Server.Kestrel.Https.Internal.HttpsConnectionMiddleware.OnConnectionAsync(ConnectionContext context)
+2024-11-07 23:25:36.714 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VFC9DTII0" stopped.
+2024-11-07 23:25:36.715 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VFC9DTII1" stopped.
+2024-11-07 23:25:36.715 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets: Connection id "0HN7VFC9DTII0" sending FIN because: "The Socket transport's send loop completed gracefully."
+2024-11-07 23:25:36.715 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets: Connection id "0HN7VFC9DTII1" sending FIN because: "The Socket transport's send loop completed gracefully."
+2024-11-07 23:25:37.172 +01:00 [Information] Yarp.ReverseProxy.Transport.TransportTunnelHttp2AuthenticatorNegotiate: ConfigureHttpRequestMessageAsync: https://localhost:5001/_Tunnel/H2/Negotiate/alpha success
+2024-11-07 23:25:37.172 +01:00 [Debug] Yarp.ReverseProxy.Transport.TransportTunnelHttp2ConnectionListener: Send Transport Tunnel 'tunnel5001alpha' POST https://localhost:5001/_Tunnel/H2/Negotiate/alpha (null).
+2024-11-07 23:25:42.938 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VFC9DTII2" accepted.
+2024-11-07 23:25:44.228 +01:00 [Debug] Yarp.ReverseProxy.Transport.TransportTunnelHttp2ConnectionListener: Failed to connect to tunnel 'tunnel5001alpha' at 'https://localhost:5001' TunnelHTTP2.
+2024-11-07 23:25:44.229 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VFC9DTII2" started.
+2024-11-07 23:25:48.549 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Https.Internal.HttpsConnectionMiddleware: Connection 0HN7VFC9DTII2 established using the following protocol: Tls12
+2024-11-07 23:25:52.612 +01:00 [Information] Yarp.ReverseProxy.Transport.TransportTunnelHttp2AuthenticatorNegotiate: ConfigureHttpRequestMessageAsync: https://localhost:5001/_Tunnel/H2/Negotiate/alpha success
+2024-11-07 23:25:52.613 +01:00 [Debug] Yarp.ReverseProxy.Transport.TransportTunnelHttp2ConnectionListener: Send Transport Tunnel 'tunnel5001alpha' POST https://localhost:5001/_Tunnel/H2/Negotiate/alpha (null).
+2024-11-07 23:28:14.492 +01:00 [Information] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: User profile is available. Using 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2024-11-07 23:28:18.165 +01:00 [Warning] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Directory '' does not exist so changes to the certificate 'myJwt2024.pfx' will not be tracked.
+2024-11-07 23:28:18.179 +01:00 [Debug] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Created directory watcher for 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0'.
+2024-11-07 23:28:18.182 +01:00 [Debug] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Created file watcher for 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0\myJwt2024.pfx'.
+2024-11-07 23:28:18.183 +01:00 [Trace] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Added observer to file watcher for 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0\myJwt2024.pfx'.
+2024-11-07 23:28:18.186 +01:00 [Trace] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: File 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0\myJwt2024.pfx' now has 1 observers.
+2024-11-07 23:28:18.188 +01:00 [Trace] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Directory 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0' now has watchers on 1 files.
+2024-11-07 23:28:18.193 +01:00 [Trace] Yarp.ReverseProxy.Utilities.CertificateManagerFileWatcher: Reused existing observer on file watcher for 'D:\github.com\FlorianGrimm\reverse-proxy\artifacts\bin\ReverseProxy.Tunnel.Negotiate.Backend\Debug\net8.0\myJwt2024.pfx'.
+2024-11-07 23:28:18.237 +01:00 [Information] Yarp.ReverseProxy.Configuration.ConfigProvider.ConfigurationConfigProvider: Loading proxy data from config.
+2024-11-07 23:28:18.430 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Destination 'alpha' has been added.
+2024-11-07 23:28:18.588 +01:00 [Debug] Yarp.ReverseProxy.Forwarder.ForwarderHttpClientFactory: New client created for cluster 'alpha'.
+2024-11-07 23:28:18.590 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Cluster 'alpha' has been added.
+2024-11-07 23:28:18.666 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Destination 'gamma/destination1' has been added.
+2024-11-07 23:28:18.666 +01:00 [Debug] Yarp.ReverseProxy.Forwarder.ForwarderHttpClientFactory: New client created for cluster 'gamma'.
+2024-11-07 23:28:18.666 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Cluster 'gamma' has been added.
+2024-11-07 23:28:18.716 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Route 'routeBEalpha' has been added.
+2024-11-07 23:28:18.716 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Route 'routeBEgamma' has been added.
+2024-11-07 23:28:18.716 +01:00 [Debug] Yarp.ReverseProxy.Management.ProxyConfigManager: Route 'routeBEroot' has been added.
+2024-11-07 23:28:18.801 +01:00 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting starting
+2024-11-07 23:28:18.814 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-577d9a92-fa91-4165-8833-f05d946bc2c5.xml'.
+2024-11-07 23:28:18.826 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-788ab0d4-9e6c-42b3-b9c4-4351d926df61.xml'.
+2024-11-07 23:28:18.827 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-9f2531df-641f-425a-880e-235532ee7350.xml'.
+2024-11-07 23:28:18.827 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-b8d58b5a-cc7f-4f5e-8381-7b13d57a382e.xml'.
+2024-11-07 23:28:18.828 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Repositories.FileSystemXmlRepository: Reading data from file 'C:\Users\Flori\AppData\Local\ASP.NET\DataProtection-Keys\key-ef70c6ba-cbe8-42f2-9a8f-4878df7da475.xml'.
+2024-11-07 23:28:18.833 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {577d9a92-fa91-4165-8833-f05d946bc2c5}.
+2024-11-07 23:28:18.859 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {788ab0d4-9e6c-42b3-b9c4-4351d926df61}.
+2024-11-07 23:28:18.859 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {9f2531df-641f-425a-880e-235532ee7350}.
+2024-11-07 23:28:18.859 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {b8d58b5a-cc7f-4f5e-8381-7b13d57a382e}.
+2024-11-07 23:28:18.860 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager: Found key {ef70c6ba-cbe8-42f2-9a8f-4878df7da475}.
+2024-11-07 23:28:18.875 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.DefaultKeyResolver: Considering key {b8d58b5a-cc7f-4f5e-8381-7b13d57a382e} with expiration date 2025-01-14 23:07:27Z as default key.
+2024-11-07 23:28:18.897 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.TypeForwardingActivator: Forwarded activator type request from Microsoft.AspNetCore.DataProtection.XmlEncryption.DpapiXmlDecryptor, Microsoft.AspNetCore.DataProtection, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60 to Microsoft.AspNetCore.DataProtection.XmlEncryption.DpapiXmlDecryptor, Microsoft.AspNetCore.DataProtection, Culture=neutral, PublicKeyToken=adb9793829ddae60
+2024-11-07 23:28:18.899 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.XmlEncryption.DpapiXmlDecryptor: Decrypting secret element using Windows DPAPI.
+2024-11-07 23:28:18.901 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.TypeForwardingActivator: Forwarded activator type request from Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel.AuthenticatedEncryptorDescriptorDeserializer, Microsoft.AspNetCore.DataProtection, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60 to Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel.AuthenticatedEncryptorDescriptorDeserializer, Microsoft.AspNetCore.DataProtection, Culture=neutral, PublicKeyToken=adb9793829ddae60
+2024-11-07 23:28:18.903 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.CngCbcAuthenticatedEncryptorFactory: Opening CNG algorithm 'AES' from provider '(null)' with chaining mode CBC.
+2024-11-07 23:28:18.906 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.CngCbcAuthenticatedEncryptorFactory: Opening CNG algorithm 'SHA256' from provider '(null)' with HMAC.
+2024-11-07 23:28:18.909 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.KeyManagement.KeyRingProvider: Using key {b8d58b5a-cc7f-4f5e-8381-7b13d57a382e} as the default key.
+2024-11-07 23:28:18.910 +01:00 [Debug] Microsoft.AspNetCore.DataProtection.Internal.DataProtectionHostedService: Key ring with default key {b8d58b5a-cc7f-4f5e-8381-7b13d57a382e} was loaded during application startup.
+2024-11-07 23:28:19.697 +01:00 [Warning] Microsoft.AspNetCore.Server.Kestrel: Overriding address(es) 'https://localhost:5003'. Binding to endpoints defined via IConfiguration and/or UseKestrel() instead.
+2024-11-07 23:28:19.785 +01:00 [Information] Microsoft.Hosting.Lifetime: Now listening on: http://https://localhost:5001/_Tunnel/H2/Negotiate/alpha#tunnel5001alpha
+2024-11-07 23:28:19.797 +01:00 [Information] Microsoft.Hosting.Lifetime: Now listening on: https://localhost:5003
+2024-11-07 23:28:19.797 +01:00 [Debug] Microsoft.AspNetCore.Hosting.Diagnostics: Loaded hosting startup assembly ReverseProxy.Tunnel.Negotiate.Backend
+2024-11-07 23:28:19.797 +01:00 [Debug] Microsoft.AspNetCore.Hosting.Diagnostics: Loaded hosting startup assembly Microsoft.WebTools.ApiEndpointDiscovery
+2024-11-07 23:28:19.797 +01:00 [Debug] Microsoft.AspNetCore.Hosting.Diagnostics: Loaded hosting startup assembly Microsoft.AspNetCore.Watch.BrowserRefresh
+2024-11-07 23:28:19.797 +01:00 [Debug] Microsoft.AspNetCore.Hosting.Diagnostics: Loaded hosting startup assembly Microsoft.WebTools.BrowserLink.Net
+2024-11-07 23:28:19.844 +01:00 [Information] Microsoft.AspNetCore.Mvc.Infrastructure.DefaultActionDescriptorCollectionProvider: No action descriptors found. This may indicate an incorrectly configured application or missing application parts. To learn more, visit https://aka.ms/aspnet/mvc/app-parts
+2024-11-07 23:28:19.851 +01:00 [Debug] Yarp.ReverseProxy.Transport.TransportTunnelHttp2ConnectionListener: Tunnel 'tunnel5001alpha' create HttpMessageInvoker for 'https://localhost:5001'.
+2024-11-07 23:28:19.965 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets: Connection id "0HN7VFDTPO2BF" received FIN.
+2024-11-07 23:28:19.966 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets: Connection id "0HN7VFDTPO2BE" received FIN.
+2024-11-07 23:28:19.994 +01:00 [Information] Microsoft.Hosting.Lifetime: Application started. Press Ctrl+C to shut down.
+2024-11-07 23:28:19.998 +01:00 [Information] Microsoft.Hosting.Lifetime: Hosting environment: Development
+2024-11-07 23:28:20.007 +01:00 [Information] Microsoft.Hosting.Lifetime: Content root path: D:\github.com\FlorianGrimm\reverse-proxy\samples\Tunnel\Negotiate\ReverseProxy.Tunnel.Negotiate.Backend
+2024-11-07 23:28:20.012 +01:00 [Debug] Microsoft.Extensions.Hosting.Internal.Host: Hosting started
+2024-11-07 23:28:20.025 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VFDTPO2BF" accepted.
+2024-11-07 23:28:20.025 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VFDTPO2BE" accepted.
+2024-11-07 23:28:20.026 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VFDTPO2BF" started.
+2024-11-07 23:28:20.026 +01:00 [Debug] Microsoft.AspNetCore.Server.Kestrel.Connections: Connection id "0HN7VFDTPO2BE" started.

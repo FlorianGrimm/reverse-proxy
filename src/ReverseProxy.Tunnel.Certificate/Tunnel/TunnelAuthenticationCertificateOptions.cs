@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 using System.Security.Authentication;
+using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
@@ -27,7 +28,6 @@ public sealed class TunnelAuthenticationCertificateOptions
     /// </summary>
     public Func<X509Certificate2, X509Chain?, SslPolicyErrors, bool, bool>? CustomValidation { get; set; }
 
-
     //
     // Summary:
     //     Specifies whether the certificate revocation list is checked during authentication.
@@ -43,6 +43,8 @@ public sealed class TunnelAuthenticationCertificateOptions
     public SslProtocols? SslProtocols { get; set; }
 
     public Action<HttpsConnectionAdapterOptions>? ConfigureHttpsConnectionAdapterOptions { get; set; }
+
+#warning TODO Cleanup
 
     /// <summary>
     /// Value indicating the types of certificates accepted - used if SourceRequest is trúe.
@@ -105,6 +107,10 @@ public sealed class TunnelAuthenticationCertificateOptions
     /// Defaults to <see cref="X509RevocationMode.Online" />.
     /// </value>
     public X509RevocationMode RevocationMode { get; set; } = X509RevocationMode.Online;
+
+
+
+    public CertificateRequirement CertificateRequirement { get; set; } = new CertificateRequirement();
 
 
     /// <summary>

@@ -51,14 +51,14 @@ internal partial class Program
     {
         if (args.Length == 0)
         {
-            System.Console.Out.WriteLine("Syntax: [h2-anonymous|h2-certificate|h2-jwtbaerer|h2-negotiate|h2ws-anonymous|h2ws-negotiate|ws-anonymous|ws-certificate|ws-negotiate] [browser-anonymous|browser-negotiate|browser-oauth] [none][1][2][3][4][5][6] [test] [measure] [stop]");
+            System.Console.Out.WriteLine("Syntax: [h2-anonymous|h2-certificate|h2-jwtbearer|h2-negotiate|h2ws-anonymous|h2ws-negotiate|ws-anonymous|ws-certificate|ws-negotiate] [browser-anonymous|browser-negotiate|browser-oauth] [none][1][2][3][4][5][6] [test] [measure] [stop]");
             System.Console.Out.WriteLine("Tunnel protocol-authentication");
             System.Console.Out.WriteLine("  h2-: HTTP/2");
             System.Console.Out.WriteLine("  ws-: WebSocket");
             System.Console.Out.WriteLine("    -anonymous: Anonymous");
             System.Console.Out.WriteLine("    -certificate: Client Certificate authentication");
             System.Console.Out.WriteLine("    -negotiate: Windows authentication");
-            System.Console.Out.WriteLine("    -jwtbaerer: JwtBaerer");
+            System.Console.Out.WriteLine("    -jwtbearer: JwtBearer");
             System.Console.Out.WriteLine("Browser Authentication:");
             System.Console.Out.WriteLine("browser-anonymous: browser wants no auth");
             System.Console.Out.WriteLine("browser-negotiate: browser wants windows auth");
@@ -158,17 +158,17 @@ internal partial class Program
         // tunnel 
         {
             var (
-                h2_anonymous, h2_certificate, h2_negotiate, h2_jwtbaerer,
+                h2_anonymous, h2_certificate, h2_negotiate, h2_jwtbearer,
                 h2ws_anonymous, h2ws_negotiate,
                 ws_anonymous, ws_certificate, ws_negotiate) = (
-                hsArgs.Remove("h2-anonymous"), hsArgs.Remove("h2-certificate"), hsArgs.Remove("h2-negotiate"), hsArgs.Remove("h2-jwtbaerer"),
+                hsArgs.Remove("h2-anonymous"), hsArgs.Remove("h2-certificate"), hsArgs.Remove("h2-negotiate"), hsArgs.Remove("h2-jwtbearer"),
                 hsArgs.Remove("h2ws-anonymous"), hsArgs.Remove("h2ws-negotiate"),
                 hsArgs.Remove("ws-anonymous"), hsArgs.Remove("ws-certificate"), hsArgs.Remove("ws-negotiate"));
 
             if (h2_anonymous) { _modeAppSettings = ModeAppSettings.H2Anonymous; }
             else if (h2_certificate) { _modeAppSettings = ModeAppSettings.H2Certificate; }
             else if (h2_negotiate) { _modeAppSettings = ModeAppSettings.H2Negotiate; }
-            else if (h2_jwtbaerer) { _modeAppSettings = ModeAppSettings.H2JwtBaerer; }
+            else if (h2_jwtbearer) { _modeAppSettings = ModeAppSettings.H2JwtBearer; }
 
             else if (h2ws_anonymous) { _modeAppSettings = ModeAppSettings.H2WSAnonymous; }
             else if (h2ws_negotiate) { _modeAppSettings = ModeAppSettings.H2WSNegotiate; }
@@ -224,9 +224,9 @@ internal partial class Program
                 _modeTunnelAuthentication = TunnelAuthentication.AuthenticationNegotiate;
                 enableTunnelH2 = true;
             }
-            else if (_modeAppSettings == ModeAppSettings.H2JwtBaerer)
+            else if (_modeAppSettings == ModeAppSettings.H2JwtBearer)
             {
-                appsettingsFolder = "appsettings-H2-JwtBaerer";
+                appsettingsFolder = "appsettings-H2-JwtBearer";
                 _modeTunnelAuthentication = TunnelAuthentication.AuthenticationJwtBearer;
                 enableTunnelH2 = true;
             }
@@ -544,7 +544,7 @@ internal enum ModeAppSettings
     H2Anonymous,
     H2Certificate,
     H2Negotiate,
-    H2JwtBaerer,
+    H2JwtBearer,
 
     H2WSAnonymous,
     H2WSNegotiate,

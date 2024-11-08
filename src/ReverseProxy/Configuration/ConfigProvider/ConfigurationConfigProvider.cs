@@ -8,11 +8,14 @@ using System.Linq;
 using System.Net.Http;
 using System.Security.Authentication;
 using System.Threading;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+
 using Yarp.ReverseProxy.Forwarder;
+using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Configuration.ConfigProvider;
 
@@ -134,12 +137,9 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         return new TransportTunnelAuthenticationConfig
         {
             Mode = section[nameof(TransportTunnelAuthenticationConfig.Mode)],
-            ClientCertificate = CreateClientCertificateConfig(section.GetSection(nameof(TransportTunnelAuthenticationConfig.ClientCertificate))),
-            ClientCertificates = section.GetSection(nameof(TransportTunnelAuthenticationConfig.ClientCertificates))
-                        .GetChildren()
-                        .Select(c => CreateClientCertificateConfig(c))
-                        .OfType<CertificateConfig>()
-                        .ToList()
+            ClientCertificate = CertificateConfigUtility.ConvertCertificateConfig(section.GetSection(nameof(TransportTunnelAuthenticationConfig.ClientCertificate))),
+            ClientCertificates = CertificateConfigUtility.ConvertCertificateConfigs(section.GetSection(nameof(TransportTunnelAuthenticationConfig.ClientCertificates))) ?? new(),
+            CertificateRequirement = CertificateConfigUtility.ConvertCertificateRequirement(section.GetSection(nameof(TransportTunnelAuthenticationConfig.CertificateRequirement)))
         };
     }
 
@@ -184,22 +184,8 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         return new ClusterTunnelAuthenticationConfig()
         {
             Mode = section[nameof(ClusterTunnelAuthenticationConfig.Mode)] ?? "Invalid",
-            ClientCertificate = CreateClientCertificateConfig(section.GetSection(nameof(ClusterTunnelAuthenticationConfig.ClientCertificate))),
+            ClientCertificate = CertificateConfigUtility.ConvertCertificateConfig(section.GetSection(nameof(ClusterTunnelAuthenticationConfig.ClientCertificate))),
             UserNames = CreateUserNamesConfig(section.GetSection(nameof(ClusterTunnelAuthenticationConfig.UserNames)))
-        };
-    }
-
-    private CertificateConfig CreateClientCertificateConfig(IConfigurationSection configSection)
-    {
-        return new CertificateConfig()
-        {
-            Path = configSection[nameof(CertificateConfig.Path)] ?? string.Empty,
-            KeyPath = configSection[nameof(CertificateConfig.KeyPath)] ?? string.Empty,
-            Password = configSection[nameof(CertificateConfig.Password)] ?? string.Empty,
-            Subject = configSection[nameof(CertificateConfig.Subject)] ?? string.Empty,
-            StoreName = configSection[nameof(CertificateConfig.StoreName)] ?? string.Empty,
-            StoreLocation = configSection[nameof(CertificateConfig.StoreLocation)] ?? string.Empty,
-            AllowInvalid = bool.TryParse(configSection[nameof(CertificateConfig.AllowInvalid)], out var value) && value
         };
     }
 

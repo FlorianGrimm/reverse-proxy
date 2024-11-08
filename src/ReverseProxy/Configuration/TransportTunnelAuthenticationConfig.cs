@@ -5,14 +5,28 @@ using System;
 using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 
+using Yarp.ReverseProxy.Utilities;
+
 namespace Yarp.ReverseProxy.Configuration;
 
+/// <summary>
+/// Describes the authentication configuration for a transport tunnel.
+/// </summary>
 public sealed record TransportTunnelAuthenticationConfig
 {
+    /// <summary>
+    /// The authentication mode. e.g. "Certificate".
+    /// </summary>
     public string? Mode { get; init; }
 
+    /// <summary>
+    /// The client certificate.
+    /// </summary>
     public CertificateConfig? ClientCertificate { get; init; }
 
+    /// <summary>
+    /// A list of client certificates.
+    /// </summary>
     public List<CertificateConfig> ClientCertificates { get; init; } = [];
 
     /// <summary>
@@ -20,63 +34,22 @@ public sealed record TransportTunnelAuthenticationConfig
     /// </summary>
     public X509Certificate2Collection? ClientCertificateCollection { get; init; }
 
+    /// <summary>
+    /// The certificate requirement.
+    /// </summary>
+    public CertificateRequirement CertificateRequirement { get; init; } = new CertificateRequirement();
+
     /// <inheritdoc/>
     public bool Equals(TransportTunnelAuthenticationConfig? other)
     {
-        if (other is null)
-        {
-            return false;
-        }
-
-        {
-            if (ClientCertificate is null && other.ClientCertificate is null)
-            {
-                // OK
-            }
-            if (ClientCertificate is null || other.ClientCertificate is null)
-            {
-                return false;
-            }
-            if (!ClientCertificate.Equals(other.ClientCertificate))
-            {
-                return false;
-            }
-        }
-
-        {
-            if (ClientCertificates.Count != other.ClientCertificates.Count)
-            {
-                return false;
-            }
-            for (var index = 0; index < ClientCertificates.Count; index++)
-            {
-                if (!ClientCertificates[index].Equals(other.ClientCertificates[index]))
-                {
-                    return false;
-                }
-            }
-        }
-
-        {
-            if (ClientCertificateCollection is null && other.ClientCertificateCollection is null)
-            {
-            }
-
-            if (ClientCertificateCollection is null || other.ClientCertificateCollection is null)
-            {
-                return false;
-            }
-
-            for (var index = 0; index < ClientCertificates.Count; index++)
-            {
-                if (!ClientCertificateCollection[index].Equals(other.ClientCertificateCollection[index]))
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
+        if (other is null) { return false; }
+        if (ReferenceEquals(this, other)) { return true; }
+        return (string.Equals(Mode, other.Mode, StringComparison.Ordinal))
+            && (CertificateConfigUtility.EqualCertificateConfigQ(ClientCertificate, other.ClientCertificate))
+            && (CertificateConfigUtility.EqualCertificateConfigsQ(ClientCertificates, other.ClientCertificates))
+            && (CertificateConfigUtility.EqualCertificateCollectionQ(ClientCertificateCollection, other.ClientCertificateCollection))
+            && (CertificateRequirement.Equals(other.CertificateRequirement))
+            ;
     }
 
     /// <inheritdoc/>
@@ -98,6 +71,7 @@ public sealed record TransportTunnelAuthenticationConfig
                 hash.Add(certificate.GetSerialNumber());
             }
         }
+        hash.Add(CertificateRequirement);
         return hash.ToHashCode();
     }
 }

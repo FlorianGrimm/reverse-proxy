@@ -49,11 +49,11 @@ internal class AuthorizationTransportRequestTransform : RequestTransform
         context.ResponseTransforms.Add(new AffinitizeTransform(policy));
          */
         //
-        if (_options.DoNotModifyAuthorizationIfBaerer)
+        if (_options.DoNotModifyAuthorizationIfBearer)
         {
             if (context.ProxyRequest.Headers.Authorization is { } authorization)
             {
-                if (string.Equals(authorization.Scheme, "Baerer"))
+                if (string.Equals(authorization.Scheme, "Bearer"))
                 {
                     if (_options.RemoveHeaderAuthenticate)
                     {

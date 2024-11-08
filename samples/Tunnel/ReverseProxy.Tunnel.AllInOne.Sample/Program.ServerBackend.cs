@@ -114,15 +114,20 @@ internal partial class Program
             {
                 reverseProxyBuilder
                     .AddTunnelTransportCertificate(
-                        (options) =>
+                        configure:(options) =>
                         {
                             options.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
                         }
                     )
-                    .ConfigureReverseProxyCertificateManager(options =>
-                    {
-                        options.CertificateRootPath = System.AppContext.BaseDirectory;
-                    });
+                    .ConfigureReverseProxyCertificateManager(
+                        configure:(options) =>
+                        {
+                            options.CertificateRootPath = System.AppContext.BaseDirectory;
+                            options.CertificateRequirement = options.CertificateRequirement with
+                            {
+                                AllowCertificateSelfSigned = true
+                            };
+                        });
             }
 
             if (_modeTunnelAuthentication == TunnelAuthentication.AuthenticationJwtBearer)

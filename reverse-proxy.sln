@@ -5,6 +5,8 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{3E275568-3767-43AC-B51B-FA75C0B5CE91}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
+		Directory.Build.props = Directory.Build.props
+		Directory.Build.targets = Directory.Build.targets
 		global.json = global.json
 		NuGet.config = NuGet.config
 		TFMs.props = TFMs.props
@@ -144,6 +146,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ReverseProxy.Tunnel.Negotiate.Backend", "samples\Tunnel\Negotiate\ReverseProxy.Tunnel.Negotiate.Backend\ReverseProxy.Tunnel.Negotiate.Backend.csproj", "{4CDCAE78-9EAE-4365-8644-6346B837F418}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Yarp.ReverseProxy.Transport.JWT", "src\ReverseProxy.Transport.JWT\Yarp.ReverseProxy.Transport.JWT.csproj", "{68D68A25-1ACF-4DA4-BEED-456AEFFE3F20}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Yarp.ReverseProxy.Transport.JWT.Tests", "test\Yarp.ReverseProxy.Transport.JWT.Tests\Yarp.ReverseProxy.Transport.JWT.Tests.csproj", "{6AF0DAF8-587E-4872-9B3A-4ACE82802B24}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -553,6 +557,14 @@ Global
 		{68D68A25-1ACF-4DA4-BEED-456AEFFE3F20}.Release|Any CPU.Build.0 = Release|Any CPU
 		{68D68A25-1ACF-4DA4-BEED-456AEFFE3F20}.Release|x64.ActiveCfg = Release|Any CPU
 		{68D68A25-1ACF-4DA4-BEED-456AEFFE3F20}.Release|x64.Build.0 = Release|Any CPU
+		{6AF0DAF8-587E-4872-9B3A-4ACE82802B24}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6AF0DAF8-587E-4872-9B3A-4ACE82802B24}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6AF0DAF8-587E-4872-9B3A-4ACE82802B24}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6AF0DAF8-587E-4872-9B3A-4ACE82802B24}.Debug|x64.Build.0 = Debug|Any CPU
+		{6AF0DAF8-587E-4872-9B3A-4ACE82802B24}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6AF0DAF8-587E-4872-9B3A-4ACE82802B24}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6AF0DAF8-587E-4872-9B3A-4ACE82802B24}.Release|x64.ActiveCfg = Release|Any CPU
+		{6AF0DAF8-587E-4872-9B3A-4ACE82802B24}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -619,6 +631,7 @@ Global
 		{3590E558-9418-45E5-B063-CBE2B45F99F8} = {98A96ABE-D78C-4D44-9279-47D182D8BBF8}
 		{4CDCAE78-9EAE-4365-8644-6346B837F418} = {98A96ABE-D78C-4D44-9279-47D182D8BBF8}
 		{68D68A25-1ACF-4DA4-BEED-456AEFFE3F20} = {6CBE18D4-64E9-492B-BB02-58CD57126C10}
+		{6AF0DAF8-587E-4872-9B3A-4ACE82802B24} = {0631147E-34BB-456D-B214-5B202C516D5C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {31F6924A-E427-4830-96E9-B47CEB7BFE78}

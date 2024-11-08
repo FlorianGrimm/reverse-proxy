@@ -1,68 +1,112 @@
 using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading.Tasks;
+
+using Microsoft.Extensions.Logging;
 
 namespace Yarp.ReverseProxy.Utilities;
 public static class CertificateManagerUtility
 {
-    private static readonly Oid ClientCertificateOid = new Oid("1.3.6.1.5.5.7.3.2");
+    public static readonly Oid ClientCertificateOid = new Oid("1.3.6.1.5.5.7.3.2");
 
 
-    // TODO: Is it better placed i a extension?
+    /// <summary>
+    /// Validates the <paramref name="certificate"/> against the <paramref name="request"/>,
+    /// respecting that this certificate is loaded from a store.
+    /// </summary>
+    /// <param name="request">the request that was used to load the <paramref name="certificate"/>.</param>
+    /// <param name="requirement">the requirement from options + request</param>
+    /// <param name="certificate">the loaded certificate.</param>
+    /// <param name="configureChainPolicy">configure the <see cref="X509ChainPolicy"/>.</param>
+    /// <param name="timeProvider">optional (default TimeProvider.System)</param>
+    /// <param name="logger">logger for errors</param>
+    /// <returns>true if valid</returns>
     public static bool DoesStoreCertificateMatchesRequest(
         CertificateRequest request,
+        CertificateRequirement requirement,
         X509Certificate2 certificate,
         Action<X509ChainPolicy>? configureChainPolicy,
-        TimeProvider timeProvider)
+        TimeProvider? timeProvider,
+        ILogger logger)
     {
         if (request.StoreRequest is { Subject: { Length: > 0 } subject })
         {
             if (!string.Equals(certificate.Subject, subject, StringComparison.OrdinalIgnoreCase)) { return false; }
         }
-        return DoesAnyCertificateMatchesRequest(request, certificate, configureChainPolicy, timeProvider);
+        return DoesAnyCertificateMatchesRequest(
+            request,
+            requirement,
+            certificate,
+            configureChainPolicy,
+            timeProvider,
+            logger);
     }
 
-    // TODO: Is it better placed i a extension?
+    /// <summary>
+    /// Validates the <paramref name="certificate"/> against the <paramref name="request"/>,
+    /// respecting that this certificate is loaded from a file.
+    /// </summary>
+    /// <param name="request">the request that was used to load the <paramref name="certificate"/>.</param>
+    /// <param name="requirement">the requirement from options + request</param>
+    /// <param name="certificate">the loaded certificate.</param>
+    /// <param name="configureChainPolicy">configure the <see cref="X509ChainPolicy"/>.</param>
+    /// <param name="timeProvider">optional (default TimeProvider.System)</param>
+    /// <param name="logger">logger for errors</param>
+    /// <returns>true if valid</returns>
     public static bool DoesFileCertificateMatchesRequest(
         CertificateRequest request,
+        CertificateRequirement requirement,
         X509Certificate2 certificate,
         Action<X509ChainPolicy>? configureChainPolicy,
-        TimeProvider timeProvider)
+        TimeProvider? timeProvider,
+        ILogger logger)
     {
-        return DoesAnyCertificateMatchesRequest(request, certificate, configureChainPolicy, timeProvider);
+        return DoesAnyCertificateMatchesRequest(
+            request,
+            requirement,
+            certificate,
+            configureChainPolicy,
+            timeProvider,
+            logger);
     }
 
-    // TODO: Is it better placed i a extension?
+    /// <summary>
+    /// Validates the <paramref name="certificate"/> against the <paramref name="request"/>.
+    /// </summary>
+    /// <param name="request">the request that was used to load the <paramref name="certificate"/>.</param>
+    /// <param name="requirement">the requirement from options + request</param>
+    /// <param name="certificate">the loaded certificate.</param>
+    /// <param name="configureChainPolicy">configure the <see cref="X509ChainPolicy"/>.</param>
+    /// <param name="timeProvider">optional (default TimeProvider.System)</param>
+    /// <param name="logger">logger for errors</param>
+    /// <returns>true if valid</returns>
     public static bool DoesAnyCertificateMatchesRequest(
         CertificateRequest request,
+        CertificateRequirement requirement,
         X509Certificate2 certificate,
         Action<X509ChainPolicy>? configureChainPolicy,
-        TimeProvider timeProvider)
+        TimeProvider? timeProvider,
+        ILogger logger)
     {
         // requirements that we can check without the chain
         {
-            if (request.Requirement is { } certificateRequirement)
+            //if (request.Requirement is { } requirement)
             {
-                if (certificateRequirement.NeedPrivateKey)
+                if (requirement.NeedPrivateKey)
                 {
                     if (!certificate.HasPrivateKey)
                     {
                         return false;
                     }
                 }
-                if (certificateRequirement.ClientCertificate)
+                if (requirement.ClientCertificate)
                 {
                     if (!certificate.IsCertificateAllowedForClientCertificate())
                     {
                         return false;
                     }
                 }
-                if (certificateRequirement.SignCertificate)
+                if (requirement.SignCertificate)
                 {
                     if (!certificate.IsCertificateAllowedForX509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature))
                     {
@@ -75,32 +119,25 @@ public static class CertificateManagerUtility
         using (X509Chain chain = new())
         {
             // convert the requirement to the chain policy
-            if (request.Requirement is { } certificateRequirement)
+            //if (request.Requirement is { } certificateRequirement)
             {
-                var chainPolicy = BuildChainPolicy(certificate, certificateRequirement);
+                var chainPolicy = BuildChainPolicy(certificate, requirement);
                 if (configureChainPolicy is not null)
                 {
                     configureChainPolicy(chainPolicy);
                 }
                 chain.ChainPolicy = chainPolicy;
             }
-            chain.ChainPolicy.VerificationTime = timeProvider.GetUtcNow().DateTime;
+            chain.ChainPolicy.VerificationTime = (timeProvider ?? TimeProvider.System).GetUtcNow().DateTime;
 #if NET7_0_OR_GREATER
             chain.ChainPolicy.VerificationTimeIgnored = false;
 #endif
             if (!chain.Build(certificate))
             {
-                return false;
-            }
-            foreach (var chainStatus in chain.ChainStatus)
-            {
-#warning TODO - still needed?
-                if (chainStatus.Status == X509ChainStatusFlags.RevocationStatusUnknown)
+                logger.LogWarning("Certificate Subject: {Subject}", certificate.Subject);
+                foreach (var chainStatus in chain.ChainStatus)
                 {
-                    if (chain.ChainPolicy.RevocationMode == X509RevocationMode.NoCheck)
-                    {
-                        continue;
-                    }
+                    logger.LogWarning("Chain status: {Status} {StatusInformation}", chainStatus.Status, chainStatus.StatusInformation);
                 }
                 return false;
             }
@@ -118,22 +155,19 @@ public static class CertificateManagerUtility
         X509RevocationFlag revocationFlag;
         X509RevocationMode revocationMode;
         X509VerificationFlags verificationFlags;
-        
+
         var isCertificateSelfSigned = certificate.IsSelfSignedCertificate();
-        if (certificateRequirement.AllowCertificateSelfSigned
-            && isCertificateSelfSigned)
+        if (certificateRequirement.AllowCertificateSelfSigned && isCertificateSelfSigned)
         {
             // Turn off chain validation, because we have a self signed certificate.
-            revocationFlag = X509RevocationFlag.EntireChain;
+            revocationFlag = X509RevocationFlag.EndCertificateOnly;
             revocationMode = X509RevocationMode.NoCheck;
-            if (certificateRequirement.VerificationFlags.HasValue)
-            {
-                verificationFlags = certificateRequirement.VerificationFlags.Value;
-            }
-            else
-            {
-                verificationFlags = X509VerificationFlags.NoFlag;
-            }
+
+            verificationFlags = certificateRequirement.VerificationFlags.GetValueOrDefault(X509VerificationFlags.NoFlag)
+                    | X509VerificationFlags.IgnoreNotTimeValid
+                    | X509VerificationFlags.AllowUnknownCertificateAuthority
+                    | X509VerificationFlags.IgnoreRootRevocationUnknown
+                    ;
         }
         else
         {
@@ -141,14 +175,7 @@ public static class CertificateManagerUtility
                 .GetValueOrDefault(X509RevocationFlag.EntireChain);
             revocationMode = certificateRequirement.RevocationMode
                 .GetValueOrDefault(X509RevocationMode.Online);
-            if (certificateRequirement.VerificationFlags.HasValue)
-            {
-                verificationFlags = certificateRequirement.VerificationFlags.Value;
-            }
-            else
-            {
-                verificationFlags = X509VerificationFlags.NoFlag;
-            }
+            verificationFlags = certificateRequirement.VerificationFlags.GetValueOrDefault(X509VerificationFlags.NoFlag);
         }
 
         var chainPolicy = new X509ChainPolicy
@@ -163,10 +190,15 @@ public static class CertificateManagerUtility
             chainPolicy.ApplicationPolicy.Add(ClientCertificateOid);
         }
 
-        if (isCertificateSelfSigned)
+        if (certificateRequirement.AllowCertificateSelfSigned && isCertificateSelfSigned)
         {
-            chainPolicy.VerificationFlags |= X509VerificationFlags.AllowUnknownCertificateAuthority;
-            chainPolicy.VerificationFlags |= X509VerificationFlags.IgnoreEndRevocationUnknown;
+            chainPolicy.VerificationFlags |=
+                  X509VerificationFlags.AllowUnknownCertificateAuthority
+                | X509VerificationFlags.IgnoreCertificateAuthorityRevocationUnknown
+                | X509VerificationFlags.IgnoreRootRevocationUnknown
+                | X509VerificationFlags.IgnoreEndRevocationUnknown;
+            chainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+            chainPolicy.CustomTrustStore.Add(certificate);
             chainPolicy.ExtraStore.Add(certificate);
         }
         else

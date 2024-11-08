@@ -19,27 +19,6 @@ public sealed record CertificateConfig : IEquatable<CertificateConfig>
 
     public string Password { get; init; } = default!;
 
-
-    private bool _fileHasChanged;
-
-    /// <remarks>
-    /// Vacuously false if this isn't a file cert.
-    /// Used for change tracking - not actually part of configuring the certificate.
-    /// </remarks>
-    public bool GetFileHasChanged()
-    {
-        return _fileHasChanged;
-    }
-
-    /// <remarks>
-    /// Vacuously false if this isn't a file cert.
-    /// Used for change tracking - not actually part of configuring the certificate.
-    /// </remarks>
-    public void SetFileHasChanged(bool value)
-    {
-        _fileHasChanged = value;
-    }
-
     // Cert store
 
     [MemberNotNullWhen(true, nameof(Subject))]
@@ -58,11 +37,10 @@ public sealed record CertificateConfig : IEquatable<CertificateConfig>
         Path == other.Path &&
         KeyPath == other.KeyPath &&
         Password == other.Password &&
-        GetFileHasChanged() == other.GetFileHasChanged() &&
         Subject == other.Subject &&
         StoreName == other.StoreName &&
         StoreLocation == other.StoreLocation &&
         (AllowInvalid ?? false) == (other.AllowInvalid ?? false);
 
-    public override int GetHashCode() => HashCode.Combine(Path, KeyPath, Password, GetFileHasChanged(), Subject, StoreName, StoreLocation, AllowInvalid ?? false);
+    public override int GetHashCode() => HashCode.Combine(Path, KeyPath, Password, Subject, StoreName, StoreLocation, AllowInvalid ?? false);
 }

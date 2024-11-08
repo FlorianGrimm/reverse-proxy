@@ -14,46 +14,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Yarp.ReverseProxy.Utilities;
 
-public interface ICertificateFileLoader
-{
-    string? CertificateRootPath { get; set; }
-
-    X509Certificate2Collection? LoadCertificateFromFile(
-        List<CertificateRequest> requests,
-        CertificateFileRequest fileRequest,
-        CertificateRequirement requirement);
-
-    X509Certificate2Collection? LoadCertificateFromFile(
-        CertificateRequest requests,
-        CertificateFileRequest fileRequest,
-        CertificateRequirement requirement);
-}
-
-public record struct CertificateFileRequest(
-    string? Path,
-    string? KeyPath,
-    string? Password
-    )
-{
-    public static CertificateFileRequest? Convert(
-        string? path,
-        string? keyPath,
-        string? password
-        )
-    {
-        if (string.IsNullOrEmpty(path))
-        {
-            return null;
-        }
-        return new CertificateFileRequest(path, keyPath, password);
-    }
-
-    [MemberNotNullWhen(true, nameof(Path))]
-    public bool IsValid() =>
-        !string.IsNullOrEmpty(Path);
-}
-
-public class CertificateFileLoader : ICertificateFileLoader
+public sealed class CertificateFileLoader : ICertificateFileLoader
 {
     private readonly ICertificatePasswordProvider _certificatePasswordProvider;
     private readonly ILogger _logger;
@@ -386,7 +347,7 @@ public class CertificateFileLoader : ICertificateFileLoader
         return path;
     }
 
-    protected static X509Certificate2 LoadCertificateKey(X509Certificate2 certificate, string keyPath, string? password)
+    private static X509Certificate2 LoadCertificateKey(X509Certificate2 certificate, string keyPath, string? password)
     {
         // OIDs for the certificate key types.
         const string RSAOid = "1.2.840.113549.1.1.1";
@@ -444,12 +405,12 @@ public class CertificateFileLoader : ICertificateFileLoader
         }
     }
 
-    protected static InvalidOperationException CreateErrorGettingPrivateKeyException(string keyPath, Exception ex)
+    private static InvalidOperationException CreateErrorGettingPrivateKeyException(string keyPath, Exception ex)
     {
         return new InvalidOperationException($"Error getting private key from '{keyPath}'.", ex);
     }
 
-    protected static X509Certificate2? GetCertificate(string certificatePath, string? password)
+    private static X509Certificate2? GetCertificate(string certificatePath, string? password)
     {
         var contentType = X509Certificate2.GetCertContentType(certificatePath);
         if ((contentType == X509ContentType.Cert)
@@ -463,7 +424,7 @@ public class CertificateFileLoader : ICertificateFileLoader
         return null;
     }
 
-    protected static void ImportKeyFromFile(AsymmetricAlgorithm asymmetricAlgorithm, string keyText, string? password)
+    private static void ImportKeyFromFile(AsymmetricAlgorithm asymmetricAlgorithm, string keyText, string? password)
     {
         if (password == null)
         {
@@ -475,7 +436,7 @@ public class CertificateFileLoader : ICertificateFileLoader
         }
     }
 
-    protected static class Log
+    private static class Log
     {
         private static readonly Action<ILogger, string, Exception?> _failedToLoadCertificate = LoggerMessage.Define<string>(
             LogLevel.Error,

@@ -25,7 +25,7 @@ internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
     : ITransportTunnelWebSocketAuthenticator
 {
     private readonly TransportTunnelAuthenticationCertificateOptions _options;
-    private readonly RemoteCertificateValidationUtility _remoteCertificateValidation;
+    private readonly ClientCertificateValidationWebSocket _clientCertificateValidation;
     private readonly ICertificateManager _certificateManager;
     private readonly ILogger<TransportTunnelWebSocketAuthenticatorCertificate> _logger;
 
@@ -35,24 +35,30 @@ internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
 
     public TransportTunnelWebSocketAuthenticatorCertificate(
         IOptions<TransportTunnelAuthenticationCertificateOptions> options,
-        RemoteCertificateValidationUtility remoteCertificateValidationUtility,
         ICertificateManager certificateManager,
         ILogger<TransportTunnelWebSocketAuthenticatorCertificate> logger
         )
     {
         _options = options.Value;
-        _remoteCertificateValidation = remoteCertificateValidationUtility;
         _certificateManager = certificateManager;
         _logger = logger;
+        _clientCertificateValidation = new ClientCertificateValidationWebSocket(
+            new ClientCertificateValidationWebSocketOptions() {
+                IgnoreSslPolicyErrors = _options.IgnoreSslPolicyErrors,
+                CustomValidation = _options.CustomValidation
+            },
+            logger);
 
-#warning TODO
-        var certificateRequirement = new CertificateRequirement()
-        {
-            ClientCertificate = true
-        };
-        _clientCertificateCollectionByTunnelId = new CertificateRequestCollectionDictionary(certificateManager, nameof(TransportTunnelWebSocketAuthenticatorCertificate), certificateRequirement);
+        _clientCertificateCollectionByTunnelId = new CertificateRequestCollectionDictionary(
+            certificateManager,
+            nameof(TransportTunnelWebSocketAuthenticatorCertificate),
+            _options.CertificateRequirement,
+            adjustCertificateRequirement);
         _allCertificateConfig = new();
     }
+
+    private static CertificateRequirement adjustCertificateRequirement(CertificateRequirement certificateRequirement)
+        => certificateRequirement with { ClientCertificate = true, NeedPrivateKey = true };
 
     public string GetAuthenticationName() => "ClientCertificate";
 
@@ -65,10 +71,7 @@ internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
         try
         {
             var certificateRequestCollection = _clientCertificateCollectionByTunnelId.GetOrAddConfiguration(
-                config.TunnelId,
-                config.Authentication.ClientCertificate,
-                config.Authentication.ClientCertificates,
-                config.Authentication.ClientCertificateCollection);
+                config.ToParameter());
             using var shareCurrentCertificateCollection = _certificateManager.GetCertificateCollection(certificateRequestCollection);
             var currentCertificateCollection = shareCurrentCertificateCollection.GiveAway();
 
@@ -79,10 +82,14 @@ internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
                 sslClientCertificates.AddRange(collection);
             }
 
-            clientWebSocket.Options.RemoteCertificateValidationCallback = _remoteCertificateValidation.RemoteCertificateValidationCallback;
+            clientWebSocket.Options.RemoteCertificateValidationCallback = _clientCertificateValidation.RemoteCertificateValidationCallback;
             if (_options.ConfigureClientWebSocketOptions is { } configureClientWebSocketOptions)
             {
                 configureClientWebSocketOptions(clientWebSocket.Options);
+            }
+            if (!(clientWebSocket.Options.ClientCertificates is { Count: > 0 }))
+            {
+                throw new InvalidOperationException("No client certificate found");
             }
         }
         catch (System.Exception error)
@@ -91,5 +98,5 @@ internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
         }
 
         return ValueTask.FromResult<HttpMessageInvoker?>(default);
-    } 
+    }
 }

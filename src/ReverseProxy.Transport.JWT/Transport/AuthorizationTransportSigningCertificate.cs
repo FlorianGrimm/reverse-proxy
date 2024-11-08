@@ -1,8 +1,5 @@
 using System.Security.Cryptography.X509Certificates;
 
-using Microsoft.Extensions.Options;
-using Microsoft.VisualBasic;
-
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
@@ -28,14 +25,14 @@ internal class AuthorizationTransportSigningCertificate
         _options = options;
         _certificateManager = certificateManager;
 
-        if (options.SigningCertificateConfig is { } config)
+        if (options.SigningCertificateConfig is { } certificateConfig)
         {
             _certificateRequestCollection = certificateManager.AddConfiguration(
                 "AuthorizationTransportSigningCertificate",
+                options.SigningCertificateConfig,
                 null,
                 null,
-                null,
-                new CertificateRequirement()
+                options.CertificateRequirement with
                 {
                     SignCertificate = true,
                 });

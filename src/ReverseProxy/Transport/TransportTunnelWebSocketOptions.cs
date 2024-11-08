@@ -25,7 +25,7 @@ public class TransportTunnelWebSocketOptions
     public int MaxConnectionCount { get; set; } = 10;
 
     /// <summary>
-    /// Allows Authentification for the tunnel.
+    /// Allows Authentication for the tunnel.
     /// </summary>
     public Action<TransportTunnelConfig, ClientWebSocket>? ConfigureClientWebSocket { get; set; }
 }

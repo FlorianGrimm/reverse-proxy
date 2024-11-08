@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
+using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Transport;
 
 namespace ReverseProxy.Tunnel.Backend;
@@ -42,16 +43,25 @@ public class Program
         builder.Logging.AddLocalFileLogger(builder.Configuration, builder.Environment);
         var reverseProxyBuilder = builder.Services.AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-            .AddTunnelTransport(
-                configureTunnelHttp2: options => { options.MaxConnectionCount = 1; },
-                configureTunnelWebSocket: options => { options.MaxConnectionCount = 1; }
-            ) /* for the servers that starts the tunnel transport connections */
+            .AddTunnelTransport()
             .AddTunnelTransportNegotiate()
-#warning Needed
-            //.ConfigureCertificateLoaderOptions(options =>
-            //{
-            //    options.CertificateRoot = System.AppContext.BaseDirectory;
-            //})
+            .AddReverseProxyCertificateManager(
+                configure: (options) => {
+                    options.CertificateRootPath = System.AppContext.BaseDirectory;
+                })
+            .AddAuthorizationTransportTransformProvider(
+                configure: (options) =>
+                {
+                    //options.AuthorizationPolicyName = "RequireValidUser";
+                    options.Issuer = "itsme";
+                    options.Audience = "itsyou";
+                    options.SigningCertificateConfig = new CertificateConfig()
+                    {
+                        Path = "myJwt2024.pfx",
+                        Password = "testPassword2024",
+                        AllowInvalid = true
+                    };
+                })
             ;
 
         var app = builder.Build();

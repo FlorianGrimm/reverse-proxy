@@ -59,7 +59,8 @@ public static class TransportCertificateExtensions
     /// </code>
     /// </remarks>
     /// <param name="builder">this</param>
-    /// <param name="configure"></param>
+    /// <param name="configuration">optional a configuration to load from</param>
+    /// <param name="configure">optional a configure callback</param>
     /// <returns>fluent this</returns>
     /// <example>
     ///    builder.Services.AddReverseProxy()
@@ -75,6 +76,7 @@ public static class TransportCertificateExtensions
     /// </example>
     public static IReverseProxyBuilder AddTunnelTransportCertificate(
         this IReverseProxyBuilder builder,
+        IConfiguration? configuration = default,
         Action<TransportTunnelAuthenticationCertificateOptions>? configure = default
         )
     {
@@ -83,35 +85,25 @@ public static class TransportCertificateExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authenticator, TransportTunnelHttp2AuthenticatorCertificate>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthenticator, TransportTunnelWebSocketAuthenticatorCertificate>());
 
-        if (!services.Any(sd => typeof(ICertificateManager).Equals(sd.ServiceType))) {
+        if (!services.Any(sd => typeof(ICertificateManager).Equals(sd.ServiceType)))
+        {
             services.AddReverseProxyCertificateManager();
         }
 
         {
             var optionsBuilder = services.AddOptions<TransportTunnelAuthenticationCertificateOptions>();
-            if (configure is { })
+            if (configuration is { } || configure is { })
             {
-                optionsBuilder.Configure(configure);
-            }
-        }
-
-        // RemoteCertificateValidationUtility
-        {
-            services.AddSingleton<RemoteCertificateValidationUtility>();
-            var optionsBuilder = services.AddOptions<RemoteCertificateValidationOptions>();
-            optionsBuilder.PostConfigure<IOptions<TransportTunnelAuthenticationCertificateOptions>>(
-                (options, ttacOptions) =>
-                {
-                    var ttacOptionsValue = ttacOptions.Value;
-                    if (ttacOptionsValue.IgnoreSslPolicyErrors != System.Net.Security.SslPolicyErrors.None)
+                optionsBuilder.Configure((options) => {
+                    if (configuration is { })
                     {
-                        options.IgnoreSslPolicyErrors = ttacOptionsValue.IgnoreSslPolicyErrors;
+#warning                options.Bind(configuration);
                     }
-                    if (ttacOptionsValue.CustomValidation is { })
-                    {
-                        options.CustomValidation = ttacOptionsValue.CustomValidation;
+                    if (configure is { } ) {
+                        configure(options);
                     }
                 });
+            }
         }
 
         return builder;
@@ -120,8 +112,8 @@ public static class TransportCertificateExtensions
     public static IReverseProxyBuilder ConfigureCertificateManagerOptions
         (
             this IReverseProxyBuilder builder,
-            Action<CertificateManagerOptions>? configure = default,
-            IConfiguration? configuration = default
+            IConfiguration? configuration = default,
+            Action<CertificateManagerOptions>? configure = default
         )
     {
         var optionsBuilder = builder.Services.AddOptions<CertificateManagerOptions>();

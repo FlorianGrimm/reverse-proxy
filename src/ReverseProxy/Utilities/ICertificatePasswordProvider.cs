@@ -5,7 +5,6 @@ namespace Yarp.ReverseProxy.Utilities;
 /// </summary>
 public interface ICertificatePasswordProvider
 {
-    // TODO: can we provide more context here?
     /// <summary>
     /// Decrypts the password.
     /// </summary>
@@ -13,5 +12,3 @@ public interface ICertificatePasswordProvider
     /// <returns>The decrypted password.</returns>
     string DecryptPassword(string value);
 }
-
-// TODO: is simple to use the windows user en/de-cryption thing?

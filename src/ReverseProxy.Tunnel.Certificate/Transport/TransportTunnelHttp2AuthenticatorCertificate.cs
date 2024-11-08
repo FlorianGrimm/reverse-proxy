@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
@@ -23,7 +24,7 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
     : ITransportTunnelHttp2Authenticator
 {
     private readonly TransportTunnelAuthenticationCertificateOptions _options;
-    private readonly RemoteCertificateValidationUtility _remoteCertificateValidation;
+    private readonly ClientCertificateValidationHttp2 _certificateValidation;
     private readonly ICertificateManager _certificateManager;
     private readonly ILogger<TransportTunnelHttp2AuthenticatorCertificate> _logger;
 
@@ -31,23 +32,30 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
 
     public TransportTunnelHttp2AuthenticatorCertificate(
         IOptions<TransportTunnelAuthenticationCertificateOptions> options,
-        RemoteCertificateValidationUtility remoteCertificateValidationUtility,
         ICertificateManager certificateManager,
         ILogger<TransportTunnelHttp2AuthenticatorCertificate> logger
         )
     {
         _options = options.Value;
-        _remoteCertificateValidation = remoteCertificateValidationUtility;
+        _certificateValidation = new ClientCertificateValidationHttp2(
+            new ClientCertificateValidationHttp2Options()
+            {
+                CustomValidation = _options.CustomValidation,
+                IgnoreSslPolicyErrors = _options.IgnoreSslPolicyErrors
+            },
+            logger);
         _certificateManager = certificateManager;
         _logger = logger;
 
-#warning TODO
-        var certificateRequirement = new CertificateRequirement()
-        {
-            ClientCertificate = true
-        };
-        _clientCertificateCollectionByTunnelId = new CertificateRequestCollectionDictionary(certificateManager, nameof(TransportTunnelHttp2AuthenticatorCertificate), certificateRequirement);
+        _clientCertificateCollectionByTunnelId = new CertificateRequestCollectionDictionary(
+            certificateManager,
+            nameof(TransportTunnelHttp2AuthenticatorCertificate),
+            _options.CertificateRequirement,
+            adjustRequirement);
     }
+
+    private static CertificateRequirement adjustRequirement(CertificateRequirement requirement)
+        => requirement with { ClientCertificate = true };
 
     public string GetAuthenticationName() => "ClientCertificate";
 
@@ -62,35 +70,37 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
         try
         {
             var certificateRequestCollection = _clientCertificateCollectionByTunnelId.GetOrAddConfiguration(
-                config.TunnelId,
-                config.Authentication.ClientCertificate,
-                config.Authentication.ClientCertificates,
-                config.Authentication.ClientCertificateCollection);
-            using var shareCurrentCertificateCollection = _certificateManager.GetCertificateCollection(certificateRequestCollection);
-            var currentCertificateCollection = shareCurrentCertificateCollection.GiveAway();
+                config.ToParameter());
+            using (var shareCurrentCertificateCollection = _certificateManager.GetCertificateCollection(certificateRequestCollection))
+            {
+                var currentCertificateCollection = shareCurrentCertificateCollection.GiveAway();
 
-            if (currentCertificateCollection is { Count: > 0 } collection)
-            {
-                var sslClientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= [];
-                sslClientCertificates.AddRange(collection);
-            }
-            // else hopefully ConfigureSslOptions will be called to add the certificate
-
-            socketsHttpHandler.SslOptions.TargetHost = config.Url;
-            if (_options.ConfigureSslOptions is { } configureSslOptions)
-            {
-                configureSslOptions(socketsHttpHandler.SslOptions);
-            }
-            if (socketsHttpHandler.SslOptions.ClientCertificates is { Count: > 0 } clientCertificates)
-            {
-                if (socketsHttpHandler.SslOptions.EnabledSslProtocols == System.Security.Authentication.SslProtocols.None)
+                if (currentCertificateCollection is { Count: > 0 } collection)
                 {
-                    socketsHttpHandler.SslOptions.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
+                    var sslClientCertificates = socketsHttpHandler.SslOptions.ClientCertificates ??= [];
+                    sslClientCertificates.AddRange(collection);
                 }
-                socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback = _remoteCertificateValidation.RemoteCertificateValidationCallback;
-            }
+                // else hopefully ConfigureSslOptions will be called to add the certificate
 
-            return new(new HttpMessageInvoker(socketsHttpHandler, true));
+                socketsHttpHandler.SslOptions.TargetHost = config.Url;
+                if (_options.ConfigureSslOptions is { } configureSslOptions)
+                {
+                    configureSslOptions(socketsHttpHandler.SslOptions);
+                }
+                if (socketsHttpHandler.SslOptions.ClientCertificates is { Count: > 0 } clientCertificates)
+                {
+                    if (socketsHttpHandler.SslOptions.EnabledSslProtocols == System.Security.Authentication.SslProtocols.None)
+                    {
+                        socketsHttpHandler.SslOptions.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
+                    }
+                    socketsHttpHandler.SslOptions.RemoteCertificateValidationCallback = _certificateValidation.RemoteCertificateValidationCallback;
+                }
+                else
+                {
+                    throw new InvalidOperationException("No client certificate found");
+                }
+                return new(new HttpMessageInvoker(socketsHttpHandler, true));
+            }
         }
         catch (System.Exception error)
         {
@@ -98,6 +108,7 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
             return new(default(HttpMessageInvoker));
         }
     }
+
 
     public ValueTask ConfigureHttpRequestMessageAsync(TunnelState tunnel, HttpRequestMessage requestMessage)
         => ValueTask.CompletedTask;

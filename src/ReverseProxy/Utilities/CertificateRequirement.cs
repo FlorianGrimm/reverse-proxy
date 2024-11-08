@@ -3,19 +3,19 @@ using System.Security.Cryptography.X509Certificates;
 namespace Yarp.ReverseProxy.Utilities;
 
 /// <summary>
-/// TODO
+/// Defines the requirements for a certificate.
 /// </summary>
-/// <param name="ClientCertificate">TODO</param>
-/// <param name="SignCertificate">TODO</param>
-/// <param name="NeedPrivateKey">TODO</param>
-/// <param name="AllowCertificateSelfSigned">TODO</param>
-/// <param name="RevocationFlag">TODO</param>
-/// <param name="RevocationMode">TODO</param>
-/// <param name="VerificationFlags">TODO</param>
-/// <param name="ValidateValidityPeriod">TODO</param>
+/// <param name="ClientCertificate">Enhanced Key Usage must have Client Authentication (1.3.6.1.5.5.7.3.2)</param>
+/// <param name="SignCertificate">Key Usage must have Digital Signature (80)</param>
+/// <param name="NeedPrivateKey">The Cerificate must have a private key.</param>
+/// <param name="AllowCertificateSelfSigned">Relax checks if it is a self signed certificate.</param>
+/// <param name="RevocationFlag">RevocationFlag</param>
+/// <param name="RevocationMode">RevocationMode</param>
+/// <param name="VerificationFlags">VerificationFlags</param>
+/// <param name="ValidateValidityPeriod">Validate NotBefore and NotAfter</param>
 /// <param name="TrustMode">The mode determining the root trust for building the certificate chain.</param>
 /// <param name="CustomTrustStore">Represents a collection of certificates replacing the default certificate trust.</param>
-/// <param name="AdditionalChainCertificates">TODO</param>
+/// <param name="AdditionalChainCertificates">AdditionalChainCertificates</param>
 public record struct CertificateRequirement(
     bool ClientCertificate = default,
     bool SignCertificate = default,

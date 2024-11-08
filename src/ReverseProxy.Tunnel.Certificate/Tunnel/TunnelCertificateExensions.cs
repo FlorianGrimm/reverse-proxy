@@ -60,10 +60,10 @@ public static class TunnelExtensions
         services.AddReverseProxyCertificateManager();
 
         // ClientCertificateValidationUtility
-        services.AddSingleton<ClientCertificateValidationUtility>();
-        services.AddOptions<ClientCertificateValidationOptions>()
+        services.AddSingleton<ClientCertificateValidationHttp2>();
+        services.AddOptions<ClientCertificateValidationHttp2Options>()
             .PostConfigure<IOptions<TunnelAuthenticationCertificateOptions>>(
-                (ClientCertificateValidationOptions options, IOptions<TunnelAuthenticationCertificateOptions> tunnelAuthenticationCertificateOptions) =>
+                (ClientCertificateValidationHttp2Options options, IOptions<TunnelAuthenticationCertificateOptions> tunnelAuthenticationCertificateOptions) =>
                 {
                     var source = tunnelAuthenticationCertificateOptions.Value;
                     options.IgnoreSslPolicyErrors = source.IgnoreSslPolicyErrors;

@@ -12,6 +12,15 @@ namespace Yarp.ReverseProxy.Utilities;
 /// </summary>
 public static class X509Certificate2Extensions
 {
+    /// <summary>
+    /// Concatenates two <see cref="X509Certificate2Collection"/> objects.
+    /// </summary>
+    /// <param name="a">The first <see cref="X509Certificate2Collection"/>.</param>
+    /// <param name="b">The second <see cref="X509Certificate2Collection"/>.</param>
+    /// <returns>
+    /// A new <see cref="X509Certificate2Collection"/> containing the certificates from both input collections,
+    /// or one of the input collections if the other is null, or null if both input collections are null.
+    /// </returns>
     public static X509Certificate2Collection? Concat(X509Certificate2Collection? a, X509Certificate2Collection? b)
     {
         if (a is not null && b is not null)
@@ -28,7 +37,13 @@ public static class X509Certificate2Extensions
 
     public const string ClientCertificateOid = "1.3.6.1.5.5.7.3.2";
 
-
+    /// <summary>
+    /// Determines if the certificate is allowed for client authentication based on the Extended Key Usage extension./// ///
+    /// </summary>
+    /// <param name="certificate">The <see cref="X509Certificate2"/> to check.</param>
+    /// <returns>
+    /// True if the certificate is allowed for client authentication, otherwise false.
+    /// </returns>
     public static bool IsCertificateAllowedForClientCertificate(this X509Certificate2 certificate)
     {
         /* If the Extended Key Usage extension is included, then we check that the serverAuth usage is included. (http://oid-info.com/get/1.3.6.1.5.5.7.3.1)
@@ -62,6 +77,15 @@ public static class X509Certificate2Extensions
 
         return !hasEkuExtension;
     }
+
+    /// <summary>
+    /// Determines if the certificate is allowed for a specific key usage based on the X509 Key Usage extension.
+    /// </summary>
+    /// <param name="certificate">The <see cref="X509Certificate2"/> to check.</param>
+    /// <param name="keyUsage">The <see cref="X509KeyUsageFlags"/> to check for.</param>
+    /// <returns>
+    /// True if the certificate is allowed for the specified key usage, otherwise false.
+    /// </returns>
     public static bool IsCertificateAllowedForX509KeyUsageExtension(this X509Certificate2 certificate, X509KeyUsageFlags keyUsage)
     {
         var hasEkuExtension = false;
@@ -77,6 +101,16 @@ public static class X509Certificate2Extensions
 
         return !hasEkuExtension;
     }
+
+
+    /// <summary>
+    /// Determines if the certificate is allowed for a specific key usage based on the X509 Enhanced Key Usage extension.
+    /// </summary>
+    /// <param name="certificate">The <see cref="X509Certificate2"/> to check.</param>
+    /// <param name="keyUsageOid">The OID of the key usage to check for.</param>
+    /// <returns>
+    /// True if the certificate is allowed for the specified key usage, otherwise false.
+    /// </returns>
     public static bool IsCertificateAllowedForX509EnhancedKeyUsageExtension(this X509Certificate2 certificate, string keyUsageOid)
     {
         var hasEkuExtension = false;
@@ -115,10 +149,15 @@ public static class X509Certificate2Extensions
 #endif
     }
 
+    /// <summary>
+    /// Disposes all certificates in the collection except the specified certificate.
+    /// </summary>
+    /// <param name="certificateCollection">The <see cref="X509CertificateCollection"/> to dispose certificates from.</param>
+    /// <param name="except">The <see cref="X509Certificate"/> to exclude from disposal.</param>
     public static void DisposeCertificates(
-        this X509CertificateCollection? certificateCollection,
-        X509Certificate? except
-        )
+            this X509CertificateCollection? certificateCollection,
+            X509Certificate? except
+            )
     {
         if (certificateCollection is null) { return; }
 
@@ -132,11 +171,66 @@ public static class X509Certificate2Extensions
         certificateCollection.Clear();
     }
 
+    /// <summary>
+    /// Forces the key of the certificate to be persisted.
+    /// </summary>
+    /// <param name="fullCertificate">The <see cref="X509Certificate2"/> to persist the key for.</param>
+    /// <returns>A new <see cref="X509Certificate2"/> with the key persisted.</returns>
     public static X509Certificate2 PersistKey(this X509Certificate2 fullCertificate)
     {
         // We need to force the key to be persisted.
         // See https://github.com/dotnet/runtime/issues/23749
         var certificateBytes = fullCertificate.Export(X509ContentType.Pkcs12, "");
         return new X509Certificate2(certificateBytes, "", X509KeyStorageFlags.DefaultKeySet);
+    }
+
+    /// <summary>
+    /// Gets the NotBefore date of the certificate, or a default value if an exception occurs.
+    /// </summary>
+    /// <param name="certificate">The <see cref="X509Certificate2"/> to get the NotBefore date from.</param>
+    /// <param name="defaultValue">The default value to return if an exception occurs.</param>
+    /// <returns>The NotBefore date of the certificate, or the default value if an exception occurs.</returns>
+    public static DateTime GetNotBeforeOrDefault(this X509Certificate2 certificate, DateTime? defaultValue)
+    {
+        try
+        {
+            return certificate.NotBefore;
+        }
+        catch
+        {
+            if (defaultValue.HasValue)
+            {
+                return defaultValue.Value;
+            }
+            else
+            {
+                return DateTime.MinValue;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the NotAfter date of the certificate, or a default value if an exception occurs.
+    /// </summary>
+    /// <param name="certificate">The <see cref="X509Certificate2"/> to get the NotAfter date from.</param>
+    /// <param name="defaultValue">The default value to return if an exception occurs.</param>
+    /// <returns>The NotAfter date of the certificate, or the default value if an exception occurs.</returns>
+    public static DateTime GetNotAfterOrDefault(this X509Certificate2 certificate, DateTime? defaultValue)
+    {
+        try
+        {
+            return certificate.NotAfter;
+        }
+        catch
+        {
+            if (defaultValue.HasValue)
+            {
+                return defaultValue.Value;
+            }
+            else
+            {
+                return DateTime.MinValue;
+            }
+        }
     }
 }
