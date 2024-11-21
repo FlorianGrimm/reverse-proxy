@@ -31,4 +31,6 @@ public interface IProxyStateLookup
     /// Enumerates all current clusters. This is thread safe but the collection may change mid-enumeration if the configuration is reloaded.
     /// </summary>
     IEnumerable<ClusterState> GetClusters();
+    IEnumerable<ClusterState> GetTransportTunnelClusters();
+    bool TryGetTunnel(string id, [MaybeNullWhen(false)] out TunnelState tunnel);
 }

@@ -1,0 +1,6 @@
+@ReverseProxy.Tunnel.Anonymous.Backend_HostAddress = http://localhost:5086
+
+GET {{ReverseProxy.Tunnel.Anonymous.Backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

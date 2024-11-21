@@ -3,12 +3,16 @@
 
 using System;
 using System.Collections.Generic;
+
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.HttpSys;
+
 using Moq;
+
 using Xunit;
+
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Model;
@@ -26,9 +30,13 @@ public class HttpSysDelegatorTests : TestAutoMockBase
 
     public HttpSysDelegatorTests()
     {
+        var serverDelegationFeature = Mock<IServerDelegationFeature>().Object;
+        Mock<ILazyResolveIServerDelegationFeature>()
+            .Setup(m => m.GetService())
+            .Returns(serverDelegationFeature);
         Mock<IFeatureCollection>()
             .Setup(m => m.Get<IServerDelegationFeature>())
-            .Returns(Mock<IServerDelegationFeature>().Object);
+            .Returns(serverDelegationFeature);
         Mock<IServer>()
             .SetupGet(p => p.Features)
             .Returns(Mock<IFeatureCollection>().Object);
@@ -109,7 +117,7 @@ public class HttpSysDelegatorTests : TestAutoMockBase
     }
 
     [Fact]
-    public void DelegateRequest_DelegationRuleNotFound_Verify503SatusAndErrorFeatureSet()
+    public void DelegateRequest_DelegationRuleNotFound_Verify503StatusAndErrorFeatureSet()
     {
         var destination = CreateDestination("dest1", "queue1");
         var cluster = CreateCluster("cluster1", destination);
@@ -120,7 +128,7 @@ public class HttpSysDelegatorTests : TestAutoMockBase
     }
 
     [Fact]
-    public void DelegateRequest_CreateRuleFailed_Verify503SatusAndErrorFeatureSet()
+    public void DelegateRequest_CreateRuleFailed_Verify503StatusAndErrorFeatureSet()
     {
         var destination = CreateDestination("dest1", "queue1");
         var cluster = CreateCluster("cluster1", destination);

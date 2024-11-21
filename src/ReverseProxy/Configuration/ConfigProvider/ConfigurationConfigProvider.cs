@@ -13,6 +13,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Yarp.ReverseProxy.Forwarder;
+using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Configuration.ConfigProvider;
 
@@ -73,6 +74,11 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             {
                 newSnapshot = new ConfigurationSnapshot();
 
+                foreach (var section in _configuration.GetSection("Tunnels").GetChildren())
+                {
+                    newSnapshot.Tunnels.Add(CreateTunnel(section));
+                }
+
                 foreach (var section in _configuration.GetSection("Clusters").GetChildren())
                 {
                     newSnapshot.Clusters.Add(CreateCluster(section));
@@ -112,6 +118,28 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         }
     }
 
+    private TransportTunnelConfig CreateTunnel(IConfigurationSection section)
+    {
+        return new TransportTunnelConfig
+        {
+            TunnelId = section.Key,
+            Url = section[nameof(TransportTunnelConfig.Url)] ?? string.Empty,
+            RemoteTunnelId = section[nameof(TransportTunnelConfig.RemoteTunnelId)] ?? string.Empty,
+            Transport = ConvertTransportMode(section[nameof(TransportTunnelConfig.Transport)]),
+            Authentication = CreateTunnelAuthentication(section.GetSection(nameof(TransportTunnelConfig.Authentication)))
+        };
+    }
+
+    private TransportTunnelAuthenticationConfig CreateTunnelAuthentication(IConfigurationSection section)
+    {
+        return new TransportTunnelAuthenticationConfig
+        {
+            Mode = section[nameof(TransportTunnelAuthenticationConfig.Mode)],
+            ClientCertificate = section[nameof(TransportTunnelAuthenticationConfig.ClientCertificate)] ?? string.Empty,
+            Metadata = section.GetSection(nameof(ClusterConfig.Metadata)).ReadStringDictionary()
+        };
+    }
+
     private ClusterConfig CreateCluster(IConfigurationSection section)
     {
         var destinations = new Dictionary<string, DestinationConfig>(StringComparer.OrdinalIgnoreCase);
@@ -128,8 +156,33 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             HealthCheck = CreateHealthCheckConfig(section.GetSection(nameof(ClusterConfig.HealthCheck))),
             HttpClient = CreateHttpClientConfig(section.GetSection(nameof(ClusterConfig.HttpClient))),
             HttpRequest = CreateProxyRequestConfig(section.GetSection(nameof(ClusterConfig.HttpRequest))),
+            Transport = ConvertTransportMode(section[nameof(ClusterConfig.Transport)]),
+            Authentication = CreateClusterTunnelAuthenticationConfig(section.GetSection(nameof(ClusterConfig.Authentication))),
             Metadata = section.GetSection(nameof(ClusterConfig.Metadata)).ReadStringDictionary(),
             Destinations = destinations,
+        };
+    }
+
+    private string ConvertTransportMode(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "Forwarder";
+        }
+        else
+        {
+            return value;
+        }
+    }
+
+    private ClusterTunnelAuthenticationConfig CreateClusterTunnelAuthenticationConfig(IConfigurationSection section)
+    {
+        //
+        return new ClusterTunnelAuthenticationConfig()
+        {
+            Mode = section[nameof(ClusterTunnelAuthenticationConfig.Mode)] ?? "Invalid",
+            ClientCertificate = section[nameof(ClusterTunnelAuthenticationConfig.ClientCertificate)] ?? string.Empty,
+            UserNames = CreateUserNamesConfig(section.GetSection(nameof(ClusterTunnelAuthenticationConfig.UserNames)))
         };
     }
 
@@ -160,6 +213,19 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             Transforms = CreateTransforms(section.GetSection(nameof(RouteConfig.Transforms))),
             Match = CreateRouteMatch(section.GetSection(nameof(RouteConfig.Match))),
         };
+    }
+
+    private string[] CreateUserNamesConfig(IConfigurationSection configSection)
+    {
+        var result = new List<string>();
+        foreach (var section in configSection.GetChildren())
+        {
+            if (section.Value is { Length: > 0 } value)
+            {
+                result.Add(value);
+            }
+        }
+        return result.ToArray();
     }
 
     private static IReadOnlyList<IReadOnlyDictionary<string, string>>? CreateTransforms(IConfigurationSection section)

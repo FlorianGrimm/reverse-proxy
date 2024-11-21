@@ -54,6 +54,15 @@ public sealed record ClusterConfig
     /// </summary>
     public IReadOnlyDictionary<string, string>? Metadata { get; init; }
 
+    /// <summary>
+    /// Forwarder, TunnelHTTP2, TunnelWebSocket
+    /// </summary>
+    public string Transport { get; init; } = default!;
+
+    public ClusterTunnelAuthenticationConfig Authentication { get; init; } = new();
+
+    public bool IsTunnelTransport() => string.IsNullOrEmpty(Transport) ? false : Transport.StartsWith("Tunnel");
+
     public bool Equals(ClusterConfig? other)
     {
         if (other is null)
@@ -79,19 +88,24 @@ public sealed record ClusterConfig
             && HealthCheck == other.HealthCheck
             && HttpClient == other.HttpClient
             && HttpRequest == other.HttpRequest
+            && string.Equals(Transport, other.Transport, StringComparison.OrdinalIgnoreCase)
+            && Authentication == other.Authentication
             && CaseSensitiveEqualHelper.Equals(Metadata, other.Metadata);
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(
-            ClusterId?.GetHashCode(StringComparison.OrdinalIgnoreCase),
-            LoadBalancingPolicy?.GetHashCode(StringComparison.OrdinalIgnoreCase),
-            SessionAffinity,
-            HealthCheck,
-            HttpClient,
-            HttpRequest,
-            CollectionEqualityHelper.GetHashCode(Destinations),
-            CaseSensitiveEqualHelper.GetHashCode(Metadata));
+        var hashCode = new HashCode();
+        hashCode.Add(ClusterId, StringComparer.OrdinalIgnoreCase);
+        hashCode.Add(LoadBalancingPolicy, StringComparer.OrdinalIgnoreCase);
+        hashCode.Add(SessionAffinity);
+        hashCode.Add(HealthCheck);
+        hashCode.Add(HttpClient);
+        hashCode.Add(HttpRequest);
+        hashCode.Add(Transport);
+        hashCode.Add(Authentication);
+        hashCode.Add(CollectionEqualityHelper.GetHashCode(Destinations));
+        hashCode.Add(CaseSensitiveEqualHelper.GetHashCode(Metadata));
+        return hashCode.ToHashCode();
     }
 }

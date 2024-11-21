@@ -40,11 +40,35 @@ internal sealed class ForwarderMiddleware
 
         var route = context.GetRouteModel();
         var cluster = route.Cluster!;
+        var clusterModel = reverseProxyFeature.Cluster;
 
         var activity = context.GetYarpActivity();
         activity?.AddTag("proxy.route_id", route.Config.RouteId);
         activity?.AddTag("proxy.cluster_id", cluster.ClusterId);
 
+        if (clusterModel.Config.IsTunnelTransport())
+        {
+            try
+            {
+                cluster.ConcurrencyCounter.Increment();
+                ForwarderTelemetry.Log.ForwarderInvoke(cluster.ClusterId, route.Config.RouteId, "Tunnel");
+
+                var result = await _forwarder.SendAsync(
+                    context,
+                    $"http://{cluster.ClusterId}",
+                    clusterModel.HttpClient,
+                    clusterModel.Config.HttpRequest ?? ForwarderRequestConfig.Empty,
+                    route.Transformer);
+
+                activity?.SetStatus((result == ForwarderError.None) ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
+            }
+            finally
+            {
+                cluster.ConcurrencyCounter.Decrement();
+            }
+        }
+        else
+        {
         if (destinations.Count == 0)
         {
             Log.NoAvailableDestinations(_logger, cluster.ClusterId);
@@ -88,6 +112,7 @@ internal sealed class ForwarderMiddleware
         {
             destination.ConcurrencyCounter.Decrement();
             cluster.ConcurrencyCounter.Decrement();
+            }
         }
     }
 

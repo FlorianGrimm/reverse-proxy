@@ -9,12 +9,38 @@
     -->
     <PreReleaseVersionLabel>preview.1</PreReleaseVersionLabel>
     <DotNetFinalVersionKind Condition="'$(PreReleaseVersionLabel)' == 'rtw'">release</DotNetFinalVersionKind>
+    <LangVersion Condition="'$(LangVersion)' == ''">latest</LangVersion>
   </PropertyGroup>
   <!--Package versions-->
   <PropertyGroup>
     <SystemCollectionsImmutableVersion>8.0.0</SystemCollectionsImmutableVersion>
     <SystemIOHashingVersion>8.0.0</SystemIOHashingVersion>
     <MicrosoftBclTimeProviderVersion>8.0.0</MicrosoftBclTimeProviderVersion>
-    <MicrosoftDotNetXUnitExtensionsPackageVersion>10.0.0-beta.24551.1</MicrosoftDotNetXUnitExtensionsPackageVersion>
+    <MicrosoftDotNetXUnitExtensionsPackageVersion>10.0.0-beta.24511.1</MicrosoftDotNetXUnitExtensionsPackageVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <MicrosoftAspNetCoreHttpConnectionsClient>8.0.7</MicrosoftAspNetCoreHttpConnectionsClient>
+    <MicrosoftAspNetCoreAuthenticationCertificate>8.0.7</MicrosoftAspNetCoreAuthenticationCertificate>
+    <MicrosoftAspNetCoreAuthenticationNegotiate>8.0.7</MicrosoftAspNetCoreAuthenticationNegotiate>
+    <MicrosoftIdentityClient>4.63.0</MicrosoftIdentityClient>
+    <MicrosoftIdentityClientMsal>4.63.0</MicrosoftIdentityClientMsal>
+    <MicrosoftAspNetCoreAuthenticationJwtBearer>8.0.7</MicrosoftAspNetCoreAuthenticationJwtBearer>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net6.0'">
+    <MicrosoftAspNetCoreHttpConnectionsClient>6.0.31</MicrosoftAspNetCoreHttpConnectionsClient>
+    <MicrosoftAspNetCoreAuthenticationCertificate>6.0.31</MicrosoftAspNetCoreAuthenticationCertificate>
+    <MicrosoftAspNetCoreAuthenticationNegotiate>6.0.31</MicrosoftAspNetCoreAuthenticationNegotiate>
+    <MicrosoftIdentityClient>4.63.0</MicrosoftIdentityClient>
+    <MicrosoftIdentityClientMsal>4.63.0</MicrosoftIdentityClientMsal>
+    <MicrosoftAspNetCoreAuthenticationJwtBearer>6.0.31</MicrosoftAspNetCoreAuthenticationJwtBearer>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net7.0'">
+    <MicrosoftAspNetCoreHttpConnectionsClient>7.0.20</MicrosoftAspNetCoreHttpConnectionsClient>
+    <MicrosoftAspNetCoreAuthenticationCertificate>7.0.20</MicrosoftAspNetCoreAuthenticationCertificate>
+    <MicrosoftAspNetCoreAuthenticationNegotiate>7.0.20</MicrosoftAspNetCoreAuthenticationNegotiate>
+    <MicrosoftIdentityClient>4.63.0</MicrosoftIdentityClient>
+    <MicrosoftIdentityClientMsal>4.63.0</MicrosoftIdentityClientMsal>
+    <MicrosoftAspNetCoreAuthenticationJwtBearer>7.0.20</MicrosoftAspNetCoreAuthenticationJwtBearer>
   </PropertyGroup>
 </Project>

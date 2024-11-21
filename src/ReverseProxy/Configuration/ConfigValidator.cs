@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Yarp.ReverseProxy.Configuration.ClusterValidators;
 using Yarp.ReverseProxy.Configuration.RouteValidators;
+using Yarp.ReverseProxy.Configuration.TunnelValidators;
 using Yarp.ReverseProxy.Transforms.Builder;
 
 namespace Yarp.ReverseProxy.Configuration;
@@ -16,14 +17,17 @@ internal sealed class ConfigValidator : IConfigValidator
     private readonly ITransformBuilder _transformBuilder;
     private readonly IRouteValidator[] _routeValidators;
     private readonly IClusterValidator[] _clusterValidators;
+    private readonly IEnumerable<ITunnelValidator> _tunnelValidators;
 
     public ConfigValidator(ITransformBuilder transformBuilder,
         IEnumerable<IRouteValidator> routeValidators,
-        IEnumerable<IClusterValidator> clusterValidators)
+        IEnumerable<IClusterValidator> clusterValidators,
+        IEnumerable<ITunnelValidator> tunnelValidators)
     {
         _transformBuilder = transformBuilder ?? throw new ArgumentNullException(nameof(transformBuilder));
         _routeValidators = routeValidators?.ToArray() ?? throw new ArgumentNullException(nameof(routeValidators));
         _clusterValidators = clusterValidators?.ToArray() ?? throw new ArgumentNullException(nameof(clusterValidators));
+        _tunnelValidators = tunnelValidators?.ToArray() ?? throw new ArgumentNullException(nameof(tunnelValidators));
     }
 
     // Note this performs all validation steps without short-circuiting in order to report all possible errors.
@@ -74,6 +78,26 @@ internal sealed class ConfigValidator : IConfigValidator
         foreach (var clusterValidator in _clusterValidators)
         {
            await clusterValidator.ValidateAsync(cluster, errors);
+        }
+
+        return errors;
+    }
+
+
+    // Note this performs all validation steps without short circuiting in order to report all possible errors.
+    public async ValueTask<IList<Exception>> ValidateTunnelAsync(TransportTunnelConfig tunnel)
+    {
+        _ = tunnel ?? throw new ArgumentNullException(nameof(tunnel));
+        var errors = new List<Exception>();
+
+        if (string.IsNullOrEmpty(tunnel.TunnelId))
+        {
+            errors.Add(new ArgumentException("Missing Tunnel Id."));
+        }
+
+        foreach (var tunnelValidator in _tunnelValidators)
+        {
+            await tunnelValidator.ValidateAsync(tunnel, errors);
         }
 
         return errors;

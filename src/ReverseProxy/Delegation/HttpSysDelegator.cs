@@ -7,41 +7,46 @@ using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
+
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.HttpSys;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Model;
+using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Delegation;
 
 internal sealed class HttpSysDelegator : IHttpSysDelegator, IClusterChangeListener
 {
     private const int ERROR_OBJECT_NO_LONGER_EXISTS = 0x1A97;
-
-    private readonly IServerDelegationFeature? _serverDelegationFeature;
     private readonly ILogger<HttpSysDelegator> _logger;
     private readonly ConcurrentDictionary<QueueKey, WeakReference<DelegationQueue>> _queues;
     private readonly ConditionalWeakTable<DestinationState, DelegationQueue> _queuesPerDestination;
+    private readonly ILazyResolveIServerDelegationFeature _lazyResolveIServerDelegationFeature;
 
     public HttpSysDelegator(
-            IServer server,
+            ILazyResolveIServerDelegationFeature lazyResolveIServerDelegationFeature,
             ILogger<HttpSysDelegator> logger)
     {
+        _lazyResolveIServerDelegationFeature = lazyResolveIServerDelegationFeature;
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-        // IServerDelegationFeature isn't added to DI https://github.com/dotnet/aspnetcore/issues/40043
-        // IServerDelegationFeature may not be set if not http.sys server or the OS doesn't support delegation
-        _serverDelegationFeature = server.Features?.Get<IServerDelegationFeature>();
 
         _queues = new ConcurrentDictionary<QueueKey, WeakReference<DelegationQueue>>();
         _queuesPerDestination = new ConditionalWeakTable<DestinationState, DelegationQueue>();
     }
 
+    // Dependency Chain ProxyConfigManager -> HttpSysDelegator -> IServer
+    // in WebApplicationBuilder.WebHost.ConfigureKestrel it was not possible to resolve the ProxyConfigManager since the IServer is not yet constructed
+    private IServerDelegationFeature? ServerDelegationFeature
+        => _lazyResolveIServerDelegationFeature.GetService();
+
     public void ResetQueue(string queueName, string urlPrefix)
     {
-        if (_serverDelegationFeature is not null)
+        if (ServerDelegationFeature is not null)
         {
             var key = new QueueKey(queueName, urlPrefix);
             if (_queues.TryGetValue(key, out var queueWeakRef) && queueWeakRef.TryGetTarget(out var queue))
@@ -66,7 +71,8 @@ internal sealed class HttpSysDelegator : IHttpSysDelegator, IClusterChangeListen
                 "Current request can't be delegated. Either the request body has started to be read or the response has started to be sent.");
         }
 
-        if (_serverDelegationFeature is null || !_queuesPerDestination.TryGetValue(destination, out var queue))
+        var serverDelegationFeature = ServerDelegationFeature;
+        if (serverDelegationFeature is null || !_queuesPerDestination.TryGetValue(destination, out var queue))
         {
             Log.QueueNotFound(_logger, destination);
             context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
@@ -74,7 +80,7 @@ internal sealed class HttpSysDelegator : IHttpSysDelegator, IClusterChangeListen
             return;
         }
 
-        Delegate(context, destination, _serverDelegationFeature, requestDelegationFeature, queue, _logger, reattachIfNeeded: true);
+        Delegate(context, destination, serverDelegationFeature, requestDelegationFeature, queue, _logger, reattachIfNeeded: true);
 
         static void Delegate(
             HttpContext context,
@@ -139,7 +145,8 @@ internal sealed class HttpSysDelegator : IHttpSysDelegator, IClusterChangeListen
 
     private void AddOrUpdateRules(ClusterState cluster)
     {
-        if (_serverDelegationFeature is null)
+        var serverDelegationFeature = ServerDelegationFeature;
+        if (serverDelegationFeature is null)
         {
             return;
         }
@@ -178,7 +185,7 @@ internal sealed class HttpSysDelegator : IHttpSysDelegator, IClusterChangeListen
                         }
                     }
 
-                    var queueState = queue.Initialize(_serverDelegationFeature);
+                    var queueState = queue.Initialize(serverDelegationFeature);
                     if (!queueState.IsInitialized)
                     {
                         Log.QueueInitFailed(
@@ -417,3 +424,40 @@ internal sealed class HttpSysDelegator : IHttpSysDelegator, IClusterChangeListen
         }
     }
 }
+
+public interface ILazyResolveIServerDelegationFeature
+{
+    IServerDelegationFeature? GetService();
+}
+
+public class LazyResolveIServerDelegationFeature: ILazyResolveIServerDelegationFeature
+{
+#if NET7_0_OR_GREATER
+    [RequiresDynamicCode("")]
+#endif
+    public static ILazyResolveIServerDelegationFeature Create(
+        IServerDelegationFeature? service
+        )
+    {
+        var serviceCollection = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        if (service is { }) {
+            serviceCollection.AddSingleton<IServerDelegationFeature>(service);
+        }
+        var serviceProvider = serviceCollection.BuildServiceProvider();
+        return new LazyResolveIServerDelegationFeature(serviceProvider);
+    }
+    private readonly IServiceProvider _serviceProvider;
+
+    public LazyResolveIServerDelegationFeature(
+        IServiceProvider serviceProvider
+        )
+    {
+        _serviceProvider = serviceProvider;
+    }
+
+    public IServerDelegationFeature? GetService() =>
+        // IServerDelegationFeature isn't added to DI https://github.com/dotnet/aspnetcore/issues/40043
+        // IServerDelegationFeature may not be set if not http.sys server or the OS doesn't support delegation
+        _serviceProvider.GetService<IServer>()?.Features?.Get<IServerDelegationFeature>();
+}
+

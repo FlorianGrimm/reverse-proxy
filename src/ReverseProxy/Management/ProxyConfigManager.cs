@@ -10,11 +10,14 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Health;
@@ -22,6 +25,7 @@ using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Routing;
 using Yarp.ReverseProxy.ServiceDiscovery;
 using Yarp.ReverseProxy.Transforms.Builder;
+using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Management;
 
@@ -34,17 +38,20 @@ namespace Yarp.ReverseProxy.Management;
 internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup, IDisposable
 {
     private static readonly IReadOnlyDictionary<string, ClusterConfig> _emptyClusterDictionary = new ReadOnlyDictionary<string, ClusterConfig>(new Dictionary<string, ClusterConfig>());
+    private static readonly IReadOnlyDictionary<string, TransportTunnelConfig> _emptyTunnelDictionary = new ReadOnlyDictionary<string, TransportTunnelConfig>(new Dictionary<string, TransportTunnelConfig>());
 
     private readonly object _syncRoot = new();
     private readonly ILogger<ProxyConfigManager> _logger;
     private readonly IProxyConfigProvider[] _providers;
     private readonly ConfigState[] _configs;
+    private readonly ITunnelChangeListener[] _tunnelChangeListeners;
+    private readonly ConcurrentDictionary<string, TunnelState> _tunnels = new(StringComparer.OrdinalIgnoreCase);
     private readonly IClusterChangeListener[] _clusterChangeListeners;
     private readonly ConcurrentDictionary<string, ClusterState> _clusters = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, RouteState> _routes = new(StringComparer.OrdinalIgnoreCase);
     private readonly IProxyConfigFilter[] _filters;
     private readonly IConfigValidator _configValidator;
-    private readonly IForwarderHttpClientFactory _httpClientFactory;
+    private readonly TransportForwarderHttpClientFactorySelector _TransportHttpClientFactorySelector;
     private readonly ProxyEndpointFactory _proxyEndpointFactory;
     private readonly ITransformBuilder _transformBuilder;
     private readonly List<Action<EndpointBuilder>> _conventions;
@@ -57,16 +64,18 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     private IChangeToken _endpointsChangeToken;
 
     private CancellationTokenSource _configChangeSource = new();
+    private PreloadOnce? _preloadOnce = new();
 
     public ProxyConfigManager(
         ILogger<ProxyConfigManager> logger,
         IEnumerable<IProxyConfigProvider> providers,
+        IEnumerable<ITunnelChangeListener> tunnelChangeListeners,
         IEnumerable<IClusterChangeListener> clusterChangeListeners,
         IEnumerable<IProxyConfigFilter> filters,
         IConfigValidator configValidator,
         ProxyEndpointFactory proxyEndpointFactory,
         ITransformBuilder transformBuilder,
-        IForwarderHttpClientFactory httpClientFactory,
+        TransportForwarderHttpClientFactorySelector transportHttpClientFactorySelector,
         IActiveHealthCheckMonitor activeHealthCheckMonitor,
         IClusterDestinationsUpdater clusterDestinationsUpdater,
         IEnumerable<IConfigChangeListener> configChangeListeners,
@@ -74,13 +83,14 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _providers = providers?.ToArray() ?? throw new ArgumentNullException(nameof(providers));
+        _tunnelChangeListeners = (tunnelChangeListeners as ITunnelChangeListener[]) ?? tunnelChangeListeners?.ToArray() ?? throw new ArgumentNullException(nameof(tunnelChangeListeners));
         _clusterChangeListeners = (clusterChangeListeners as IClusterChangeListener[])
             ?? clusterChangeListeners?.ToArray() ?? throw new ArgumentNullException(nameof(clusterChangeListeners));
         _filters = (filters as IProxyConfigFilter[]) ?? filters?.ToArray() ?? throw new ArgumentNullException(nameof(filters));
         _configValidator = configValidator ?? throw new ArgumentNullException(nameof(configValidator));
         _proxyEndpointFactory = proxyEndpointFactory ?? throw new ArgumentNullException(nameof(proxyEndpointFactory));
         _transformBuilder = transformBuilder ?? throw new ArgumentNullException(nameof(transformBuilder));
-        _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
+        _TransportHttpClientFactorySelector = transportHttpClientFactorySelector ?? throw new ArgumentNullException(nameof(transportHttpClientFactorySelector));
         _activeHealthCheckMonitor = activeHealthCheckMonitor ?? throw new ArgumentNullException(nameof(activeHealthCheckMonitor));
         _clusterDestinationsUpdater = clusterDestinationsUpdater ?? throw new ArgumentNullException(nameof(clusterDestinationsUpdater));
         _destinationResolver = destinationResolver ?? throw new ArgumentNullException(nameof(destinationResolver));
@@ -144,6 +154,25 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         UpdateEndpoints(endpoints);
     }
 
+    public IReadOnlyList<TransportTunnelConfig> Tunnels
+    {
+        get
+        {
+            if (_preloadOnce is { Loaded: false })
+            {
+                try
+                {
+                    InitialPreloadAsync().GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException("Unable to load or apply the proxy configuration.", ex);
+                }
+            }
+            return [];
+        }
+    }
+
     /// <inheritdoc/>
     public override IChangeToken GetChangeToken() => Volatile.Read(ref _endpointsChangeToken);
 
@@ -152,15 +181,20 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         return configStates.Select(state => state.LatestConfig).ToList().AsReadOnly();
     }
 
-    internal async Task<EndpointDataSource> InitialLoadAsync()
+    private class PreloadOnce
     {
-        // Trigger the first load immediately and throw if it fails.
-        // We intend this to crash the app, so we don't try listening for further changes.
-        try
+        public bool Loaded = false;
+        public IReadOnlyList<IProxyConfig> ProxyConfigs = [];
+    }
+
+    private async Task InitialPreloadAsync()
+    {
+        if (_preloadOnce is { Loaded: false } preloadOnce)
         {
+            preloadOnce.Loaded = true;
+            var tunnels = new List<TransportTunnelConfig>();
             var routes = new List<RouteConfig>();
             var clusters = new List<ClusterConfig>();
-
             // Begin resolving config providers concurrently.
             var resolvedConfigs = new List<(int Index, IProxyConfigProvider Provider, ValueTask<IProxyConfig> Config)>(_providers.Length);
             for (var i = 0; i < _providers.Length; i++)
@@ -175,25 +209,51 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             {
                 var config = await configLoadTask;
                 _configs[i] = new ConfigState(provider, config);
-                routes.AddRange(config.Routes ?? Array.Empty<RouteConfig>());
-                clusters.AddRange(config.Clusters ?? Array.Empty<ClusterConfig>());
+                if (config.Tunnels is { Count: > 0 } updatedTunnels)
+                {
+                    tunnels.AddRange(updatedTunnels);
+                }
+                if (config.Routes is { Count: > 0 } updatedRoutes)
+                {
+                    routes.AddRange(updatedRoutes);
+                }
+                if (config.Clusters is { Count: > 0 } updatedClusters)
+                {
+                    clusters.AddRange(updatedClusters);
+                }
             }
 
-            var proxyConfigs = ExtractListOfProxyConfigs(_configs);
+            var proxyConfigs = preloadOnce.ProxyConfigs = ExtractListOfProxyConfigs(_configs);
 
             foreach (var configChangeListener in _configChangeListeners)
             {
                 configChangeListener.ConfigurationLoaded(proxyConfigs);
             }
+            await ApplyConfigAsync(routes, clusters, tunnels);
+        }
+    }
 
-            await ApplyConfigAsync(routes, clusters);
 
-            foreach (var configChangeListener in _configChangeListeners)
+    internal async Task<EndpointDataSource> InitialLoadAsync()
+    {
+        // Trigger the first load immediately and throw if it fails.
+        // We intend this to crash the app, so we don't try listening for further changes.
+        try
+        {
+            // moved to InitialPreloadAsync since the tunnel Config is needed earlier than the route
+            await InitialPreloadAsync();
+            if (_preloadOnce is { } preloadOnce)
             {
-                configChangeListener.ConfigurationApplied(proxyConfigs);
-            }
+                _preloadOnce = null;
 
-            ListenForConfigChanges();
+                // fire these events at the same time as before
+                foreach (var configChangeListener in _configChangeListeners)
+                {
+                    configChangeListener.ConfigurationApplied(preloadOnce.ProxyConfigs);
+                }
+
+                ListenForConfigChanges();
+            }
         }
         catch (Exception ex)
         {
@@ -211,6 +271,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         _configChangeSource.Dispose();
 
         var sourcesChanged = false;
+        var tunnels = new List<TransportTunnelConfig>();
         var routes = new List<RouteConfig>();
         var clusters = new List<ClusterConfig>();
         var reloadedConfigs = new List<(ConfigState Config, ValueTask<IProxyConfig> ResolveTask)>();
@@ -259,6 +320,11 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             {
                 clusters.AddRange(updatedClusters);
             }
+
+            if (instance.LatestConfig.Tunnels is { Count: > 0 } updatedTunnels)
+            {
+                tunnels.AddRange(updatedTunnels);
+            }
         }
 
         var proxyConfigs = ExtractListOfProxyConfigs(_configs);
@@ -272,7 +338,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             // Only reload if at least one provider changed.
             if (sourcesChanged)
             {
-                var hasChanged = await ApplyConfigAsync(routes, clusters);
+                var hasChanged = await ApplyConfigAsync(routes, clusters, tunnels);
                 lock (_syncRoot)
                 {
                     // Skip if changes are signaled before the endpoints are initialized for the first time.
@@ -410,6 +476,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
         public IReadOnlyList<RouteConfig> Routes => _innerConfig.Routes;
         public IReadOnlyList<ClusterConfig> Clusters { get; }
+        public IReadOnlyList<TransportTunnelConfig> Tunnels => _innerConfig.Tunnels;
         public IChangeToken ChangeToken { get; }
     }
 
@@ -463,20 +530,23 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         static void ReloadConfig(object? state)
         {
             var manager = (ProxyConfigManager)state!;
-            _ = manager.ReloadConfigAsync();
+            manager.ReloadConfigAsync().GetAwaiter().GetResult();
         }
     }
 
     // Throws for validation failures
-    private async Task<bool> ApplyConfigAsync(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters)
+    private async Task<bool> ApplyConfigAsync(IReadOnlyList<RouteConfig> routes, IReadOnlyList<ClusterConfig> clusters, IReadOnlyList<TransportTunnelConfig> tunnels)
     {
+        var (configuredTunnels, tunnelErrors) = await VerifyTunnelsAsync(tunnels);
         var (configuredClusters, clusterErrors) = await VerifyClustersAsync(clusters, cancellation: default);
         var (configuredRoutes, routeErrors) = await VerifyRoutesAsync(routes, configuredClusters, cancellation: default);
 
-        if (routeErrors.Count > 0 || clusterErrors.Count > 0)
+        if (routeErrors.Count > 0 || clusterErrors.Count > 0 || tunnelErrors.Count > 0)
         {
-            throw new AggregateException("The proxy config is invalid.", routeErrors.Concat(clusterErrors));
+            throw new AggregateException("The proxy config is invalid.", routeErrors.Concat(clusterErrors).Concat(tunnelErrors));
         }
+
+        UpdateRuntimeTunnels(configuredTunnels);
 
         // Update clusters first because routes need to reference them.
         UpdateRuntimeClusters(configuredClusters.Values);
@@ -597,6 +667,114 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         return (configuredClusters, errors);
     }
 
+    private async Task<(IReadOnlyDictionary<string, TransportTunnelConfig>, IList<Exception>)> VerifyTunnelsAsync(IReadOnlyList<TransportTunnelConfig> tunnels)
+    {
+        if (tunnels is null)
+        {
+            return (_emptyTunnelDictionary, Array.Empty<Exception>());
+        }
+
+        var configuredTunnels = new Dictionary<string, TransportTunnelConfig>(tunnels.Count, StringComparer.OrdinalIgnoreCase);
+        var errors = new List<Exception>();
+        // The IProxyConfigProvider provides a fresh snapshot that we need to reconfigure each time.
+        foreach (var t in tunnels)
+        {
+            try
+            {
+                if (configuredTunnels.ContainsKey(t.TunnelId))
+                {
+                    errors.Add(new ArgumentException($"Duplicate tunnel '{t.TunnelId}'."));
+                    continue;
+                }
+
+                // Don't modify the original
+                // TODO: what?? var tunnel = t with { };??
+                var tunnel = t;
+
+                var tunnelErrors = await _configValidator.ValidateTunnelAsync(tunnel);
+                if (tunnelErrors.Count > 0)
+                {
+                    errors.AddRange(tunnelErrors);
+                    continue;
+                }
+
+                configuredTunnels.Add(tunnel.TunnelId, tunnel);
+            }
+            catch (Exception ex)
+            {
+                errors.Add(new ArgumentException($"An exception was thrown from the configuration callbacks for tunnel '{t.TunnelId}'.", ex));
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            return (_emptyTunnelDictionary, errors);
+        }
+
+        return (configuredTunnels, errors);
+    }
+
+    private void UpdateRuntimeTunnels(IReadOnlyDictionary<string, TransportTunnelConfig> incomingTunnels)
+    {
+        var desiredTunnels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (_, incomingTunnel) in incomingTunnels)
+        {
+            var added = desiredTunnels.Add(incomingTunnel.TunnelId);
+            Debug.Assert(added);
+
+            if (_tunnels.TryGetValue(incomingTunnel.TunnelId, out var currentTunnel))
+            {
+                var newTunnelModel = new TunnelModel(incomingTunnel);
+                var currentTunnelModel = currentTunnel.Model!;
+                var configChanged = currentTunnelModel.HasConfigChanged(newTunnelModel);
+                if (configChanged)
+                {
+                    currentTunnel.Revision++;
+                    Log.ClusterChanged(_logger, incomingTunnel.TunnelId);
+
+                    currentTunnel.Model = newTunnelModel;
+                    foreach (var listener in _tunnelChangeListeners)
+                    {
+                        listener.OnTunnelChanged(currentTunnel);
+                    }
+                }
+            }
+            else
+            {
+                var newTunnelModel = new TunnelModel(incomingTunnel);
+                currentTunnel = new TunnelState(incomingTunnel.TunnelId, newTunnelModel);
+                _tunnels.TryAdd(currentTunnel.TunnelId, currentTunnel);
+
+                foreach (var listener in _tunnelChangeListeners)
+                {
+                    listener.OnTunnelAdded(currentTunnel);
+                }
+            }
+        }
+
+        // Directly enumerate the ConcurrentDictionary to limit locking and copying.
+        foreach (var existingTunnelPair in _tunnels)
+        {
+            var existingTunnel = existingTunnelPair.Value;
+            if (!desiredTunnels.Contains(existingTunnel.TunnelId))
+            {
+                // NOTE 1: Remove is safe to do within the `foreach` loop on ConcurrentDictionary
+                //
+
+                // TODO: remove the tunnel - how to remove the kestrel listen endpoint?
+                Log.TunnelRemoved(_logger, existingTunnel.TunnelId);
+                var removed = _tunnels.TryRemove(existingTunnel.TunnelId, out var _);
+                Debug.Assert(removed);
+
+                foreach (var listener in _tunnelChangeListeners)
+                {
+                    listener.OnTunnelRemoved(existingTunnel);
+                }
+            }
+        }
+    }
+
     private void UpdateRuntimeClusters(IEnumerable<ClusterConfig> incomingClusters)
     {
         var desiredClusters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -606,13 +784,15 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             var added = desiredClusters.Add(incomingCluster.ClusterId);
             Debug.Assert(added);
 
+            var transport = incomingCluster.Transport;
+
             if (_clusters.TryGetValue(incomingCluster.ClusterId, out var currentCluster))
             {
                 var destinationsChanged = UpdateRuntimeDestinations(incomingCluster.Destinations, currentCluster.Destinations);
 
                 var currentClusterModel = currentCluster.Model;
 
-                var httpClient = _httpClientFactory.CreateClient(new ForwarderHttpClientContext
+                var forwarderHttpClientContext = new ForwarderHttpClientContext
                 {
                     ClusterId = currentCluster.ClusterId,
                     OldConfig = currentClusterModel.Config.HttpClient ?? HttpClientConfig.Empty,
@@ -620,7 +800,14 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
                     OldClient = currentClusterModel.HttpClient,
                     NewConfig = incomingCluster.HttpClient ?? HttpClientConfig.Empty,
                     NewMetadata = incomingCluster.Metadata
-                });
+                };
+                var factory = _TransportHttpClientFactorySelector.GetForwarderHttpClientFactory(transport, forwarderHttpClientContext);
+                var httpClient = factory?.CreateClient(forwarderHttpClientContext);
+                if (httpClient is null)
+                {
+                    // log error or throw an exception?
+                    throw new InvalidOperationException("GetForwarderHttpClientFactory failed.");
+                }
 
                 var newClusterModel = new ClusterModel(incomingCluster, httpClient);
 
@@ -651,12 +838,19 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
                 UpdateRuntimeDestinations(incomingCluster.Destinations, newClusterState.Destinations);
 
-                var httpClient = _httpClientFactory.CreateClient(new ForwarderHttpClientContext
+                var forwarderHttpClientContext = new ForwarderHttpClientContext
                 {
                     ClusterId = newClusterState.ClusterId,
                     NewConfig = incomingCluster.HttpClient ?? HttpClientConfig.Empty,
                     NewMetadata = incomingCluster.Metadata
-                });
+                };
+                var factory = _TransportHttpClientFactorySelector
+                    .GetForwarderHttpClientFactory(transport, forwarderHttpClientContext);
+                var httpClient = factory?.CreateClient(forwarderHttpClientContext);
+                if (httpClient is null)
+                {
+                    throw new InvalidOperationException("Cannot create a HttpClient");
+                }
 
                 newClusterState.Model = new ClusterModel(incomingCluster, httpClient);
                 newClusterState.Revision++;
@@ -886,6 +1080,66 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         }
     }
 
+    public bool TryGetTunnel(string id, [MaybeNullWhen(false)] out TunnelState tunnel)
+    {
+        return _tunnels.TryGetValue(id, out tunnel);
+    }
+
+    public List<TunnelState> GetTransportTunnels()
+    {
+        if (_preloadOnce is { Loaded: false })
+        {
+            InitialPreloadAsync().GetAwaiter().GetResult();
+        }
+
+        List<TunnelState> result = new();
+        foreach (var (_, tunnel) in _tunnels)
+        {
+            if (tunnel.Model.Config.IsTunnelTransport)
+            {
+                result.Add(tunnel);
+            }
+        }
+        return result;
+    }
+
+    internal bool TryGetTransportTunnelByUrl(string host, [MaybeNullWhenAttribute(false)] out TunnelState result)
+    {
+        foreach (var (_, tunnel) in _tunnels)
+        {
+            var cfg = tunnel.Model.Config;
+            if (cfg.IsTunnelTransport)
+            {
+                if (string.Equals(cfg.GetRemoteTunnelId(), host, StringComparison.OrdinalIgnoreCase))
+                {
+                    result = tunnel;
+                    return true;
+                }
+            }
+        }
+        result = default;
+        return false;
+    }
+
+
+    public IEnumerable<ClusterState> GetTransportTunnelClusters()
+    {
+        if (_preloadOnce is { Loaded: false })
+        {
+            InitialPreloadAsync().GetAwaiter().GetResult();
+        }
+
+        List<ClusterState> result = new();
+        foreach (var (_, cluster) in _clusters)
+        {
+            if (cluster.Model.Config.IsTunnelTransport())
+            {
+                result.Add(cluster);
+            }
+        }
+        return result;
+    }
+
     public void Dispose()
     {
         _configChangeSource.Dispose();
@@ -914,6 +1168,21 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
     private static class Log
     {
+        private static readonly Action<ILogger, string, Exception?> _tunnelAdded = LoggerMessage.Define<string>(
+            LogLevel.Debug,
+            EventIds.TunnelAdded,
+            "Tunnel '{tunnelId}' has been added.");
+
+        private static readonly Action<ILogger, string, Exception?> _tunnelChanged = LoggerMessage.Define<string>(
+            LogLevel.Debug,
+            EventIds.TunnelChanged,
+            "Tunnel '{tunnelId}' has changed.");
+
+        private static readonly Action<ILogger, string, Exception?> _tunnelRemoved = LoggerMessage.Define<string>(
+            LogLevel.Debug,
+            EventIds.TunnelRemoved,
+            "Tunnel '{tunnelId}' has been removed.");
+
         private static readonly Action<ILogger, string, Exception?> _clusterAdded = LoggerMessage.Define<string>(
             LogLevel.Debug,
             EventIds.ClusterAdded,
@@ -968,6 +1237,21 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             LogLevel.Error,
             EventIds.ErrorApplyingConfig,
             "Failed to apply the new config.");
+
+        public static void TunnelAdded(ILogger logger, string tunnelId)
+        {
+            _tunnelAdded(logger, tunnelId, null);
+        }
+
+        public static void TunnelChanged(ILogger logger, string tunnelId)
+        {
+            _tunnelChanged(logger, tunnelId, null);
+        }
+
+        public static void TunnelRemoved(ILogger logger, string tunnelId)
+        {
+            _tunnelRemoved(logger, tunnelId, null);
+        }
 
         public static void ClusterAdded(ILogger logger, string clusterId)
         {
@@ -1025,3 +1309,12 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         }
     }
 }
+
+public sealed class LazyProxyConfigManager(IServiceProvider serviceProvider)
+{
+    private readonly IServiceProvider _serviceProvider = serviceProvider;
+
+    public IProxyStateLookup GetService()
+        => _serviceProvider.GetRequiredService<IProxyStateLookup>();
+}
+

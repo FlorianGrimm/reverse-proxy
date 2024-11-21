@@ -5,9 +5,11 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Http;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Configuration.ConfigProvider;
 using Yarp.ReverseProxy.Forwarder;
@@ -54,7 +56,8 @@ public static class ReverseProxyServiceCollectionExtensions
             .AddLoadBalancingPolicies()
             .AddHttpSysDelegation()
             .AddDestinationResolver()
-            .AddProxy();
+            .AddProxy()
+            ;
 
         services.TryAddSingleton<ProxyEndpointFactory>();
 
