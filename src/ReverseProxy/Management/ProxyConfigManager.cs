@@ -1095,7 +1095,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         List<TunnelState> result = new();
         foreach (var (_, tunnel) in _tunnels)
         {
-            if (tunnel.Model.Config.IsTunnelTransport)
+            if (tunnel.Model.Config.IsTunnelTransport())
             {
                 result.Add(tunnel);
             }
@@ -1108,7 +1108,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         foreach (var (_, tunnel) in _tunnels)
         {
             var cfg = tunnel.Model.Config;
-            if (cfg.IsTunnelTransport)
+            if (cfg.IsTunnelTransport())
             {
                 if (string.Equals(cfg.GetRemoteTunnelId(), host, StringComparison.OrdinalIgnoreCase))
                 {

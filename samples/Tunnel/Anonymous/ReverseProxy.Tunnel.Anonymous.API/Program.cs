@@ -15,7 +15,8 @@ public class Program
 
         app.UseHttpsRedirection();
 
-        app.UseAuthorization();
+        //app.UseAuthorization();
+        //app.UseAuthentication();
 
         app.Map("/API", async (context) => {
             context.Response.Headers.ContentType = "text/plain";

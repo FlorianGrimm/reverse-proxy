@@ -92,6 +92,11 @@ internal static class EventIds
 
     public static readonly EventId NoCertificate = new EventId(84, "NoCertificate");
     public static readonly EventId NotHttps = new EventId(85, "NotHttps");
+    public static readonly EventId TransportIsNotUnique = new EventId(86, "TransportIsNotUnique");
+    public static readonly EventId TransportIsUnknown = new EventId(87, "TransportIsUnknown");
+    
+
+
 
     //public static readonly EventId MissingOrInvalidCertificateFile = new EventId(84, "MissingOrInvalidCertificateFile");
     //public static readonly EventId MissingOrInvalidCertificateKeyFile = new EventId(77, "MissingOrInvalidCertificateKeyFile");

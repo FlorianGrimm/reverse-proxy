@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Utilities;
 
@@ -55,14 +56,17 @@ public sealed record ClusterConfig
     public IReadOnlyDictionary<string, string>? Metadata { get; init; }
 
     /// <summary>
-    /// Forwarder, TunnelHTTP2, TunnelWebSocket
+    /// Get or set the Transport mode - if empty "Forwarder" is used.
+    /// e.g.: Forwarder, TunnelHTTP2, TunnelWebSocket
     /// </summary>
     public string Transport { get; init; } = default!;
 
+    /// <summary>
+    /// Get or set the Authentication configuration.
+    /// </summary>
     public ClusterTunnelAuthenticationConfig Authentication { get; init; } = new();
 
-    public bool IsTunnelTransport() => string.IsNullOrEmpty(Transport) ? false : Transport.StartsWith("Tunnel");
-
+    /// <inheritdoc/>
     public bool Equals(ClusterConfig? other)
     {
         if (other is null)
@@ -93,6 +97,7 @@ public sealed record ClusterConfig
             && CaseSensitiveEqualHelper.Equals(Metadata, other.Metadata);
     }
 
+    /// <inheritdoc/>
     public override int GetHashCode()
     {
         var hashCode = new HashCode();
@@ -108,4 +113,18 @@ public sealed record ClusterConfig
         hashCode.Add(CaseSensitiveEqualHelper.GetHashCode(Metadata));
         return hashCode.ToHashCode();
     }
+}
+
+public static class ClusterConfigExtension
+{
+    /// <summary>
+    /// Determines whether the transport configuration of the cluster is a tunnel transport.
+    /// </summary>
+    /// <param name="that">The cluster configuration to check.</param>
+    /// <returns>
+    /// <c>true</c> if the transport configuration starts with "Tunnel"; otherwise, <c>false</c>.
+    /// </returns>
+    public static bool IsTunnelTransport(this ClusterConfig that)
+        => that.Transport is { Length: > 0 } transport
+            && transport.StartsWith("Tunnel");
 }

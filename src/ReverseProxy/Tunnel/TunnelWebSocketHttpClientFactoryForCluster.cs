@@ -6,15 +6,11 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Text;
-using System.Threading.Tasks;
-using System.Threading;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ObjectPool;
 
 using Yarp.ReverseProxy.Forwarder;
-using Yarp.ReverseProxy.Management;
-using static Yarp.ReverseProxy.Tunnel.TunnelConnectionRequest;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
@@ -23,19 +19,16 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
     , IDisposable
 {
     private ObjectPool<TunnelConnectionRequest> _poolTunnelConnectionRequest;
-    //private readonly ProxyConfigManager _proxyConfigManager;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
     private readonly string _clusterId;
     private readonly ILogger _logger;
     private bool _isDisposed;
 
     public TunnelWebSocketHttpClientFactoryForCluster(
-        //ProxyConfigManager proxyConfigManager,
         TunnelConnectionChannelManager tunnelConnectionChannelManager,
         string clusterId,
         ILogger logger)
     {
-        //_proxyConfigManager = proxyConfigManager;
         _tunnelConnectionChannelManager = tunnelConnectionChannelManager;
         _clusterId = clusterId;
         _logger = logger;

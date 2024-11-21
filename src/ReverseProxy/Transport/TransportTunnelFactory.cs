@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Options;
 
+using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Transport;
@@ -54,7 +53,8 @@ internal class TransportTunnelHttp2Factory : ITransportTunnelFactory
         _transportTunnelHttp2Authentication = transportTunnelHttp2Authentication;
         _ListAuthenticationNameH2 = _transportTunnelHttp2Authentication.GetAuthenticationNames();
     }
-    public string GetTransport() => "TunnelHttp2";
+    public string GetTransport()
+        => Yarp.ReverseProxy.Tunnel.TunnelConstants.TransportNameTunnelHTTP2;
 
     public void Listen(TunnelState tunnel, KestrelServerOptions options)
     {
@@ -94,7 +94,8 @@ internal class TransportTunnelWebSocketFactory : ITransportTunnelFactory
         _transportTunnelWebSocketAuthentication = transportTunnelWebSocketAuthentication;
         _listAuthenticationNameWS = transportTunnelWebSocketAuthentication.GetAuthenticationNames();
     }
-    public string GetTransport() => "TunnelWebSocket";
+    public string GetTransport()
+        => Yarp.ReverseProxy.Tunnel.TunnelConstants.TransportNameTunnelWebSocket;
 
     public void Listen(TunnelState tunnel, KestrelServerOptions options)
     {

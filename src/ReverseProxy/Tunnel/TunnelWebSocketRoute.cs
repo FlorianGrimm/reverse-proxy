@@ -9,21 +9,18 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using Microsoft.Extensions.Logging;
 
 using Yarp.ReverseProxy.Management;
-using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
 internal sealed class TunnelWebSocketRoute
-    : IProxyRouteService
+    : ITunnelRouteService
     , IDisposable
 {
-    public const string TransportName = "TunnelWebSocket";
     private readonly LazyProxyConfigManager _proxyConfigManagerLazy;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
     private readonly ITunnelAuthenticationConfigService _tunnelAuthenticationConfigService;
@@ -48,14 +45,15 @@ internal sealed class TunnelWebSocketRoute
         _unRegister = _lifetime.ApplicationStopping.Register(() => _cancellationTokenSource.Cancel());
     }
 
-    public string GetTransport() => TransportName;
+    public string GetTransport()
+        => Yarp.ReverseProxy.Tunnel.TunnelConstants.TransportNameTunnelWebSocket;
 
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute("Map")]
     public void Map(
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
     {
-        var listTunnelAuthenticationService = _tunnelAuthenticationConfigService.GetTunnelAuthenticationServices(TransportName);
+        var listTunnelAuthenticationService = _tunnelAuthenticationConfigService.GetTunnelAuthenticationServices(GetTransport());
         if (listTunnelAuthenticationService.Count == 0)
         {
             _logger.LogError("No TunnelAuthenticationService found.");
@@ -109,7 +107,7 @@ internal sealed class TunnelWebSocketRoute
         }
 
         var transport = cluster.Model.Config.Transport;
-        if (!string.Equals(transport, TransportName, StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(transport, GetTransport(), StringComparison.OrdinalIgnoreCase))
         {
             Log.ParameterNotValid(_logger, "Transport");
             return Results.StatusCode(504);

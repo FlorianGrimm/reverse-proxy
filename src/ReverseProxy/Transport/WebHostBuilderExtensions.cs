@@ -24,7 +24,7 @@ namespace Microsoft.AspNetCore.Builder;
 public static class WebHostBuilderExtensions
 {
     /// <summary>
-    /// Enable the tunnel transport on the backend.
+    /// Enable the tunnel transport (on the backend).
     /// For each tunnel-config connections are opened to URL/_tunnel/RemoteTunnelId or URL/_tunnel/TunnelId
     /// </summary>
     /// <remarks>

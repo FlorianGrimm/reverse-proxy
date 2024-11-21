@@ -94,12 +94,12 @@ public static class TunnelExtensions
 
         if (options is null || options.TunnelHTTP2)
         {
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<IProxyRouteService, TunnelHTTP2Route>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelRouteService, TunnelHTTP2Route>());
             services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportForwarderHttpClientFactorySelector, TunnelHTTP2HttpClientFactory>());
         }
         if (options is null || options.TunnelWebSocket)
         {
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<IProxyRouteService, TunnelWebSocketRoute>());
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelRouteService, TunnelWebSocketRoute>());
             services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportForwarderHttpClientFactorySelector, TunnelWebSocketHttpClientFactory>());
         }
         if (options is not null && !options.TunnelHTTP2 && !options.TunnelWebSocket)
@@ -126,7 +126,7 @@ public static class TunnelExtensions
         this IEndpointRouteBuilder endpoints,
         Dictionary<string, Action<IEndpointConventionBuilder>>? configureEndpoints = default)
     {
-        var tunnelRouteServices = endpoints.ServiceProvider.GetServices<IProxyRouteService>();
+        var tunnelRouteServices = endpoints.ServiceProvider.GetServices<ITunnelRouteService>();
         foreach (var tunnelRouteService in tunnelRouteServices)
         {
             var transport = tunnelRouteService.GetTransport();

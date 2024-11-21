@@ -3,7 +3,7 @@
 
 namespace Yarp.ReverseProxy.Tunnel;
 
-public sealed class TunnelServicesOptions
+public class TunnelServicesOptions
 {
     /// <summary>
     /// Enables or disables the HTTP/2 tunnel.

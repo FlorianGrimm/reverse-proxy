@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ObjectPool;
 
+using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Tunnel;
@@ -45,6 +46,7 @@ public sealed class TunnelConnectionChannelManager
             }
         }
     }
+
     private readonly ConcurrentDictionary<string, TunnelConnectionChannels> _clusterConnections = new(StringComparer.OrdinalIgnoreCase);
 
     public bool TryGetConnectionChannel(string clusterId, [MaybeNullWhen(false)] out TunnelConnectionChannels channels)
@@ -65,7 +67,6 @@ public sealed class TunnelConnectionChannelManager
         _clusterConnections.TryRemove(clusterId, out _);
 
     }
-
 }
 
 public sealed class TunnelConnectionChannels : IDisposable
@@ -102,7 +103,7 @@ public sealed class TunnelConnectionChannels : IDisposable
         }
     }
 
-    // TODO: replace it with propper monitoring
+    // TODO: replace it with proper monitoring
     public int CountSource;
     public int CountSink;
 

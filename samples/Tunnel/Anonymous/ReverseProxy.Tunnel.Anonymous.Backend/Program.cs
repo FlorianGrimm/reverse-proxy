@@ -21,11 +21,18 @@ public class Program
 
         var app = builder.Build();
 
+        // Using
         // app.UseHttpsRedirection();
+        // stops the tunnel to work.
+        // The request comes from the normal https - endpoint
+        // AND from the TunnelTransport - endpoint.
         app.UseWhen(
             static (context) => !context.TryGetTransportTunnelByUrl(out var _),
             static (app) => app.UseHttpsRedirection()
             );
+
+        //app.UseAuthorization();
+        //app.UseAuthentication();
 
         app.Map("/Backend", async (context) => {
             context.Response.Headers.ContentType = "text/plain";
@@ -35,8 +42,6 @@ public class Program
             context.Response.Headers.ContentType = "text/plain";
             await context.Response.WriteAsync($"Backend: {System.DateTime.Now:s}");
         });
-
-        app.UseAuthorization();
 
         app.MapControllers();
         app.MapReverseProxy();

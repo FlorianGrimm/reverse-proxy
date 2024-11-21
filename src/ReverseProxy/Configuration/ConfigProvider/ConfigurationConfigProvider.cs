@@ -8,10 +8,12 @@ using System.Linq;
 using System.Net.Http;
 using System.Security.Authentication;
 using System.Threading;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Utilities;
 
@@ -164,20 +166,12 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
     }
 
     private string ConvertTransportMode(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return "Forwarder";
-        }
-        else
-        {
-            return value;
-        }
-    }
+        => (value is { Length: > 0 })
+            ? value
+            : Yarp.ReverseProxy.Tunnel.TunnelConstants.TransportNameForwarder;
 
     private ClusterTunnelAuthenticationConfig CreateClusterTunnelAuthenticationConfig(IConfigurationSection section)
     {
-        //
         return new ClusterTunnelAuthenticationConfig()
         {
             Mode = section[nameof(ClusterTunnelAuthenticationConfig.Mode)] ?? "Invalid",

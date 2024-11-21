@@ -29,7 +29,7 @@ public interface ITunnelAuthenticationService
     /// <summary>
     /// Get the transport
     /// </summary>
-    /// <returns></returns>
+    /// <returns>The transport of this implementation</returns>
     string GetTransport();
 
     /// <summary>
@@ -62,22 +62,21 @@ public interface ITunnelAuthenticationService
     ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster);
 }
 
-#if false
-public interface ITunnelAuthenticationServiceForTransport
-    : ITunnelAuthenticationService
-{
+/// <summary>
+/// Allows the tunnel to add the endpoints
+/// </summary>
+public interface ITunnelRouteService {
     /// <summary>
     /// Get the transport
     /// </summary>
-    /// <returns></returns>
-    string GetTransport();
-}
-#endif
-
-public interface IProxyRouteService {
-
+    /// <returns>The transport of this implementation</returns>
     string GetTransport();
 
+    /// <summary>
+    /// Create new Endpoints for the transport.
+    /// </summary>
+    /// <param name="endpoints">the builder</param>
+    /// <param name="configure">configure the endpoint.</param>
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute("Map")]
     void Map(
         IEndpointRouteBuilder endpoints,
@@ -85,8 +84,24 @@ public interface IProxyRouteService {
         );
 }
 
+/// <summary>
+/// Provides configuration services for tunnel authentication.
+/// </summary>
 public interface ITunnelAuthenticationConfigService
 {
+    /// <summary>
+    /// Gets a collection of tunnel authentication services for the specified transport.
+    /// </summary>
+    /// <param name="transport">The transport for which to get the authentication services.</param>
+    /// <returns>A read-only collection of tunnel authentication services.</returns>
     IReadOnlyCollection<ITunnelAuthenticationService> GetTunnelAuthenticationServices(string transport);
+
+    /// <summary>
+    /// Tries to get a tunnel authentication service for the specified transport and authentication mode.
+    /// </summary>
+    /// <param name="transport">The transport for which to get the authentication service.</param>
+    /// <param name="authenticationMode">The authentication mode for which to get the authentication service.</param>
+    /// <param name="result">When this method returns, contains the tunnel authentication service if found; otherwise, null.</param>
+    /// <returns><c>true</c> if a tunnel authentication service was found; otherwise, <c>false</c>.</returns>
     bool TryGetTunnelAuthenticationServices(string transport, string authenticationMode, [MaybeNullWhen(false)] out ITunnelAuthenticationService result);
 }

@@ -20,11 +20,9 @@ public class Program
 
         var app = builder.Build();
 
-        // app.UseHttpsRedirection();
-        app.UseWhen(
-            static (context) => !context.TryGetTransportTunnelByUrl(out var _),
-            static (app) => app.UseHttpsRedirection()
-            );
+        app.UseHttpsRedirection();
+        //app.UseAuthorization();
+        //app.UseAuthentication();
         app.Map("/Frontend", async (context) => {
             context.Response.Headers.ContentType = "text/plain";
             await context.Response.WriteAsync($"Frontend: {System.DateTime.Now:s}");
@@ -33,7 +31,6 @@ public class Program
             context.Response.Headers.ContentType = "text/plain";
             await context.Response.WriteAsync($"Frontend: {System.DateTime.Now:s}");
         });
-        app.UseAuthorization();
 
         app.MapControllers();
         app.MapReverseProxy();

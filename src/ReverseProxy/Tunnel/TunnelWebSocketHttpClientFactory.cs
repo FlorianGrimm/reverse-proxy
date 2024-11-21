@@ -1,20 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Net;
-using System.Net.Http;
-using System.Text;
 
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.ObjectPool;
 
-using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Management;
-using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 internal sealed class TunnelWebSocketHttpClientFactory
@@ -35,7 +27,8 @@ internal sealed class TunnelWebSocketHttpClientFactory
         _logger = logger;
     }
 
-    public string GetTransportMode() => "TunnelWebSocket";
+    public string GetTransport()
+        => Yarp.ReverseProxy.Tunnel.TunnelConstants.TransportNameTunnelWebSocket;
 
     public IForwarderHttpClientFactory? GetForwarderHttpClientFactory(ForwarderHttpClientContext context)
     {

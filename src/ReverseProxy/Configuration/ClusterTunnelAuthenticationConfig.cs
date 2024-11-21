@@ -2,11 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
-
-using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Configuration;
 
@@ -30,6 +26,7 @@ public sealed record ClusterTunnelAuthenticationConfig
     /// </summary>
     public string[]? UserNames { get; init; }
 
+    /// <inheritdoc/>
     public bool Equals(ClusterTunnelAuthenticationConfig? other)
     {
         if (other is null) { return false; }
@@ -42,6 +39,7 @@ public sealed record ClusterTunnelAuthenticationConfig
         ;
     }
 
+    /// <inheritdoc/>
     public override int GetHashCode()
     {
         var result = new HashCode();

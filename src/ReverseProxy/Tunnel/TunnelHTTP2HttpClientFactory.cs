@@ -30,7 +30,8 @@ internal sealed class TunnelHTTP2HttpClientFactory
         _logger = logger;
     }
 
-    public string GetTransportMode() => "TunnelHTTP2";
+    public string GetTransport()
+        => Yarp.ReverseProxy.Tunnel.TunnelConstants.TransportNameTunnelHTTP2;
 
     public IForwarderHttpClientFactory? GetForwarderHttpClientFactory(ForwarderHttpClientContext context)
     {

@@ -22,7 +22,7 @@ internal class TunnelAuthenticationAnonymous
 
     internal sealed class Http2 : TunnelAuthenticationAnonymous
     {
-        public Http2() : base("TunnelHTTP2") { }
+        public Http2() : base(Yarp.ReverseProxy.Tunnel.TunnelConstants.TransportNameTunnelHTTP2) { }
     }
 
     private readonly string _transport;

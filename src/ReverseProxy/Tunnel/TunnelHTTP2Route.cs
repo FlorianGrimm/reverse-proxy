@@ -5,25 +5,20 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 using Yarp.ReverseProxy.Management;
-using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
 internal sealed partial class TunnelHTTP2Route
-    : IProxyRouteService
+    : ITunnelRouteService
     , IDisposable
 {
-    public const string TransportName = "TunnelHTTP2";
     private readonly LazyProxyConfigManager _proxyConfigManagerLazy;
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
     private readonly ITunnelAuthenticationConfigService _tunnelAuthenticationConfigService;
@@ -48,14 +43,15 @@ internal sealed partial class TunnelHTTP2Route
         _unRegister = _lifetime.ApplicationStopping.Register(() => _cancellationTokenSource.Cancel());
     }
 
-    public string GetTransport() => TransportName;
+    public string GetTransport()
+        => Yarp.ReverseProxy.Tunnel.TunnelConstants.TransportNameTunnelHTTP2;
 
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCodeAttribute("Map")]
     public void Map(
         IEndpointRouteBuilder endpoints,
         Action<IEndpointConventionBuilder>? configure)
     {
-        var listTunnelAuthenticationService = _tunnelAuthenticationConfigService.GetTunnelAuthenticationServices(TransportName);
+        var listTunnelAuthenticationService = _tunnelAuthenticationConfigService.GetTunnelAuthenticationServices(GetTransport());
         if (listTunnelAuthenticationService.Count == 0)
         {
             _logger.LogError("No TunnelAuthenticationService found.");
@@ -103,7 +99,7 @@ internal sealed partial class TunnelHTTP2Route
         }
 
         var transport = cluster.Model.Config.Transport;
-        if (!string.Equals(transport, TransportName, StringComparison.OrdinalIgnoreCase)) {
+        if (!string.Equals(transport, GetTransport(), StringComparison.OrdinalIgnoreCase)) {
             Log.ParameterNotValid(_logger, "Transport");
             return Results.StatusCode(504);
         }

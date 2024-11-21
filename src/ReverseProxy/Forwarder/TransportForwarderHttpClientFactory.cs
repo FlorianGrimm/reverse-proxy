@@ -1,22 +1,17 @@
 namespace Yarp.ReverseProxy.Forwarder;
 
-internal sealed class TransportForwarderHttpClientFactory : ITransportForwarderHttpClientFactorySelector
-{
-    public const string TransportMode = "Forwarder";
-
-    private readonly IForwarderHttpClientFactory _forwarderHttpClientFactory;
-
-    public TransportForwarderHttpClientFactory(
+/// <summary>
+/// This is a trampoline to the original IForwarderHttpClientFactory 
+/// </summary>
+internal sealed class TransportForwarderHttpClientFactory(
         IForwarderHttpClientFactory forwarderHttpClientFactory
-        )
-    {
-        _forwarderHttpClientFactory = forwarderHttpClientFactory;
-    }
+    ) : ITransportForwarderHttpClientFactorySelector
+{
+    private readonly IForwarderHttpClientFactory _forwarderHttpClientFactory = forwarderHttpClientFactory;
 
-    public string GetTransportMode() => TransportMode;
+    public string GetTransport()
+        => Yarp.ReverseProxy.Tunnel.TunnelConstants.TransportNameForwarder;
 
     public IForwarderHttpClientFactory? GetForwarderHttpClientFactory(ForwarderHttpClientContext context)
-    {
-        return _forwarderHttpClientFactory;
-    }
+        => _forwarderHttpClientFactory;
 }
