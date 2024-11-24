@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http.HttpResults;
 namespace ReverseProxy.Tunnel.API;
 
 public class Program
@@ -40,7 +41,24 @@ public class Program
         });
         app.Map("/WhereAmI", async (context) => {
             context.Response.Headers.ContentType = "text/plain";
-            await context.Response.WriteAsync($"Backend: {System.DateTime.Now:s}");
+            await context.Response.WriteAsync($"WhereAmI: Backend: {System.DateTime.Now:s}");
+        });
+        app.Map("/BackendDump", async (HttpContext context) =>
+        {
+            var request = context.Request;
+            var result = new {
+                request.Protocol,
+                request.Method,
+                request.Scheme,
+                Host = request.Host.Value,
+                PathBase = request.PathBase.Value,
+                Path = request.Path.Value,
+                Query = request.QueryString.Value,
+                Headers = request.Headers.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToArray()),
+                Time = DateTimeOffset.UtcNow,
+                Body = await new StreamReader(request.Body).ReadToEndAsync(),
+            };
+            return TypedResults.Ok(result);
         });
 
         app.MapControllers();

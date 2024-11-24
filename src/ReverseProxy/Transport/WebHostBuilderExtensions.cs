@@ -97,7 +97,6 @@ public static class WebHostBuilderExtensions
         Action<TransportTunnelWebSocketOptions>? configureTunnelWebSocket = default
         )
     {
-
         var services = builder.Services
             .AddSingleton<ITunnelChangeListener, TransportTunnelConnectionChangeListener>()
             .AddSingleton<TransportTunnelFactory>()

@@ -66,7 +66,7 @@ internal sealed class TunnelWebSocketRoute
             var pattern = $"_Tunnel/WS/{authenticationName}/{{clusterId}}";
             var conventionBuilder = endpoints.MapGet(pattern, TunnelWebSocketRouteGet);
 
-            // Make this endpoint do websockets automagically as middleware for this specific route
+            // Make this endpoint do WebSockets automagically as middleware for this specific route
             conventionBuilder.Add(e =>
             {
                 var sub = endpoints.CreateApplicationBuilder();
