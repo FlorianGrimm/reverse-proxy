@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Reverse proxy toolkit for building fast proxy servers in .NET using the infrastructure from ASP.NET and .NET</Description>
+    <TargetFrameworks>$(ReleaseTFMs)</TargetFrameworks>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Yarp.ReverseProxy</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>enable</Nullable>
+    <IsAotCompatible Condition="'$(TargetFramework)' != 'net6.0'">true</IsAotCompatible>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>yarp;dotnet;reverse-proxy;aspnetcore</PackageTags>
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+    <InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);Microsoft.AspNetCore.Http.Generated;Yarp.ReverseProxy.Tunnel</InterceptorsPreviewNamespaces>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" Version="$(SystemIOHashingVersion)" />
+    <PackageReference Include="System.Collections.Immutable" Version="$(SystemCollectionsImmutableVersion)" Condition="'$(TargetFramework)' != 'net8.0'" />
+    <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="$(MicrosoftBclTimeProviderVersion)" Condition="'$(TargetFramework)' != 'net8.0'" />
+    <PackageReference Include="Microsoft.AspNetCore.Http.Connections.Client" Version="$(MicrosoftAspNetCoreHttpConnectionsClient)" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="$(MicrosoftIdentityClient)" />
+    <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="$(MicrosoftIdentityClientMsal)" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(MicrosoftAspNetCoreAuthenticationJwtBearer)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" Key="$(MoqPublicKey)" />
+    <InternalsVisibleTo Include="Yarp.ReverseProxy.Tests" />
+    <InternalsVisibleTo Include="Yarp.ReverseProxy.FunctionalTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ReverseProxy\Yarp.ReverseProxy.csproj" />
+  </ItemGroup>
+
+</Project>

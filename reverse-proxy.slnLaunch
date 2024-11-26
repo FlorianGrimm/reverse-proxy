@@ -1,0 +1,48 @@
+[
+  {
+    "Name": "ReverseProxy.Tunnel.Anonymous",
+    "Projects": []
+  },
+  {
+    "Name": "ReverseProxy.Tunnel.Basic",
+    "Projects": [
+      {
+        "Path": "samples\\Tunnel\\Basic\\ReverseProxy.Tunnel.Basic.API\\ReverseProxy.Tunnel.Basic.API.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "samples\\Tunnel\\Basic\\ReverseProxy.Tunnel.Basic.Backend\\ReverseProxy.Tunnel.Basic.Backend.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "samples\\Tunnel\\Basic\\ReverseProxy.Tunnel.Basic.Frontend\\ReverseProxy.Tunnel.Basic.Frontend.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "samples\\Tunnel\\Basic\\ReverseProxy.Tunnel.Basic.Client\\ReverseProxy.Tunnel.Basic.Client.csproj",
+        "Action": "Start"
+      }
+    ]
+  },
+  {
+    "Name": "ReverseProxy.Tunnel.Negotiate",
+    "Projects": [
+      {
+        "Path": "samples\\Tunnel\\Negotiate\\ReverseProxy.Tunnel.Negotiate.API\\ReverseProxy.Tunnel.Negotiate.API.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "samples\\Tunnel\\Negotiate\\ReverseProxy.Tunnel.Negotiate.Backend\\ReverseProxy.Tunnel.Negotiate.Backend.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "samples\\Tunnel\\Negotiate\\ReverseProxy.Tunnel.Negotiate.Frontend\\ReverseProxy.Tunnel.Negotiate.Frontend.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "samples\\Tunnel\\Negotiate\\ReverseProxy.Tunnel.Negotiate.Client\\ReverseProxy.Tunnel.Negotiate.Client.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
