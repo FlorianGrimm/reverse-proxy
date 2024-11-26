@@ -32,7 +32,6 @@ public sealed record ClusterTunnelAuthenticationConfig
         if (other is null) { return false; }
         if (ReferenceEquals(this, other)) { return true; }
 
-
         return string.Equals(Mode, other.Mode, StringComparison.OrdinalIgnoreCase)
             && string.Equals(ClientCertificate, other.ClientCertificate, StringComparison.Ordinal)
             && (UserNames ?? []).SequenceEqual(other.UserNames ?? [], StringComparer.OrdinalIgnoreCase);

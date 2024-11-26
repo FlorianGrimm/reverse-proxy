@@ -10,7 +10,7 @@
     <IsAotCompatible Condition="'$(TargetFramework)' != 'net6.0'">true</IsAotCompatible>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>yarp;dotnet;reverse-proxy;aspnetcore</PackageTags>
-<EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
+    <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
     <InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);Microsoft.AspNetCore.Http.Generated;Yarp.ReverseProxy.Tunnel</InterceptorsPreviewNamespaces>
   </PropertyGroup>
 

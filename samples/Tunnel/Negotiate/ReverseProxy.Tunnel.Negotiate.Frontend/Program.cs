@@ -60,6 +60,9 @@ public class Program
                 Query = request.QueryString.Value,
                 Headers = request.Headers.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToArray()),
                 Time = DateTimeOffset.UtcNow,
+                UserIsAuthenticated = context.User.Identity?.IsAuthenticated,
+                UserName = context.User.Identity?.Name,
+                UserClaims = context.User.Claims.Select(claim => new { Type = claim.Type, Value = claim.Value }),
                 Body = await new StreamReader(request.Body).ReadToEndAsync(),
             };
             return TypedResults.Ok(result);
@@ -72,7 +75,7 @@ public class Program
 }
 
 
-class NegotiateForwarderHttpClientFactory : ForwarderHttpClientFactory {
+internal sealed class NegotiateForwarderHttpClientFactory : ForwarderHttpClientFactory {
     protected override HttpMessageHandler WrapHandler(ForwarderHttpClientContext context, HttpMessageHandler handler)
     {
         if (handler is SocketsHttpHandler socketsHttpHandler) {

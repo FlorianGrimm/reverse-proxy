@@ -16,9 +16,7 @@ public class Program
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
             .AddTunnelServices()
             .AddTunnelServicesBasic(
-                configure: (options) => {
-                    options.Password = "Password1IsAsGoodAsAnonymous";
-                })
+                configuration: builder.Configuration.GetSection("ReverseProxy:AuthenticationBasic"))
             ;
 
         var app = builder.Build();

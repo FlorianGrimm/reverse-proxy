@@ -12,7 +12,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\ReverseProxy.Transport.JWT\Yarp.ReverseProxy.Transport.JWT.csproj" />
     <ProjectReference Include="..\..\..\..\src\ReverseProxy.Tunnel.Negotiate\Yarp.ReverseProxy.Tunnel.Negotiate.csproj" />
+    <ProjectReference Include="..\..\..\..\src\ReverseProxy.X509Certificate\Yarp.ReverseProxy.X509Certificate.csproj" />
     <ProjectReference Include="..\..\..\..\src\ReverseProxy\Yarp.ReverseProxy.csproj" />
   </ItemGroup>
 

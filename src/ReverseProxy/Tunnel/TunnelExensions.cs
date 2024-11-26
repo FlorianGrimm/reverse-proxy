@@ -88,7 +88,9 @@ public static class TunnelExtensions
         )
     {
         var services = builder.Services;
-        services.TryAddSingleton<TunnelConnectionChannelManager > ();
+
+        services.TryAddNoOpCertificateManager();
+        services.TryAddSingleton<TunnelConnectionChannelManager>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterChangeListener, TunnelConnectionChannelManager.ClusterChangeListener>());
         services.TryAddSingleton<TransportForwarderHttpClientFactorySelector>();
 
@@ -116,7 +118,7 @@ public static class TunnelExtensions
         });
 
         services.AddSingleton<ITunnelAuthenticationCookieService>(TunnelAuthenticationCookieService.Create);
-        
+
         return builder;
     }
 

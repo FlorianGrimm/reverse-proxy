@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Security.Claims;
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace ReverseProxy.Tunnel.API.Controllers
@@ -38,6 +40,9 @@ namespace ReverseProxy.Tunnel.API.Controllers
                 Query = Request.QueryString.Value,
                 Headers = Request.Headers.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToArray()),
                 Time = DateTimeOffset.UtcNow,
+                UserIsAuthenticated = HttpContext.User.Identity?.IsAuthenticated,
+                UserName = HttpContext.User.Identity?.Name,
+                UserClaims = HttpContext.User.Claims.Select(claim => new { ValueType = claim.ValueType, Value = claim.Value }),
                 Body = await new StreamReader(Request.Body).ReadToEndAsync(),
             };
 

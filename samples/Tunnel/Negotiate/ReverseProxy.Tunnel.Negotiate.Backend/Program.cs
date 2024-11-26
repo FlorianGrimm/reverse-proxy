@@ -12,11 +12,14 @@ public class Program
 
         builder.Services.AddAuthentication(
             Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme
-            ).AddNegotiate();
+            ).AddNegotiate()
+            .AddBearerToken()
+            ;
 
-        builder.Services.AddAuthorization((options) => {
-            //options.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-            //options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+        builder.Services.AddAuthorization((options) =>
+        {
+            options.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+            options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
         });
 
         builder.Services.AddControllers()
@@ -25,8 +28,10 @@ public class Program
         builder.Services
             .AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-            .AddTunnelTransport()
-            .AddTunnelTransportNegotiate()
+            .AddAuthorizationTransportTransformProvider(
+                configuration: builder.Configuration.GetSection("ReverseProxy:AuthorizationTransport"))
+            //.AddTunnelTransport()
+            //.AddTunnelTransportNegotiate()
             ;
 
         var app = builder.Build();
@@ -44,11 +49,13 @@ public class Program
         app.UseAuthentication();
         app.UseAuthorization();
 
-        app.Map("/Backend", async (context) => {
+        app.Map("/Backend", async (context) =>
+        {
             context.Response.Headers.ContentType = "text/plain";
             await context.Response.WriteAsync($"Backend: {System.DateTime.Now:s}");
         });
-        app.Map("/WhereAmI", async (context) => {
+        app.Map("/WhereAmI", async (context) =>
+        {
             context.Response.Headers.ContentType = "text/plain";
             await context.Response.WriteAsync($"WhereAmI: Backend: {System.DateTime.Now:s}");
         });
@@ -65,6 +72,9 @@ public class Program
                 Query = request.QueryString.Value,
                 Headers = request.Headers.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToArray()),
                 Time = DateTimeOffset.UtcNow,
+                UserIsAuthenticated = context.User.Identity?.IsAuthenticated,
+                UserName = context.User.Identity?.Name,
+                UserClaims = context.User.Claims.Select(claim => new { Type = claim.Type, Value = claim.Value }),
                 Body = await new StreamReader(request.Body).ReadToEndAsync(),
             };
             return TypedResults.Ok(result);

@@ -1,4 +1,5 @@
 using System;
+using System.Net.Http.Headers;
 using System.Security.Cryptography.X509Certificates;
 
 namespace Yarp.ReverseProxy.Utilities;
@@ -17,4 +18,22 @@ public interface ICertificateManager
     /// Gives the opportunity to reuse your favorite library.
     /// </remarks>
     ISharedValue<X509Certificate2Collection?> GetCertificateCollection(string certificateId);
+}
+
+public sealed class NoOpCertificateManager : ICertificateManager
+{
+    public ISharedValue<X509Certificate2Collection?> GetCertificateCollection(string certificateId)
+        => null;
+}
+
+public sealed class EmptySharedValue<T>
+    : ISharedValue<T?>
+    where T : class
+{
+    public T? Value => null;
+
+    public T? GiveAway() => null;
+
+    public void Dispose() { }
+
 }

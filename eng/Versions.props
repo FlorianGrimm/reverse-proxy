@@ -27,6 +27,14 @@
     <MicrosoftIdentityClientMsal>4.63.0</MicrosoftIdentityClientMsal>
     <MicrosoftAspNetCoreAuthenticationJwtBearer>8.0.7</MicrosoftAspNetCoreAuthenticationJwtBearer>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net9.0'">
+    <MicrosoftAspNetCoreHttpConnectionsClient>8.0.7</MicrosoftAspNetCoreHttpConnectionsClient>
+    <MicrosoftAspNetCoreAuthenticationCertificate>8.0.7</MicrosoftAspNetCoreAuthenticationCertificate>
+    <MicrosoftAspNetCoreAuthenticationNegotiate>8.0.7</MicrosoftAspNetCoreAuthenticationNegotiate>
+    <MicrosoftIdentityClient>4.63.0</MicrosoftIdentityClient>
+    <MicrosoftIdentityClientMsal>4.63.0</MicrosoftIdentityClientMsal>
+    <MicrosoftAspNetCoreAuthenticationJwtBearer>8.0.7</MicrosoftAspNetCoreAuthenticationJwtBearer>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(TargetFramework)' == 'net6.0'">
     <MicrosoftAspNetCoreHttpConnectionsClient>6.0.31</MicrosoftAspNetCoreHttpConnectionsClient>
     <MicrosoftAspNetCoreAuthenticationCertificate>6.0.31</MicrosoftAspNetCoreAuthenticationCertificate>
