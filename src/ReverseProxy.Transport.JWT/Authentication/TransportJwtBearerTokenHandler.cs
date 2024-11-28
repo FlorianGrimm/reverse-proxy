@@ -16,10 +16,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Yarp.ReverseProxy.Authentication;
 
+// TransportNegotiateAuthenticationHandler
+// TransportNegotiateOptions
+// AuthenticationHandler<TransportNegotiateOptions>
 public class TransportJwtBearerTokenHandler
-    //: RemoteAuthenticationHandler<TransportJwtBearerTokenOptions>
     : AuthenticationHandler<TransportJwtBearerTokenOptions>
-// IAuthenticationHandlerProvider
 {
 #if NET8_0_OR_GREATER
     public TransportJwtBearerTokenHandler(
@@ -31,10 +32,7 @@ public class TransportJwtBearerTokenHandler
     {
         _logger = logger.CreateLogger<TransportJwtBearerTokenHandler>();
     }
-#endif
-
-#if NET6_0 || NET7_0
-    //[Obsolete("ISystemClock is obsolete, use TimeProvider on AuthenticationSchemeOptions instead.")]
+#else
     public TransportJwtBearerTokenHandler(
         IOptionsMonitor<TransportJwtBearerTokenOptions> options,
         ILoggerFactory logger,
@@ -48,7 +46,7 @@ public class TransportJwtBearerTokenHandler
 
 #endif
 
-    private readonly ILogger<TransportJwtBearerTokenHandler> _logger;
+    private readonly ILogger _logger;
 
     protected override Task InitializeEventsAsync()
     {

@@ -29,6 +29,7 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Hosting;
 using System.Security.Principal;
 using System.Collections.Concurrent;
+using Microsoft.AspNetCore.Connections;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
@@ -51,8 +52,6 @@ internal sealed class TunnelAuthenticationCertificateHttp2
 {
     private static readonly Oid ClientCertificateOid = new Oid("1.3.6.1.5.5.7.3.2");
 
-    public const string AuthenticationScheme = "Certificate";
-    public const string CookieName = "YarpTunnelAuth";
     private readonly TunnelAuthenticationCertificateOptions _options;
     private readonly ICertificateManager _certificateManager;
     private readonly ILogger _logger;
@@ -92,8 +91,7 @@ internal sealed class TunnelAuthenticationCertificateHttp2
     private void ConfigureHttpsConnectionAdapterOptions(HttpsConnectionAdapterOptions httpsOptions)
     {
         httpsOptions.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
-        // TODO: httpsOptions.ServerCertificateSelector = _clientCertificateValidationUtility.ServerCertificateSelectorCallback;
-        // TODO: httpsOptions.ClientCertificateValidation = _clientCertificateValidation.ClientCertificateValidationCallback;
+        httpsOptions.ClientCertificateValidation = OnClientCertificateValidation;
 
         if (_options.CheckCertificateRevocation.HasValue)
         {
@@ -103,11 +101,25 @@ internal sealed class TunnelAuthenticationCertificateHttp2
         {
             httpsOptions.SslProtocols = _options.SslProtocols.Value;
         }
-        if (_options.ConfigureHttpsConnectionAdapterOptions is { } configure)
+        if (_options.ConfigureHttpsConnectionAdapterOptions is { } configureHttpsConnectionAdapterOptions)
         {
-            configure(httpsOptions);
+            configureHttpsConnectionAdapterOptions(httpsOptions);
         }
     }
+
+    private bool OnClientCertificateValidation(
+        X509Certificate2 certificate,
+        X509Chain? chain,
+        SslPolicyErrors errors)
+    {
+        var result = SslPolicyErrors.None == (errors & ~_options.IgnoreSslPolicyErrors);
+        if (_options.CustomValidation is { } customValidation)
+        {
+            result = customValidation(certificate, chain, errors, result);
+        }
+        return result;
+    }
+
 
     public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
     {
@@ -115,6 +127,8 @@ internal sealed class TunnelAuthenticationCertificateHttp2
 
     public async ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
+#warning TODO HACK
+#if HACK
         var isAuthenticatedSourceRequest = await CheckTunnelRequestIsAuthenticatedSourceRequest(context, cluster);
         if (isAuthenticatedSourceRequest)
         {
@@ -124,6 +138,9 @@ internal sealed class TunnelAuthenticationCertificateHttp2
         {
             return Results.Forbid();
         }
+#endif
+        return null;
+
     }
 
     public async ValueTask<bool> CheckTunnelRequestIsAuthenticatedSourceRequest(HttpContext context, ClusterState cluster)
@@ -233,6 +250,7 @@ internal sealed class TunnelAuthenticationCertificateHttp2
         return true;
     }
 
+#warning use/sync CertificationManager way
     private X509ChainPolicy BuildChainPolicy(X509Certificate2 certificate, bool isCertificateSelfSigned)
     {
         // Now build the chain validation options.

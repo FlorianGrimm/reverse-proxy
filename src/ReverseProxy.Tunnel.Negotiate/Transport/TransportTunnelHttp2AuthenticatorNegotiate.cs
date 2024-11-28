@@ -79,24 +79,40 @@ internal sealed class TransportTunnelHttp2AuthenticatorNegotiate
         {
             try
             {
+                if (requestMessage.RequestUri is not { } requestUri)
+                {
+                    throw new ArgumentException("RequestUri is null", nameof(requestMessage));
+                }
                 using SocketsHttpHandler socketsHttpHandlerAuth = new();
                 socketsHttpHandlerAuth.Credentials = System.Net.CredentialCache.DefaultCredentials;
                 socketsHttpHandlerAuth.CookieContainer = _cookieContainer;
                 using var requestMessageAuth = new HttpRequestMessage()
                 {
                     Version = new Version(1, 1),
-                    RequestUri = requestMessage.RequestUri!,
+                    RequestUri = requestUri,
                     Method = HttpMethod.Get
                 };
                 using var httpMessageInvokerAuth = new HttpMessageInvoker(socketsHttpHandlerAuth);
                 using var responseMessage = await httpMessageInvokerAuth.SendAsync(requestMessageAuth, CancellationToken.None);
-                _ = responseMessage.EnsureSuccessStatusCode();
-                _ = await responseMessage.Content.ReadAsStringAsync();
-                _logger.LogInformation("ConfigureHttpRequestMessageAsync: {RequestUri} success", requestMessageAuth.RequestUri);
+                if (responseMessage.IsSuccessStatusCode)
+                {
+                    _ = await responseMessage.Content.ReadAsStringAsync();
+                    if (_logger.IsEnabled(LogLevel.Information))
+                    {
+                        // _logger.LogInformation("Authenticator HTTP2 Tunnel: {RequestUri} success", requestMessageAuth.RequestUri);
+                        _logger.LogInformation("Authenticated HTTP2 Tunnel: {RequestUri} success {cookie}", requestMessageAuth.RequestUri, _cookieContainer.GetCookieHeader(requestUri));
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Authenticator HTTP2 Tunnel: {RequestUri} failed.", requestMessageAuth.RequestUri);
+                }
+
+                
             }
             catch (Exception error)
             {
-                _logger.LogError(error, "ConfigureHttpRequestMessageAsync: {RequestUri} failed", requestMessage.RequestUri);
+                _logger.LogError(error, "Authenticator HTTP2 Tunnel: {RequestUri} failed", requestMessage.RequestUri);
                 throw;
             }
         }

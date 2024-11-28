@@ -11,21 +11,18 @@ namespace Yarp.ReverseProxy.Transport;
 
 internal interface ITrackLifetimeConnectionContext
 {
-    void SetTracklifetime(
+    void SetTrackLifetime(
         TrackLifetimeConnectionContextCollection trackLifetimeConnectionContextCollection,
         AsyncLockOwner asyncLockOwner);
 }
 
 internal sealed class TrackLifetimeConnectionContextCollection
 {
-    // is owned by the owner TunnelXyzConnectionListener
-    private readonly AsyncLockWithOwner _connectionLock;
     private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections;
 
-    public TrackLifetimeConnectionContextCollection(ConcurrentDictionary<ConnectionContext, ConnectionContext> connections, AsyncLockWithOwner connectionLock)
+    public TrackLifetimeConnectionContextCollection(ConcurrentDictionary<ConnectionContext, ConnectionContext> connections)
     {
         _connections = connections;
-        _connectionLock = connectionLock;
     }
 
     internal ConnectionContext AddInnerConnection(ConnectionContext connectionContext, AsyncLockOwner connectionLock)
@@ -34,7 +31,7 @@ internal sealed class TrackLifetimeConnectionContextCollection
         var trackLifetimeConnectionContext = (ITrackLifetimeConnectionContext)connectionContext;
         if (_connections.TryAdd(connectionContext, connectionContext))
         {
-            trackLifetimeConnectionContext.SetTracklifetime(
+            trackLifetimeConnectionContext.SetTrackLifetime(
                 this,
                 connectionLock.Transfer(connectionContext));
         }

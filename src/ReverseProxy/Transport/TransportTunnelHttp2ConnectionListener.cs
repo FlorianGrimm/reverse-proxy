@@ -57,7 +57,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         }
         _createHttpMessageInvokerLock = new(1, 1);
         _connectionLock = new(options.MaxConnectionCount);
-        _connectionCollection = new TrackLifetimeConnectionContextCollection(_connections, _connectionLock);
+        _connectionCollection = new TrackLifetimeConnectionContextCollection(_connections);
         _logger = logger;
         _options = options;
         _tunnel = tunnel;
@@ -79,7 +79,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         var config = _tunnel.Model.Config;
 
         // Kestrel will keep an active accept call open as long as the transport is active
-        using (var currentConnectionlock = await _connectionLock.LockAsync(this, cancellationToken))
+        using (var currentConnectionLock = await _connectionLock.LockAsync(this, cancellationToken))
         {
             try
             {
@@ -97,7 +97,6 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                             _ = _createHttpMessageInvokerLock.Release();
                         }
                     }
-
 
                     TransportTunnelHttp2ConnectionContext? innerConnection = null;
                     HttpContent? httpContent = null;
@@ -134,14 +133,13 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                         innerConnection.HttpResponseMessage = response;
                         var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
                         innerConnection.Input = PipeReader.Create(responseStream);
-                        var result = _connectionCollection.AddInnerConnection(innerConnection, currentConnectionlock);
+                        var connectionContext = _connectionCollection.AddInnerConnection(innerConnection, currentConnectionLock);
 
                         if (_delay.Reset())
                         {
                             Log.TunnelResumeConnectTunnel(_logger, config.TunnelId, config.Url, config.Transport, null);
                         }
-
-                        return result;
+                        return connectionContext;
                     }
                     catch (Exception error)
                     {
@@ -155,9 +153,6 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                         // TODO: More sophisticated back off and retry
                         Log.TunnelCannotConnectTunnel(_logger, config.TunnelId, config.Url, config.Transport, error);
                         await _delay.Delay(cancellationToken);
-                        
-                        // TODO: Check does this works better?
-                        // return null;
                     }
                 }
             }

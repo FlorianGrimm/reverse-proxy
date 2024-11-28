@@ -14,10 +14,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Authentication-weg\TransportJwtBearerTokenDefaults.cs" />
-    <Compile Remove="Authentication-weg\TransportJwtBearerTokenExtensions.cs" />
-    <Compile Remove="Authentication-weg\TransportJwtBearerTokenOptions.cs" />
-    <Compile Remove="Authentication-weg\TransportJwtBearerValidator.cs" />
+    <Compile Remove="Authentication-weg\**" />
+    <EmbeddedResource Remove="Authentication-weg\**" />
+    <None Remove="Authentication-weg\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,13 +34,6 @@
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="Authentication-weg\TransportJwtBearerTokenDefaults.cs" />
-    <None Include="Authentication-weg\TransportJwtBearerTokenExtensions.cs" />
-    <None Include="Authentication-weg\TransportJwtBearerTokenOptions.cs" />
-    <None Include="Authentication-weg\TransportJwtBearerValidator.cs" />
   </ItemGroup>
   
   <!--

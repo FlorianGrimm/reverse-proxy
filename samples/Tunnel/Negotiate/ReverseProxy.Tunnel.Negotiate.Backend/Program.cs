@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication.BearerToken;
+using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Authorization;
 
 namespace ReverseProxy.Tunnel.API;
@@ -8,13 +10,37 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
+        builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
 
+        /*
         builder.Services.AddAuthentication(
             Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme
             ).AddNegotiate()
             .AddBearerToken()
             ;
+        */
+        builder.Services.AddAuthentication(
+            configureOptions: (options) =>
+            {
+                options.DefaultScheme = "switch";
+                options.DefaultChallengeScheme = "switch";
+            }
+            )
+            .AddNegotiate()
+            .AddBearerToken()
+            .AddPolicyScheme(
+                authenticationScheme: "switch",
+                displayName: "switch",
+                configureOptions: static (options) =>
+                {
+                    options.ForwardDefaultSelector =
+                        static (context) => context.IsTransportTunnelRequest()
+                            ? BearerTokenDefaults.AuthenticationScheme
+                            : NegotiateDefaults.AuthenticationScheme;
+                })
+            ;
+
 
         builder.Services.AddAuthorization((options) =>
         {
@@ -30,8 +56,13 @@ public class Program
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
             .AddAuthorizationTransportTransformProvider(
                 configuration: builder.Configuration.GetSection("ReverseProxy:AuthorizationTransport"))
-            //.AddTunnelTransport()
-            //.AddTunnelTransportNegotiate()
+            .AddTunnelTransport(
+                configureTunnelHttp2: (options) =>
+                {
+                    options.MaxConnectionCount = 1;
+                    options.IsEnabled = true;
+                })
+            .AddTunnelTransportNegotiate()
             ;
 
         var app = builder.Build();
@@ -42,7 +73,7 @@ public class Program
         // The request comes from the normal HTTPS - endpoint
         // AND from the TunnelTransport HTTP - endpoint.
         app.UseWhen(
-            static (context) => !context.TryGetTransportTunnelByUrl(out var _),
+            static (context) => !context.IsTransportTunnelRequest(),
             static (app) => app.UseHttpsRedirection()
             );
 

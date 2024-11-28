@@ -27,7 +27,7 @@ public class Program
         // The request comes from the normal HTTPS - endpoint
         // AND from the TunnelTransport HTTP - endpoint.
         app.UseWhen(
-            static (context) => !context.TryGetTransportTunnelByUrl(out var _),
+            static (context) => !context.IsTransportTunnelRequest(),
             static (app) => app.UseHttpsRedirection()
             );
 

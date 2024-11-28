@@ -107,7 +107,7 @@ public class Program : BackgroundService
             }
             catch (System.Exception error)
             {
-                _logger.LogInformation("Retry since failed: {Message}", error.Message);
+                _logger.LogInformation("First request {client} Retry since failed: {Message}", client.BaseAddress?.ToString(), error.Message);
                 continue;
             }
         }
@@ -148,15 +148,9 @@ public class Program : BackgroundService
 
     public HttpClient GetHttpClient(string url)
     {
-        /*
-        var s = new SocketsHttpHandler() {
-            Credentials = System.Net.CredentialCache.DefaultCredentials
-        };
-        var c = new HttpClient(s);
-        */
         var client = new HttpClient(new HttpClientHandler()
         {
-            UseDefaultCredentials = true
+            Credentials = System.Net.CredentialCache.DefaultCredentials
         });
         client.BaseAddress = new Uri(url);
         return client;

@@ -8,48 +8,30 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
+        builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
 
+        // https://learn.microsoft.com/en-us/aspnet/core/security/authorization/limitingidentitybyscheme?view=aspnetcore-9.0
         builder.Services.AddAuthentication(
             configureOptions: (options) =>
             {
-                //options.DefaultAuthenticateScheme = Yarp.ReverseProxy.Authentication.TransportJwtBearerTokenDefaults.AuthenticationScheme;
-                //options.DefaultScheme = Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
-                //options.DefaultAuthenticateScheme = Yarp.ReverseProxy.Authentication.TransportJwtBearerTokenDefaults.AuthenticationScheme;
-                //options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
                 options.DefaultScheme = "switch";
                 options.DefaultChallengeScheme = "switch";
             }
             )
             .AddTransportJwtBearerToken(
                 configuration: builder.Configuration.GetSection("ReverseProxy:TransportJwtBearerToken"),
-                configure: (options) =>
-                {
-                    //options.ForwardChallenge = Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
-                    //options.ForwardSignIn = Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
-                })
+                configure: (options) => { })
             .AddNegotiate()
-            .AddPolicyScheme("switch", "switch", configureOptions: (options) =>
+            .AddPolicyScheme(
+                authenticationScheme: "switch",
+                displayName: "switch",
+                configureOptions: static (options) =>
             {
-                options.ForwardDefaultSelector = (context) =>
-                {
-                    try
-                    {
-                        var bearerToken = TransportJwtBearerTokenExtensions.GetBearerToken(context.Request.Headers.Authorization);
-                        if (bearerToken is null)
-                        {
-                            return Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
-                        }
-                        else
-                        {
-                            return Yarp.ReverseProxy.Authentication.TransportJwtBearerTokenDefaults.AuthenticationScheme;
-                        }
-                    }
-                    catch
-                    {
-                        return Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
-                    }
-                };
+                options.ForwardDefaultSelector =
+                    static (context) => context.IsTransportJwtBearerTokenAuthentication()
+                        ? Yarp.ReverseProxy.Authentication.TransportJwtBearerTokenDefaults.AuthenticationScheme
+                        : Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
             })
             ;
 

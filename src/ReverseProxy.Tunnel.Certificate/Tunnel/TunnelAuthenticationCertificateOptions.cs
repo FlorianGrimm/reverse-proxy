@@ -16,8 +16,6 @@ namespace Yarp.ReverseProxy.Tunnel;
 
 public sealed class TunnelAuthenticationCertificateOptions
 {
-    public const string SectionName = "TunnelAuthenticationCertificate";
-
     /// <summary>
     /// Ignore the SSL policy errors.
     /// </summary>
@@ -107,21 +105,28 @@ public sealed class TunnelAuthenticationCertificateOptions
     /// Defaults to <see cref="X509RevocationMode.Online" />.
     /// </value>
     public X509RevocationMode RevocationMode { get; set; } = X509RevocationMode.Online;
+}
 
+public static class TunnelAuthenticationCertificateOptionsExtensions
+{
     /// <summary>
     /// Binds the configuration to the options.
     /// </summary>
+    /// <param name="that">this</param>
     /// <param name="configuration">the source configuration</param>
-    public void Bind(IConfiguration configuration)
+    public static void Bind(
+        this TunnelAuthenticationCertificateOptions that,
+        IConfiguration configuration
+        )
     {
-        if (System.Enum.TryParse<SslPolicyErrors>(configuration[nameof(IgnoreSslPolicyErrors)], out var valueIgnoreSslPolicyErrors))
+        if (System.Enum.TryParse<SslPolicyErrors>(configuration[nameof(TunnelAuthenticationCertificateOptions.IgnoreSslPolicyErrors)], out var valueIgnoreSslPolicyErrors))
         {
-            IgnoreSslPolicyErrors = valueIgnoreSslPolicyErrors;
+            that.IgnoreSslPolicyErrors = valueIgnoreSslPolicyErrors;
         }
 
-        if (System.Enum.TryParse<CertificateTypes>(configuration[nameof(AllowedCertificateTypes)], out var allowedCertificateTypes))
+        if (System.Enum.TryParse<CertificateTypes>(configuration[nameof(TunnelAuthenticationCertificateOptions.AllowedCertificateTypes)], out var allowedCertificateTypes))
         {
-            AllowedCertificateTypes = allowedCertificateTypes;
+            that.AllowedCertificateTypes = allowedCertificateTypes;
         }
     }
 }

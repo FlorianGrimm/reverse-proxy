@@ -47,11 +47,18 @@ internal class TunnelAuthenticationNegotiateBase
     internal static void ConfigureAuthorizationPolicy(AuthorizationOptions options)
     {
         options.AddPolicy(
-            TunnelNegotiateConstants.PolicyName,
+            TunnelNegotiateConstants.PolicyNameGetAuth,
             policy => policy
                 .RequireAuthenticatedUser()
                 .AddAuthenticationSchemes(TunnelNegotiateConstants.AuthenticationName)
+                .Build()
             );
+
+        options.AddPolicy(
+            TunnelNegotiateConstants.PolicyNamePayload,
+            policy => policy
+                .Build()
+        );
     }
 
     protected readonly ILogger _logger;

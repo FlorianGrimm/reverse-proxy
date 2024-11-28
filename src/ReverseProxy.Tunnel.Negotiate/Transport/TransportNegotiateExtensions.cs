@@ -85,8 +85,8 @@ public static class TransportNegotiateExtensions
     ///    var app = builder.Build();
     ///
     ///    app.UseWhen(
-    ///        static context => !context.TryGetTransportTunnelByUrl(out var _),
-    ///        app => app.UseHttpsRedirection()
+    ///        static (context) => !context.IsTransportTunnelRequest(),
+    ///        static (app) => app.UseHttpsRedirection()
     ///        );
     /// </example>
     public static IReverseProxyBuilder AddTunnelTransportNegotiate(

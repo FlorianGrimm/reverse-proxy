@@ -2,7 +2,11 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -70,8 +74,8 @@ public static class TransportCertificateExtensions
     ///    var app = builder.Build();
     ///
     ///    app.UseWhen(
-    ///        static context => !context.TryGetTransportTunnelByUrl(out var _),
-    ///        app => app.UseHttpsRedirection()
+    ///        static (context) => !context.IsTransportTunnelRequest(),
+    ///        static (app) => app.UseHttpsRedirection()
     ///        );
     /// </example>
     public static IReverseProxyBuilder AddTunnelTransportCertificate(
@@ -89,12 +93,14 @@ public static class TransportCertificateExtensions
             var optionsBuilder = services.AddOptions<TransportTunnelAuthenticationCertificateOptions>();
             if (configuration is { } || configure is { })
             {
-                optionsBuilder.Configure((options) => {
+                optionsBuilder.Configure((options) =>
+                {
                     if (configuration is { })
                     {
-#warning TODO               options.Bind(configuration);
+                        options.Bind(configuration);
                     }
-                    if (configure is { } ) {
+                    if (configure is { })
+                    {
                         configure(options);
                     }
                 });
@@ -112,22 +118,39 @@ public static class TransportCertificateExtensions
         )
     {
         var optionsBuilder = builder.Services.AddOptions<CertificateManagerOptions>();
-        if (configuration is { })
+        if (configuration is { } || configure is { })
         {
             _ = optionsBuilder.Configure((options) =>
             {
-                options.Bind(configuration);
+                if (configuration is { })
+                {
+                    options.Bind(configuration);
+                }
+                if (configure is { })
+                {
+                    configure(options);
+                }
             });
         }
 
-        if (configure is { })
-        {
-            _ = optionsBuilder.Configure(configure);
-        }
 
         return builder;
     }
 
     public static bool IsClientCertificate(string? mode)
-        => string.Equals(mode, "ClientCertificate", System.StringComparison.OrdinalIgnoreCase);
+        => string.Equals(
+            mode,
+            Yarp.ReverseProxy.Tunnel.TunnelCertificateConstants.AuthenticationName,
+            System.StringComparison.OrdinalIgnoreCase);
+
+    public static void Bind(
+        this TransportTunnelAuthenticationCertificateOptions that,
+        IConfiguration configuration
+        )
+    {
+        if (System.Enum.TryParse<SslProtocols>(configuration.GetSection(nameof(TransportTunnelAuthenticationCertificateOptions.EnabledSslProtocols)).Value, out var valueSslProtocols))
+        {
+            that.EnabledSslProtocols = valueSslProtocols;
+        }
+    }
 }

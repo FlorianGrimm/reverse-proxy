@@ -23,8 +23,6 @@ namespace Microsoft.Extensions.DependencyInjection;
 
 public static class TunnelExtensions
 {
-
-
     /// <summary>
     /// Adds the services required for tunneling.
     /// </summary>
@@ -44,16 +42,19 @@ public static class TunnelExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITunnelAuthenticationService, TunnelAuthenticationCertificateHttp2>());
 
         var optionsBuilder = services.AddOptions<TunnelAuthenticationCertificateOptions>();
-        if (configuration is { })
+        if (configuration is { } || configure is { })
         {
             optionsBuilder.Configure((options) =>
             {
-                options.Bind(configuration.GetSection(TunnelAuthenticationCertificateOptions.SectionName));
+                if (configuration is { })
+                {
+                    options.Bind(configuration);
+                }
+                if (configure is { })
+                {
+                    configure(options);
+                }
             });
-        }
-        if (configure is { })
-        {
-            optionsBuilder.Configure(configure);
         }
 
         // CertificateLoader
@@ -80,16 +81,19 @@ public static class TunnelExtensions
         )
     {
         var optionsBuilder = builder.Services.AddOptions<TunnelAuthenticationCertificateOptions>();
-        if (configuration is { })
+        if (configuration is { } || configure is { })
         {
             optionsBuilder.Configure((options) =>
             {
-                options.Bind(configuration.GetSection(TunnelAuthenticationCertificateOptions.SectionName));
+                if (configuration is { })
+                {
+                    options.Bind(configuration);
+                }
+                if (configure is { })
+                {
+                    configure(options);
+                }
             });
-        }
-        if (configure is { })
-        {
-            optionsBuilder.Configure(configure);
         }
 
         return builder;

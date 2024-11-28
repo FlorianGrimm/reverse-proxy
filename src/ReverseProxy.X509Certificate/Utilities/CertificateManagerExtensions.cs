@@ -1,5 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Security.AccessControl;
 using System.Security.Cryptography.X509Certificates;
 
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Configuration;
 
 namespace Yarp.ReverseProxy.Utilities;
@@ -21,6 +26,10 @@ public static class CertificateManagerExtensions
         {
             that.CertificateRoot = valueCertificateRoot;
         }
+        if (string.IsNullOrEmpty(that.CertificateRoot))
+        {
+            that.CertificateRoot = System.AppContext.BaseDirectory;
+        }
         if (bool.TryParse(configuration.GetSection(nameof(CertificateManagerOptions.AllowSelfSigned)).Value, out var valueAllowSelfSigned))
         {
             that.AllowSelfSigned = valueAllowSelfSigned;
@@ -30,6 +39,16 @@ public static class CertificateManagerExtensions
         {
             var listCertificateConfiguration = (new ListCertificateConfiguration()).Bind(cfgCertificatesChild);
             that.Certificates.Add(cfgCertificatesChild.Key, listCertificateConfiguration);
+        }
+
+        if (System.Enum.TryParse<X509RevocationMode>(configuration.GetSection(nameof(CertificateManagerOptions.RevocationMode)).Value, out var valueRevocationMode))
+        {
+            that.RevocationMode = valueRevocationMode;
+        }
+
+        if (System.Enum.TryParse<X509VerificationFlags>(configuration.GetSection(nameof(CertificateManagerOptions.VerificationFlags)).Value, out var valueVerificationFlags))
+        {
+            that.VerificationFlags = valueVerificationFlags;
         }
     }
 
@@ -48,19 +67,18 @@ public static class CertificateManagerExtensions
         this CertificateConfiguration that,
         IConfiguration configuration)
     {
-        if (configuration.GetSection(nameof(CertificateConfiguration.StoreLocation)).Value is { Length: > 0 } valueStoreLocation)
+        if (System.Enum.TryParse<StoreLocation>(configuration.GetSection(nameof(CertificateConfiguration.StoreLocation)).Value, out var valueStoreLocation))
         {
-            that.StoreLocation = ConvertStoreLocation(valueStoreLocation);
+            that.StoreLocation = valueStoreLocation;
         }
-        if (configuration.GetSection(nameof(CertificateConfiguration.StoreName)).Value is { Length: > 0 } valueStoreName)
+        if (System.Enum.TryParse<StoreName>(configuration.GetSection(nameof(CertificateConfiguration.StoreName)).Value, out var valueStoreName))
         {
-            that.StoreName = ConvertStoreName(valueStoreName);
+            that.StoreName = valueStoreName;
         }
         if (configuration.GetSection(nameof(CertificateConfiguration.Subject)).Value is { Length: > 0 } valueSubject)
         {
             that.Subject = valueSubject;
         }
-
         if (configuration.GetSection(nameof(CertificateConfiguration.Path)).Value is { Length: > 0 } valuePath)
         {
             that.Path = valuePath;
@@ -76,25 +94,4 @@ public static class CertificateManagerExtensions
 
         return that;
     }
-
-    private static StoreLocation ConvertStoreLocation(string? valueStoreLocation)
-        => ((valueStoreLocation ?? string.Empty).ToLowerInvariant()) switch
-        {
-            "localmachine" => StoreLocation.LocalMachine,
-            _ => StoreLocation.CurrentUser
-        };
-
-    private static StoreName ConvertStoreName(string? valueStoreName)
-        => ((valueStoreName ?? string.Empty).ToLowerInvariant()) switch
-        {
-            "addressbook" => StoreName.AddressBook,
-            "authroot" => StoreName.AuthRoot,
-            "certificateauthority" => StoreName.CertificateAuthority,
-            "disallowed" => StoreName.Disallowed,
-            "my" => StoreName.My,
-            "root" => StoreName.Root,
-            "trustedpeople" => StoreName.TrustedPeople,
-            "trustedpublisher" => StoreName.TrustedPublisher,
-            _ => StoreName.My
-        };
 }

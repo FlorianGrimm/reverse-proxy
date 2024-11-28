@@ -75,7 +75,7 @@ internal sealed class TransportTunnelHttp2ConnectionContext
 
     public HttpResponseMessage HttpResponseMessage { get; set; } = default!;
 
-    public void SetTracklifetime(
+    public void SetTrackLifetime(
         TrackLifetimeConnectionContextCollection trackLifetimeConnectionContextCollection,
         AsyncLockOwner asyncLockOwner)
     {

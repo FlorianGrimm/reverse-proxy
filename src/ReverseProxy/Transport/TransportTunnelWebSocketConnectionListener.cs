@@ -60,7 +60,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
         _options = options;
         _logger = logger;
         _connectionLock = new(options.MaxConnectionCount);
-        _connectionCollection = new TrackLifetimeConnectionContextCollection(_connections, _connectionLock);
+        _connectionCollection = new TrackLifetimeConnectionContextCollection(_connections);
     }
 
     public EndPoint EndPoint => _endPoint;
@@ -119,7 +119,8 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                                 catch (Exception error) when (error is not OperationCanceledException)
                                 {
                                     Log.AcceptFailed(_logger, context.Uri, error);
-                                    if (error.InnerException is { } innerException) {
+                                    if (error.InnerException is { } innerException)
+                                    {
                                         Log.AcceptFailed(_logger, context.Uri, innerException);
                                         if (innerException.InnerException is { } innerInnerException)
                                         {
@@ -136,13 +137,14 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                         var innerConnection = new TransportTunnelWebSocketConnectionContext(options, _logger, null);
                         await innerConnection.StartAsync(TransferFormat.Binary, cancellationToken);
                         innerConnection.underlyingWebSocket = underlyingWebSocket;
+                        var connectionContext = _connectionCollection.AddInnerConnection(innerConnection, connectionLock);
 
                         if (_delay.Reset())
                         {
                             Log.TunnelResumeConnectTunnel(_logger, config.TunnelId, config.Url, config.Transport, null);
                         }
 
-                        return _connectionCollection.AddInnerConnection(innerConnection, connectionLock);
+                        return connectionContext;
                     }
                     catch (Exception error) when (error is not OperationCanceledException)
                     {

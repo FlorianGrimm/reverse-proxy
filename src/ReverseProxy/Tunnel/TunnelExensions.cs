@@ -67,8 +67,8 @@ public static class TunnelExtensions
     /// which means that the browser is redirected to https://{tunnelId}/... which is not what we want.
     /// <code>
     /// app.UseWhen(
-    ///     static context => !context.TryGetTransportTunnelByUrl(out var _),
-    ///     app => app.UseHttpsRedirection()
+    ///        static (context) => !context.IsTransportTunnelRequest(),
+    ///        static (app) => app.UseHttpsRedirection()
     ///     );
     /// </code>
     /// </remarks>
@@ -78,8 +78,8 @@ public static class TunnelExtensions
     ///        .AddTunnelServices();
     ///        
     ///    app.UseWhen(
-    ///        static context => !context.TryGetTransportTunnelByUrl(out var _),
-    ///        app => app.UseHttpsRedirection()
+    ///        static (context) => !context.IsTransportTunnelRequest(),
+    ///        static (app) => app.UseHttpsRedirection()
     ///        );
     /// </example>
     public static IReverseProxyBuilder AddTunnelServices(

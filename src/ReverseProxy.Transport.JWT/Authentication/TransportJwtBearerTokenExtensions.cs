@@ -3,13 +3,16 @@
 
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -42,20 +45,6 @@ public static class TransportJwtBearerTokenExtensions
         {
             authenticationScheme = TransportJwtBearerTokenDefaults.AuthenticationScheme;
         }
-
-        //if (authenticationScheme is null) { throw new ArgumentNullException(nameof(authenticationScheme)); }
-        //if (configure is null) { throw new ArgumentNullException(nameof(configure)); }
-        //builder.AddBearerToken(
-        //    authenticationScheme,
-        //    configure: (BearerTokenOptions options) => {
-        //        if (options.Events is null) {
-        //            options.Events = new BearerTokenEvents();
-        //        }
-        //        options.Events.OnMessageReceived
-        //        if (configure is { }) {
-        //            configure(options);
-        //        }
-        //    });
         builder.Services.TryAddNoOpCertificateManager();
 
 #if NET8_0_OR_GREATER
@@ -83,15 +72,44 @@ public static class TransportJwtBearerTokenExtensions
         return builder;
     }
 
-    private const string Prefix = "Bearer ";
+    public static bool IsTransportJwtBearerTokenAuthentication(this HttpContext? httpContext)
+    {
+        if (httpContext is { })
+        {
+            var foundForwardedHosts = false;
+            foreach (var xForwardedHost in httpContext.Request.Headers["X-Forwarded-Host"])
+            {
+                if (xForwardedHost is { Length: > 0 })
+                {
+                    foundForwardedHosts = true;
+                    break;
+                }
+            }
+
+            if (foundForwardedHosts)
+            {
+                foreach (var valueAuthorization in httpContext.Request.Headers.Authorization)
+                {
+                    if (valueAuthorization is { Length: > 7 }
+                        && valueAuthorization.StartsWith(PrefixBearer))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private const string PrefixBearer = "Bearer ";
     public static string? GetBearerToken(StringValues authorization)
     {
         foreach (var valueAuthorization in authorization)
         {
             if (valueAuthorization is { Length: > 7 }
-                && valueAuthorization.StartsWith(Prefix))
+                && valueAuthorization.StartsWith(PrefixBearer))
             {
-                return valueAuthorization.Substring(Prefix.Length);
+                return valueAuthorization.Substring(PrefixBearer.Length);
             }
         }
         return null;

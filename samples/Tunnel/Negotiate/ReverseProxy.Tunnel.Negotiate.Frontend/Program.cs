@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
-
 using Yarp.ReverseProxy.Forwarder;
 
 namespace ReverseProxy.Tunnel.API;
@@ -8,11 +6,11 @@ public class Program
 {
     public static void Main(string[] args)
     {
-#warning TODO: Handle user
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Services.AddSingleton<IForwarderHttpClientFactory, NegotiateForwarderHttpClientFactory>();
 
+        builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
 
         builder.Services.AddAuthentication(

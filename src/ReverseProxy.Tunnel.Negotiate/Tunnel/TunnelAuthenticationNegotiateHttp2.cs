@@ -48,8 +48,9 @@ internal sealed class TunnelAuthenticationNegotiateHttp2
     public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
     {
         endpoints.MapGet(pattern, MapGetAuth)
-            .RequireAuthorization(TunnelNegotiateConstants.PolicyName)
-            ;
+            .RequireAuthorization(TunnelNegotiateConstants.PolicyNameGetAuth);
+        conventionBuilder
+            .RequireAuthorization(TunnelNegotiateConstants.PolicyNamePayload);
     }
 
     public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)

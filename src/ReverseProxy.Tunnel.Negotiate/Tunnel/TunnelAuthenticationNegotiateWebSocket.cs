@@ -34,7 +34,7 @@ internal sealed class TunnelAuthenticationNegotiateWebSocket
 
     public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
     {
-        conventionBuilder.RequireAuthorization(TunnelNegotiateConstants.PolicyName);
+        conventionBuilder.RequireAuthorization(TunnelNegotiateConstants.PolicyNameGetAuth);
     }
 
     public async ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)

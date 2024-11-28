@@ -38,7 +38,7 @@ internal sealed class TransportTunnelWebSocketConnectionContext
         set { }
     }
 
-    public void SetTracklifetime(
+    public void SetTrackLifetime(
         TrackLifetimeConnectionContextCollection trackLifetimeConnectionContextCollection,
         AsyncLockOwner asyncLockOwner)
     {

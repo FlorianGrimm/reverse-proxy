@@ -236,9 +236,9 @@ In the config: and Transport and Authentication.
 
     var app = builder.Build();
     app.UseWhen(
-        static (context) => !context.TryGetTransportTunnelByUrl(out var _),
-        static (app) => app.UseHttpsRedirection()
-        );
+        static (context) => !context.IsTransportTunnelRequest(),
+        static (app) => app.UseHttpsRedirection());
+
     app.MapReverseProxy();
     app.Run();
 ```
