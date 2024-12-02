@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Authorization;
 
+using Yarp.ReverseProxy.Authentication;
+
 namespace ReverseProxy.Tunnel.API;
 
 public class Program
@@ -13,13 +15,6 @@ public class Program
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
 
-        /*
-        builder.Services.AddAuthentication(
-            Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme
-            ).AddNegotiate()
-            .AddBearerToken()
-            ;
-        */
         builder.Services.AddAuthentication(
             configureOptions: (options) =>
             {
@@ -28,7 +23,9 @@ public class Program
             }
             )
             .AddNegotiate()
-            .AddBearerToken()
+            .AddTransportJwtBearerToken(
+                configuration: builder.Configuration.GetSection("ReverseProxy:TransportJwtBearerToken"),
+                configure: (options) => { })
             .AddPolicyScheme(
                 authenticationScheme: "switch",
                 displayName: "switch",
@@ -36,7 +33,7 @@ public class Program
                 {
                     options.ForwardDefaultSelector =
                         static (context) => context.IsTransportTunnelRequest()
-                            ? BearerTokenDefaults.AuthenticationScheme
+                            ? TransportJwtBearerTokenDefaults.AuthenticationScheme
                             : NegotiateDefaults.AuthenticationScheme;
                 })
             ;

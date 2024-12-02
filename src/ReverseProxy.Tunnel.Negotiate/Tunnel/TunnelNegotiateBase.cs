@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.FileSystemGlobbing.Internal;
 using Microsoft.Extensions.Logging;
 
+using Yarp.ReverseProxy.Authentication;
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
@@ -42,7 +43,7 @@ namespace Yarp.ReverseProxy.Tunnel;
     and then the HTTP/2 protocol is used for the data (and the cookie is used for authn).
 */
 
-internal class TunnelAuthenticationNegotiateBase
+internal class TunnelNegotiateBase
 {
     internal static void ConfigureAuthorizationPolicy(AuthorizationOptions options)
     {
@@ -50,20 +51,22 @@ internal class TunnelAuthenticationNegotiateBase
             TunnelNegotiateConstants.PolicyNameGetAuth,
             policy => policy
                 .RequireAuthenticatedUser()
-                .AddAuthenticationSchemes(TunnelNegotiateConstants.AuthenticationName)
+                .AddAuthenticationSchemes(TunnelNegotiateConstants.NegotiateAuthenticationName)
                 .Build()
             );
 
         options.AddPolicy(
             TunnelNegotiateConstants.PolicyNamePayload,
             policy => policy
+                .RequireAuthenticatedUser()
+                .AddAuthenticationSchemes(TunnelNegotiateDefaults.AuthenticationScheme)
                 .Build()
         );
     }
 
     protected readonly ILogger _logger;
 
-    public TunnelAuthenticationNegotiateBase(
+    public TunnelNegotiateBase(
         ILogger logger
         )
     {

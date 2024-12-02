@@ -12,17 +12,17 @@ using Microsoft.Extensions.Logging;
 using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Tunnel;
-internal sealed class TunnelAuthenticationNegotiateWebSocket
-    : TunnelAuthenticationNegotiateBase
+internal sealed class TunnelNegotiateWebSocket
+    : TunnelNegotiateBase
     , ITunnelAuthenticationService
 {
-    public TunnelAuthenticationNegotiateWebSocket(
-        ILogger<TunnelAuthenticationNegotiateWebSocket> logger
+    public TunnelNegotiateWebSocket(
+        ILogger<TunnelNegotiateWebSocket> logger
         ) : base(logger)
     {
     }
 
-    public string GetAuthenticationMode() => TunnelNegotiateConstants.AuthenticationName;
+    public string GetAuthenticationMode() => TunnelNegotiateConstants.NegotiateAuthenticationName;
 
     public string GetTransport() => TunnelConstants.TransportNameTunnelWebSocket;
 
@@ -35,6 +35,9 @@ internal sealed class TunnelAuthenticationNegotiateWebSocket
     public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
     {
         conventionBuilder.RequireAuthorization(TunnelNegotiateConstants.PolicyNameGetAuth);
+        conventionBuilder.WithMetadata(
+            new TunnelAuthenticationScheme(
+                Yarp.ReverseProxy.Tunnel.TunnelNegotiateConstants.NegotiateAuthenticationName));
     }
 
     public async ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)

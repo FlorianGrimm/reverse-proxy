@@ -21,7 +21,7 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Microsoft.AspNetCore.Builder;
 
-public static class TransportNegotiateExtensions
+public static class TransportTunnelNegotiateExtensions
 {
     /// <summary>
     /// Enable the tunnel transport on the backend.
@@ -95,8 +95,8 @@ public static class TransportNegotiateExtensions
     {
         var services = builder.Services;
 
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authenticator, TransportTunnelHttp2AuthenticatorNegotiate>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthenticator, TransportTunnelWebSocketAuthenticatorNegotiate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelHttp2Authenticator, TransportTunnelHttp2Negotiate>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelWebSocketAuthenticator, TransportTunnelWebSocketNegotiate>());
 
         return builder;
     }

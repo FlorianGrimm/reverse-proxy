@@ -1,25 +1,26 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Configuration;
+
 using System;
 
 using Yarp.ReverseProxy.Authentication;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
-public  static class TransportNegotiateExtensions
+public static class TunnelNegotiateExtensions
 {
-    public static AuthenticationBuilder AddTransportNegotiateAuthentication(
-    this AuthenticationBuilder builder,
-    string? authenticationScheme = default,
-    IConfiguration? configuration = default,
-    Action<TransportNegotiateOptions>? configure = default)
+    public static AuthenticationBuilder AddTunnelServicesNegotiate(
+        this AuthenticationBuilder builder,
+        string? authenticationScheme = default,
+        IConfiguration? configuration = default,
+        Action<Yarp.ReverseProxy.Authentication.TunnelNegotiateOptions>? configure = default)
     {
         if (builder is null) { throw new ArgumentNullException(nameof(builder)); }
         if (string.IsNullOrEmpty(authenticationScheme))
         {
-            authenticationScheme = TransportNegotiateDefaults.AuthenticationScheme;
+            authenticationScheme = TunnelNegotiateDefaults.AuthenticationScheme;
         }
-        var optionsBuilder = builder.Services.AddOptions<TransportJwtBearerTokenOptions>();
+        var optionsBuilder = builder.Services.AddOptions<Yarp.ReverseProxy.Authentication.TunnelNegotiateOptions>();
         if (configuration is { } || configure is { })
         {
             optionsBuilder.Configure((options) =>
@@ -35,7 +36,7 @@ public  static class TransportNegotiateExtensions
             });
         }
 
-        builder.AddScheme<TransportJwtBearerTokenOptions, TransportJwtBearerTokenHandler>(authenticationScheme, configure);
+        builder.AddScheme<Yarp.ReverseProxy.Authentication.TunnelNegotiateOptions, TunnelNegotiateHandler>(authenticationScheme, configure);
 
         return builder;
     }

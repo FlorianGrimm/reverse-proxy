@@ -12,19 +12,20 @@ using Yarp.ReverseProxy.Configuration;
 
 namespace Yarp.ReverseProxy.Transport;
 
-internal sealed class TransportTunnelWebSocketAuthenticatorNegotiate
+internal sealed class TransportTunnelWebSocketNegotiate
     : ITransportTunnelWebSocketAuthenticator
 {
-    private readonly ILogger<TransportTunnelWebSocketAuthenticatorNegotiate> _logger;
+    private readonly ILogger<TransportTunnelWebSocketNegotiate> _logger;
 
-    public TransportTunnelWebSocketAuthenticatorNegotiate(
-        ILogger<TransportTunnelWebSocketAuthenticatorNegotiate> logger
+    public TransportTunnelWebSocketNegotiate(
+        ILogger<TransportTunnelWebSocketNegotiate> logger
         )
     {
         _logger = logger;
     }
 
-    public string GetAuthenticationName() => "Negotiate";
+    public string GetAuthenticationName()
+        => Yarp.ReverseProxy.Tunnel.TunnelNegotiateConstants.NegotiateAuthenticationName;
 
     public void ConfigureWebSocketConnectionOptions(TransportTunnelConfig config, HttpConnectionOptions options)
     {

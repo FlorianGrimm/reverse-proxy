@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -105,3 +106,10 @@ public interface ITunnelAuthenticationConfigService
     /// <returns><c>true</c> if a tunnel authentication service was found; otherwise, <c>false</c>.</returns>
     bool TryGetTunnelAuthenticationServices(string transport, string authenticationMode, [MaybeNullWhen(false)] out ITunnelAuthenticationService result);
 }
+
+public interface ITunnelAuthentication
+{
+    ValueTask<AuthenticateResult> HandleAuthenticateAsync(HttpContext context, string scheme, string claimsIssuer);
+}
+
+public sealed record TunnelAuthenticationFeature(ITunnelAuthentication TunnelAuthentication);

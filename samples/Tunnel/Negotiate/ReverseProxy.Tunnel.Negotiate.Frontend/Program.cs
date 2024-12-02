@@ -1,4 +1,5 @@
 using Yarp.ReverseProxy.Forwarder;
+using Yarp.ReverseProxy.Tunnel;
 
 namespace ReverseProxy.Tunnel.API;
 
@@ -14,10 +15,37 @@ public class Program
         builder.Logging.AddConsole();
 
         builder.Services.AddAuthentication(
-            Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme
-            ).AddNegotiate();
+            //
+            "switch"
+            )
+            .AddNegotiate()
+            .AddTunnelServicesNegotiate()
+            .AddPolicyScheme(
+                authenticationScheme: "switch",
+                displayName: "switch",
+                configureOptions: static (options) =>
+                {
+#if true
+                    options.ForwardDefaultSelector = static (context) =>
+                    {
+                        if (context.GetEndpoint().TryGetTunnelAuthenticationScheme(out var authenticationScheme))
+                        {
+                            return authenticationScheme;
+                        }
+                        else
+                        {
+                            return Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
+                        }
+                    };
+#else
+                    options.ForwardDefaultSelector = static (context) =>
+                        context.GetEndpoint().GetTunnelAuthenticationSchemeOrDefault(
+                            Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme);
+#endif
+                });
 
-        builder.Services.AddAuthorization((options) => {
+        builder.Services.AddAuthorization((options) =>
+        {
             //options.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
             //options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
         });
@@ -27,21 +55,25 @@ public class Program
 
         builder.Services
             .AddReverseProxy()
-            .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-            .AddTunnelServices()
-            .AddTunnelServicesNegotiate()
-            ;
+                .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+                .AddTunnelServices()
+                .AddTunnelServicesNegotiate()
+                .AddAuthorizationTransportTransformProvider(
+                    configuration: builder.Configuration.GetSection("ReverseProxy:AuthorizationTransport"))
+                ;
 
         var app = builder.Build();
 
         app.UseHttpsRedirection();
         app.UseAuthentication();
         app.UseAuthorization();
-        app.Map("/Frontend", async (context) => {
+        app.Map("/Frontend", async (context) =>
+        {
             context.Response.Headers.ContentType = "text/plain";
             await context.Response.WriteAsync($"Frontend: {System.DateTime.Now:s}");
         });
-        app.Map("/WhereAmI", async (context) => {
+        app.Map("/WhereAmI", async (context) =>
+        {
             context.Response.Headers.ContentType = "text/plain";
             await context.Response.WriteAsync($"WhereAmI: Frontend: {System.DateTime.Now:s}");
         });
@@ -73,10 +105,12 @@ public class Program
 }
 
 
-internal sealed class NegotiateForwarderHttpClientFactory : ForwarderHttpClientFactory {
+internal sealed class NegotiateForwarderHttpClientFactory : ForwarderHttpClientFactory
+{
     protected override HttpMessageHandler WrapHandler(ForwarderHttpClientContext context, HttpMessageHandler handler)
     {
-        if (handler is SocketsHttpHandler socketsHttpHandler) {
+        if (handler is SocketsHttpHandler socketsHttpHandler)
+        {
             socketsHttpHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
         }
         return handler;
