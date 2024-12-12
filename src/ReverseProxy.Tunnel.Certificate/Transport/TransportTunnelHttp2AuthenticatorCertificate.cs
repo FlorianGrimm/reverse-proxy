@@ -47,11 +47,11 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
     {
         var config = tunnel.Model.Config;
         if (!Microsoft.AspNetCore.Builder.TransportCertificateExtensions.IsClientCertificate(
-            config.Authentication.Mode))
+            config.TransportAuthentication.Mode))
         {
             return new(default(HttpMessageInvoker));
         }
-        if (tunnel.Model.Config.Authentication.ClientCertificate is { Length: > 0 } clientCertificate)
+        if (tunnel.Model.Config.TransportAuthentication.ClientCertificate is { Length: > 0 } clientCertificate)
         {
             try
             {

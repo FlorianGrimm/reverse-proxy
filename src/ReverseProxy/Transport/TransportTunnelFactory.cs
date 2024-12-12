@@ -66,7 +66,7 @@ internal class TransportTunnelHttp2Factory : ITransportTunnelFactory
         var cfg = tunnel.Model.Config;
         var remoteTunnelId = cfg.GetRemoteTunnelId();
         var host = cfg.Url.TrimEnd('/');
-        var cfgAuthenticationMode = cfg.Authentication.Mode;
+        var cfgAuthenticationMode = cfg.TransportAuthentication.Mode;
         if (_ListAuthenticationNameH2.FirstOrDefault(n => string.Equals(n, cfgAuthenticationMode)) is { } authenticationMode)
         {
             var uriTunnel = new Uri($"{host}/_Tunnel/H2/{authenticationMode}/{remoteTunnelId}", UriKind.Absolute);
@@ -107,7 +107,7 @@ internal class TransportTunnelWebSocketFactory : ITransportTunnelFactory
         var remoteTunnelId = cfg.GetRemoteTunnelId();
         var host = cfg.Url.TrimEnd('/');
 
-        var cfgAuthenticationMode = cfg.Authentication.Mode;
+        var cfgAuthenticationMode = cfg.TransportAuthentication.Mode;
         if (_listAuthenticationNameWS.FirstOrDefault(n => string.Equals(n, cfgAuthenticationMode)) is { } authenticationMode)
         {
             var uriTunnel = new Uri($"{host}/_Tunnel/WS/{authenticationMode}/{remoteTunnelId}", UriKind.Absolute);

@@ -12,7 +12,7 @@ In the backend server you can handle the request directly or "yarp" it to anothe
 
 On the front end: In the cluster configuration you also have the transport and authentication configuration.
 
-On the back end: In the
+On the back end: In the tunnel configuration you define to which servers a tunnel connection should be established, with the specified transport and authentication.
 
 ### Transport Configuration
 
@@ -26,7 +26,7 @@ In the cluster configuration their is a "Transport" string property
 
 - In the cluster configuration their is a "Authentication" property.
     The "Mode" property specifies which authentication method should be used.
-    - "Anonymous" - for learning, testing only - NOT FOR PRODUCTION.
+    - "Basic" - using a password.
     - "JWTBearer" - using the Microsoft.AspNetCore.Authentication.JwtBearer.
     - "ClientCertificate" - using the HTTP/TLS ClientCertificate authentication.
 
@@ -46,7 +46,6 @@ You can configure many frontend and many backend server for your tunnel system.
 
 One frontend server can receive  tunnel request from one .. many backend servers.
 One backend server can start tunnel request to different front end servers.
-
 
 ## Request/Response flow:
 
@@ -108,7 +107,7 @@ In the code: Add the tunnel services and the tunnel authentication(s) you want t
     builder.Services
         .AddReverseProxy()
         .AddTunnelServices()
-        .AddTunnelServices*ChooseYourAuthentication*()
+        .AddTunnelServices*EnableAuthentication*()
         ;
 ```
 
@@ -140,7 +139,8 @@ In the config: and Transport and Authentication.
         .AddReverseProxy()
         .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
         .AddTunnelServices()
-        .AddTunnelServicesAnonymous()
+        .AddTunnelServicesBasic(
+            configuration: builder.Configuration.GetSection("ReverseProxy:AuthenticationBasic"))
         ;
 
     var app = builder.Build();
@@ -172,7 +172,7 @@ In the config: and Transport and Authentication.
       "alpha": {
         "Transport": "TunnelHTTP2",
         "Authentication": {
-          "Mode": "Anonymous"
+          "Mode": "Basic"
         }
       },
       "gamma": {
@@ -231,7 +231,8 @@ In the config: and Transport and Authentication.
             .AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
             .AddTunnelTransport()
-            .AddTunnelTransportAnonymous()
+            .AddTransportTunnelBasic(
+                configuration: builder.Configuration.GetSection("ReverseProxy:AuthenticationBasic"))
             ;
 
     var app = builder.Build();
@@ -262,22 +263,70 @@ In the config: and Transport and Authentication.
 }
 ```
 
-### Pitfall
-The inner transport uses HTTP not HTTPS.
-The outer tunnel uses HTTPS.
+### Pitfall HTTPS
+
+Connections on the backend:
+
+- A "normal" incoming request uses HTTPS.
+  e.g. for your monitoring health check,  using https://prometheus.io/ or allowing access from the backend server's lan.
+- The outgoing connections the outer tunnel uses HTTPS.
+- The incoming requests from the inner transport uses HTTP (not HTTPS).
+
+So the ASP.net core middleware pipeline sees 2 kinds of request one that comes from the noremal endpoint and the other comes from then tunnel.
 Therefor the requests through the tunnel conflict with the UseHttpsRedirection.
 app.UseHttpsRedirection() will redirect if the request is a tunnel request;
 which means that the browser is redirected to https://{tunnelId}/... which is not what you want.
 
-Therefor checking if this is not a tunnel request and then UseHttpsRedirection() is necessary.
+You can check if this is not a tunnel request and then UseHttpsRedirection() is necessary.
 
+```csharp
+        app.UseWhen(
+            static (context) => !context.IsTransportTunnelRequest(),
+            static (app) => {
+                app.UseHttpsRedirection();
+            });
+```
+
+## User Authentication with ReverseProxy.Transport.JWT
+
+### The tunnel authentication
+
+The tunnel authentication is used when you establish a tunnel connection.
+  e.g. AddTunnelServicesBasic and AddTransportTunnelBasic.
+This is independent from the authentication of the user.
+
+### Transporting the user.
+
+If you are using OpenIdConnect then I have a big TODO to provide you a example.
+If you are using OpenIdConnect then you should be able use the Baerer Token, Id Token way.
+
+If your using Negotiate as authentication for your users you cannot pass the user down to the next server, but you can copy the claims of the user and pass them down as a JWT token.
+By verifing the signature you can ensure that this is signed with a specific certificate.
+
+If you are using OpenIdConnect, but the next server didn't need the token, but need a user that is authenticated, you can copy the claims of the user and pass them down as a JWT token. TODO example needed.
+
+To pass down the user the frontend have to create a JWT token from you HTTPContext.User using AddAuthorizationTransportTransformProvider in the Yarp .
+
+```csharp
+        builder.Services
+            .AddReverseProxy()
+            .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+            .AddTunnelServices()
+            .AddTunnelServicesBasic(
+                configuration: builder.Configuration.GetSection("ReverseProxy:AuthenticationBasic"))
+            .AddAuthorizationTransportTransformProvider(
+                    configuration: builder.Configuration.GetSection("ReverseProxy:AuthorizationTransport"));
+
+```
+
+```csharp
+```
 # TODO
 - samples\Tunnel\Negotiate\ReverseProxy.Tunnel.Negotiate.API\Program.cs
   works, but bogos.
   - the auth should be switched, because of the tunnel (url) not of the header
   - Yarp.ReverseProxy.Transport.JWT is not finished.
   - is Yarp.ReverseProxy.Transport.JWT not just a bad copy of JwtBearer
-- Yarp.ReverseProxy.Tunnel.Anonymous remove it? since Yarp.ReverseProxy.Tunnel.Basic is not harder and so much safer.
 - Yarp.ReverseProxy.Tunnel.Certificate sample
 - Yarp.ReverseProxy.Tunnel.JWT sample
 - Yarp.ReverseProxy.Transport.JWT for the others?

@@ -40,7 +40,7 @@ namespace ReverseProxy.Tunnel.API.Controllers
                 Time = DateTimeOffset.UtcNow,
                 UserIsAuthenticated = HttpContext.User.Identity?.IsAuthenticated,
                 UserName = HttpContext.User.Identity?.Name,
-                UserClaims = HttpContext.User.Claims.Select(claim => new { ValueType = claim.ValueType, Value = claim.Value }),
+                UserClaims = HttpContext.User.Claims.Select(claim => new { Type = claim.Type, Value = claim.Value }),
                 Body = await new StreamReader(Request.Body).ReadToEndAsync(),
             };
 

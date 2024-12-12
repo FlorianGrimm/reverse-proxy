@@ -1,8 +1,8 @@
-using Microsoft.AspNetCore.Authentication;
+using Yarp.ReverseProxy.Tunnel;
 
 namespace Yarp.ReverseProxy.Authentication;
 
 public class TunnelNegotiateOptions
-    : AuthenticationSchemeOptions
+    : TunnelAuthenticationOptions
 {
 }

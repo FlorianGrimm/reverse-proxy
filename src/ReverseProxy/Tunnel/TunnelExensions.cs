@@ -42,7 +42,7 @@ public static class TunnelExtensions
     ///         ^ (1) \/     || (6)
     /// --------------------------------
     /// | Backend                      |
-    /// | AddTunnelTransport           |
+    /// | AddTransportTunnel           |
     /// --------------------------------
     ///              (4) |  ^
     ///                  |  |

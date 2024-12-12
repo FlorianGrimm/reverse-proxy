@@ -36,7 +36,7 @@ internal sealed class TunnelNegotiateWebSocket
     {
         conventionBuilder.RequireAuthorization(TunnelNegotiateConstants.PolicyNameGetAuth);
         conventionBuilder.WithMetadata(
-            new TunnelAuthenticationScheme(
+            new TunnelAuthenticationSchemeMetadata(
                 Yarp.ReverseProxy.Tunnel.TunnelNegotiateConstants.NegotiateAuthenticationName));
     }
 

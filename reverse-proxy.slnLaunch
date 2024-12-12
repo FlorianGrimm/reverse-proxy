@@ -1,26 +1,5 @@
 [
   {
-    "Name": "ReverseProxy.Tunnel.Anonymous",
-    "Projects": [
-      {
-        "Path": "samples\\Tunnel\\Anonymous\\ReverseProxy.Tunnel.Anonymous.API\\ReverseProxy.Tunnel.Anonymous.API.csproj",
-        "Action": "Start"
-      },
-      {
-        "Path": "samples\\Tunnel\\Anonymous\\ReverseProxy.Tunnel.Anonymous.Backend\\ReverseProxy.Tunnel.Anonymous.Backend.csproj",
-        "Action": "Start"
-      },
-      {
-        "Path": "samples\\Tunnel\\Anonymous\\ReverseProxy.Tunnel.Anonymous.Frontend\\ReverseProxy.Tunnel.Anonymous.Frontend.csproj",
-        "Action": "Start"
-      },
-      {
-        "Path": "samples\\Tunnel\\Anonymous\\ReverseProxy.Tunnel.Anonymous.Client\\ReverseProxy.Tunnel.Anonymous.Client.csproj",
-        "Action": "Start"
-      }
-    ]
-  },
-  {
     "Name": "ReverseProxy.Tunnel.Basic",
     "Projects": [
       {
@@ -33,10 +12,6 @@
       },
       {
         "Path": "samples\\Tunnel\\Basic\\ReverseProxy.Tunnel.Basic.Frontend\\ReverseProxy.Tunnel.Basic.Frontend.csproj",
-        "Action": "Start"
-      },
-      {
-        "Path": "samples\\Tunnel\\Basic\\ReverseProxy.Tunnel.Basic.Client\\ReverseProxy.Tunnel.Basic.Client.csproj",
         "Action": "Start"
       }
     ]
@@ -60,23 +35,6 @@
   },
   {
     "Name": "ReverseProxy.Tunnel.Certificate",
-    "Projects": [
-      {
-        "Path": "samples\\Tunnel\\Certificate\\ReverseProxy.Tunnel.Certificate.API\\ReverseProxy.Tunnel.Certificate.API.csproj",
-        "Action": "Start"
-      },
-      {
-        "Path": "samples\\Tunnel\\Certificate\\ReverseProxy.Tunnel.Certificate.Backend\\ReverseProxy.Tunnel.Certificate.Backend.csproj",
-        "Action": "Start"
-      },
-      {
-        "Path": "samples\\Tunnel\\Certificate\\ReverseProxy.Tunnel.Certificate.Frontend\\ReverseProxy.Tunnel.Certificate.Frontend.csproj",
-        "Action": "Start"
-      },
-      {
-        "Path": "samples\\Tunnel\\Certificate\\ReverseProxy.Tunnel.Certificate.Client\\ReverseProxy.Tunnel.Certificate.Client.csproj",
-        "Action": "Start"
-      }
-    ]
+    "Projects": []
   }
 ]

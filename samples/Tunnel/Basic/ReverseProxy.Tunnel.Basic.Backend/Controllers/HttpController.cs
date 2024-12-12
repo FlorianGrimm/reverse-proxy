@@ -28,22 +28,7 @@ namespace ReverseProxy.Tunnel.API.Controllers
         [Route("/{**catchall}", Order = int.MaxValue)] // Make this the default route if nothing matches
         public async Task<IActionResult> Dump()
         {
-            var result = new {
-                Request.Protocol,
-                Request.Method,
-                Request.Scheme,
-                Host = Request.Host.Value,
-                PathBase = Request.PathBase.Value,
-                Path = Request.Path.Value,
-                Query = Request.QueryString.Value,
-                Headers = Request.Headers.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToArray()),
-                Time = DateTimeOffset.UtcNow,
-                UserIsAuthenticated = HttpContext.User.Identity?.IsAuthenticated,
-                UserName = HttpContext.User.Identity?.Name,
-                UserClaims = HttpContext.User.Claims.Select(claim => new { ValueType = claim.ValueType, Value = claim.Value }),
-                Body = await new StreamReader(Request.Body).ReadToEndAsync(),
-            };
-
+            var result = await HttpRequestDump.GetDumpAsync(HttpContext, Request, true);
             return Ok(result);
         }
 

@@ -30,7 +30,7 @@ internal sealed class TransportTunnelHttp2Authentication(
 
     public async ValueTask<HttpMessageInvoker?> ConfigureSocketsHttpHandlerAsync(TunnelState tunnel, SocketsHttpHandler socketsHttpHandler)
     {
-        var mode = tunnel.Model.Config.Authentication.Mode;
+        var mode = tunnel.Model.Config.TransportAuthentication.Mode;
         if (mode is { Length: > 0 }
             && _serviceByName.TryGetValue(mode, out var service))
         {
@@ -44,7 +44,7 @@ internal sealed class TransportTunnelHttp2Authentication(
 
     public async ValueTask ConfigureHttpRequestMessageAsync(TunnelState tunnel, HttpRequestMessage requestMessage)
     {
-        var mode = tunnel.Model.Config.Authentication.Mode;
+        var mode = tunnel.Model.Config.TransportAuthentication.Mode;
         if (mode is { Length: > 0 }
             && _serviceByName.TryGetValue(mode, out var service))
         {

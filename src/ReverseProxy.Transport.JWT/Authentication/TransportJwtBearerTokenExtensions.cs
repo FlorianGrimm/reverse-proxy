@@ -72,12 +72,27 @@ public static class TransportJwtBearerTokenExtensions
         return builder;
     }
 
-    public static bool IsTransportJwtBearerTokenAuthentication(this HttpContext? httpContext)
+    public static bool IsForwardedRequest(this HttpContext? httpContext)
+    {
+        if (httpContext is { })
+        {
+            foreach (var xForwardedHost in httpContext.Request.Headers["x-forwarded-host"])
+            {
+                if (xForwardedHost is { Length: > 0 })
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static bool IsForwardedJwtBearerTokenAuthentication(this HttpContext? httpContext)
     {
         if (httpContext is { })
         {
             var foundForwardedHosts = false;
-            foreach (var xForwardedHost in httpContext.Request.Headers["X-Forwarded-Host"])
+            foreach (var xForwardedHost in httpContext.Request.Headers["x-forwarded-host"])
             {
                 if (xForwardedHost is { Length: > 0 })
                 {

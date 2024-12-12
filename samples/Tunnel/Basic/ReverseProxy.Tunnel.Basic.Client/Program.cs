@@ -8,7 +8,6 @@ namespace ReverseProxy.Tunnel.Basic.Client;
 
 public class Program : BackgroundService
 {
-
     public static async Task Main(string[] args)
     {
         await Task.Delay(1000);
@@ -107,7 +106,7 @@ public class Program : BackgroundService
             }
             catch (System.Exception error)
             {
-                _logger.LogInformation("Retry since failed: {Message}", error.Message);
+                _logger.LogInformation("First request {client} Retry since failed: {Message}", client.BaseAddress?.ToString(), error.Message);
                 continue;
             }
         }
@@ -148,7 +147,10 @@ public class Program : BackgroundService
 
     public HttpClient GetHttpClient(string url)
     {
-        var client = new HttpClient();
+        var client = new HttpClient(new HttpClientHandler()
+        {
+            Credentials = System.Net.CredentialCache.DefaultCredentials
+        });
         client.BaseAddress = new Uri(url);
         return client;
     }

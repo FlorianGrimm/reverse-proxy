@@ -33,7 +33,12 @@ public sealed record TransportTunnelConfig
     /// <summary>
     /// Gets or initializes the authentication configuration for the transport tunnel.
     /// </summary>
-    public TransportTunnelAuthenticationConfig Authentication { get; init; } = new TransportTunnelAuthenticationConfig();
+    public TransportTunnelAuthenticationConfig TransportAuthentication { get; init; } = new TransportTunnelAuthenticationConfig();
+
+    /// <summary>
+    /// Gets or initializes the authentication configuration for transport the user in the inner tunnel requests. (e.g. TransportJwtBearerToken)
+    /// </summary>
+    public string TunnelAuthenticationScheme { get; init; } = default!;
 
     /// <summary>
     /// Determines whether the specified <see cref="TransportTunnelConfig"/> is equal to the current <see cref="TransportTunnelConfig"/>.
@@ -51,7 +56,7 @@ public sealed record TransportTunnelConfig
             && string.Equals(Url, other.Url, StringComparison.OrdinalIgnoreCase)
             && string.Equals(RemoteTunnelId, other.RemoteTunnelId, StringComparison.OrdinalIgnoreCase)
             && Transport == other.Transport
-            && Authentication == other.Authentication;
+            && TransportAuthentication == other.TransportAuthentication;
     }
 
     /// <summary>
@@ -65,7 +70,7 @@ public sealed record TransportTunnelConfig
         hash.Add(Url?.GetHashCode(StringComparison.OrdinalIgnoreCase));
         hash.Add(RemoteTunnelId?.GetHashCode(StringComparison.OrdinalIgnoreCase));
         hash.Add(Transport);
-        hash.Add(Authentication);
+        hash.Add(TransportAuthentication);
         return hash.ToHashCode();
     }
 }

@@ -7,10 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="9.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\ReverseProxy.Transport.JWT\Yarp.ReverseProxy.Transport.JWT.csproj" />
     <ProjectReference Include="..\..\..\..\src\ReverseProxy.Tunnel.Certificate\Yarp.ReverseProxy.Tunnel.Certificate.csproj" />
     <ProjectReference Include="..\..\..\..\src\ReverseProxy.X509Certificate\Yarp.ReverseProxy.X509Certificate.csproj" />
     <ProjectReference Include="..\..\..\..\src\ReverseProxy\Yarp.ReverseProxy.csproj" />

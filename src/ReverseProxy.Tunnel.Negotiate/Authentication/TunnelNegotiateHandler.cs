@@ -8,16 +8,18 @@ using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Tunnel;
 
 namespace Yarp.ReverseProxy.Authentication;
 
 internal class TunnelNegotiateHandler
-    : AuthenticationHandler<TunnelNegotiateOptions>
+    : TunnelAuthenticationHandler<TunnelNegotiateOptions>
 {
 #if NET8_0_OR_GREATER
     public TunnelNegotiateHandler(
@@ -40,40 +42,24 @@ internal class TunnelNegotiateHandler
     }
 #endif
 
+    /*
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (Context.GetEndpoint()?.Metadata.GetMetadata<TunnelAuthenticationFeature>()?.TunnelAuthentication is { } tunnelAuthentication) {
-            return await tunnelAuthentication.HandleAuthenticateAsync(Context, Scheme.Name, ClaimsIssuer);
+        if (Context.GetEndpoint() is { } endpoint)
+        {
+            if (endpoint.Metadata.GetMetadata<TunnelAuthenticationMetadata>()?.TunnelAuthentication is { } tunnelAuthentication
+                && endpoint.Metadata.GetMetadata<RouteModel>() is { } routeModel
+                && routeModel.Cluster is { } cluster)
+            {
+                var (authenticateResult,f)= await tunnelAuthentication.HandleAuthenticateAsync(
+                    Context,
+                    cluster.Model.Config,
+                    Scheme.Name,
+                    ClaimsIssuer);
+                if (authenticateResult is { }) { return authenticateResult; }
+            }
         }
-
-        ////Context.Request.Cookies.TryGetValue
-        ////var tunnelAuthenticationCookieService = Context.RequestServices.GetService<ITunnelAuthenticationCookieService>();
-        //var tunnelAuthenticationConfigService = Context.RequestServices.GetService<ITunnelAuthenticationConfigService>();
-        //if (tunnelAuthenticationConfigService is null) {
-        //    // return Task.FromResult(AuthenticateResult.NoResult());
-        //    return AuthenticateResult.NoResult();
-        //}
-        //if (tunnelAuthenticationConfigService.TryGetTunnelAuthenticationServices(
-        //    TunnelConstants.TransportNameTunnelHTTP2,
-        //    TunnelNegotiateConstants.NegotiateAuthenticationName,
-        //    out var tunnelAuthenticationService)
-        //    && tunnelAuthenticationService is ITunnelAuthenticationServiceV2 tunnelAuthenticationServiceV2
-        //    ) {
-        //    return await tunnelAuthenticationServiceV2.HandleAuthenticateAsync(Context);
-
-        //    //tunnelAuthenticationCookieService.ValidateCookie
-
-        //    //        private readonly LazyProxyConfigManager _proxyConfigManagerLazy;
-        //    //private readonly ITunnelAuthenticationCookieService _cookieService;
-        //    // this.Context.Request.RouteValues["clusterId"]
-        //    //var identity = new ClaimsIdentity([new Claim(ClaimsIdentity.DefaultNameClaimType, "Tunnel", ClaimsIssuer)], Scheme.Name);
-        //    //var principal = new ClaimsPrincipal(identity);
-        //    //var ticket = new AuthenticationTicket(principal, Scheme.Name);
-        //    //return Task.FromResult(AuthenticateResult.Success(ticket));
-        //}
-
-        ////return Task.FromResult(AuthenticateResult.NoResult());
-
         return AuthenticateResult.NoResult();
     }
+    */
 }

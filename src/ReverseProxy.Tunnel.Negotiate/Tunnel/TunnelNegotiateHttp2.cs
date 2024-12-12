@@ -62,18 +62,23 @@ internal sealed class TunnelNegotiateHttp2
         RouteHandlerBuilder conventionBuilder,
         string pattern)
     {
+        // will use HTTP1 and Negotiate
         var endpointMapGet = endpoints.MapGet(pattern, MapGetAuth);
         endpointMapGet.RequireAuthorization(TunnelNegotiateConstants.PolicyNameGetAuth);
         endpointMapGet.WithMetadata(
-            new TunnelAuthenticationScheme(
-                Yarp.ReverseProxy.Tunnel.TunnelNegotiateConstants.NegotiateAuthenticationName));
+            new TunnelAuthenticationSchemeMetadata(
+                Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme));
 
+        // will use
         conventionBuilder.RequireAuthorization(TunnelNegotiateConstants.PolicyNamePayload);
         conventionBuilder
             .WithMetadata(
-                new TunnelAuthenticationScheme(
-                    Yarp.ReverseProxy.Authentication.TunnelNegotiateDefaults.AuthenticationScheme),
-                new TunnelAuthenticationFeature(this));
+#warning TODO: weichei
+                //new TunnelAuthenticationSchemeMetadata(
+                //    Yarp.ReverseProxy.Authentication.TunnelNegotiateDefaults.AuthenticationScheme),
+                new TunnelAuthenticationSchemeMetadata(
+                    Yarp.ReverseProxy.Tunnel.TunnelAuthenticationDefaults.AuthenticationScheme),
+                new TunnelAuthenticationMetadata(this));
     }
 
     public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)
@@ -86,7 +91,7 @@ internal sealed class TunnelNegotiateHttp2
             && auth is { Length: > 0 }
             && _cookieService.ValidateCookie(auth, out var principal)
             && principal.Identity?.Name is { Length: > 0 } identityName
-            && IsIdentityValid(identityName, cluster.Model.Config.Authentication)
+            && IsIdentityValid(identityName, cluster.Model.Config.TransportAuthentication)
             )
         {
             Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, TunnelNegotiateConstants.NegotiateAuthenticationName, identityName);
@@ -169,7 +174,7 @@ internal sealed class TunnelNegotiateHttp2
         }
 
         var identityName = identity.Name ?? string.Empty;
-        var authentication = cluster.Model.Config.Authentication;
+        var authentication = cluster.Model.Config.TransportAuthentication;
         var result = IsIdentityValid(identityName, authentication);
         if (result)
         {
@@ -210,28 +215,37 @@ internal sealed class TunnelNegotiateHttp2
         return result;
     }
 
-    public ValueTask<AuthenticateResult> HandleAuthenticateAsync(HttpContext context, string scheme, string claimsIssuer)
+    public ValueTask<TunnelAuthenticationResponse> HandleAuthenticateAsync(
+        HttpContext context,
+        ClusterConfig clusterConfig,
+        string scheme,
+        string claimsIssuer)
     {
-        var clusterIdRouteValue = context.Request.RouteValues["clusterId"];
-        if (!(clusterIdRouteValue is string { Length: > 0 } clusterId
-            && _proxyConfigManagerLazy.GetService().TryGetCluster(clusterId, out var cluster)))
+        if (!(context.Request.Cookies.TryGetValue(TunnelNegotiateConstants.CookieName, out var auth)))
         {
-            return new(AuthenticateResult.NoResult());
+            Log.ClusterAuthenticationFailed(_logger, clusterConfig.ClusterId, TunnelNegotiateConstants.NegotiateAuthenticationName, "YarpTunnelAuth Cookie not found");
+            return new(new TunnelAuthenticationResponse(AuthenticateResult.NoResult()));
         }
 
-        if (context.Request.Cookies.TryGetValue(TunnelNegotiateConstants.CookieName, out var auth)
-           && auth is { Length: > 0 }
-           && _cookieService.ValidateCookie(auth, out var principal)
-           && principal is { }
-           && principal.Identity?.Name is { Length: > 0 } identityName
-           && IsIdentityValid(identityName, cluster.Model.Config.Authentication)
-           )
+        if (!(auth is { Length: > 0 }
+            && _cookieService.ValidateCookie(auth, out var principal)
+            && principal is { }
+           ))
         {
-            Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, TunnelNegotiateConstants.NegotiateAuthenticationName, identityName);
-            var ticket = new AuthenticationTicket(principal!, scheme);
-            return new (AuthenticateResult.Success(ticket));
+            Log.ClusterAuthenticationFailed(_logger, clusterConfig.ClusterId, TunnelNegotiateConstants.NegotiateAuthenticationName, "principal invalid.");
+            return new(new TunnelAuthenticationResponse(AuthenticateResult.NoResult()));
         }
-        Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, TunnelNegotiateConstants.NegotiateAuthenticationName, "no YarpTunnelAuth");
-        return new(AuthenticateResult.NoResult());
+
+        if (!(principal.Identity?.Name is { Length: > 0 } identityName
+            && IsIdentityValid(identityName, clusterConfig.TransportAuthentication)
+           ))
+        {
+            Log.ClusterAuthenticationFailed(_logger, clusterConfig.ClusterId, TunnelNegotiateConstants.NegotiateAuthenticationName, "Identity invalid.");
+            return new(new TunnelAuthenticationResponse(AuthenticateResult.NoResult()));
+        }
+
+        Log.ClusterAuthenticationSuccess(_logger, clusterConfig.ClusterId, TunnelNegotiateConstants.NegotiateAuthenticationName, identityName);
+        var ticket = new AuthenticationTicket(principal!, scheme);
+        return new(new TunnelAuthenticationResponse(AuthenticateResult.Success(ticket)));
     }
 }

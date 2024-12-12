@@ -46,6 +46,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     private readonly ConfigState[] _configs;
     private readonly ITunnelChangeListener[] _tunnelChangeListeners;
     private readonly ConcurrentDictionary<string, TunnelState> _tunnels = new(StringComparer.OrdinalIgnoreCase);
+    private ConcurrentDictionary<string, TunnelState>? _tunnelsByRemoteId;
     private readonly IClusterChangeListener[] _clusterChangeListeners;
     private readonly ConcurrentDictionary<string, ClusterState> _clusters = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, RouteState> _routes = new(StringComparer.OrdinalIgnoreCase);
@@ -1105,6 +1106,24 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
     internal bool TryGetTransportTunnelByUrl(string host, [MaybeNullWhenAttribute(false)] out TunnelState result)
     {
+#warning TODO: check if _tunnels can change
+
+        var tunnelsByRemoteId = _tunnelsByRemoteId;
+        if (tunnelsByRemoteId is null)
+        {
+            tunnelsByRemoteId = new ConcurrentDictionary<string, TunnelState>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (_, tunnel) in _tunnels)
+            {
+                var cfg = tunnel.Model.Config;
+                if (cfg.IsTunnelTransport())
+                {
+                    tunnelsByRemoteId.TryAdd(cfg.GetRemoteTunnelId(), tunnel);
+                }
+            }
+            _tunnelsByRemoteId = tunnelsByRemoteId;
+        }
+        return tunnelsByRemoteId.TryGetValue(host, out  result);
+#if false
         foreach (var (_, tunnel) in _tunnels)
         {
             var cfg = tunnel.Model.Config;
@@ -1119,6 +1138,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         }
         result = default;
         return false;
+#endif
     }
 
 

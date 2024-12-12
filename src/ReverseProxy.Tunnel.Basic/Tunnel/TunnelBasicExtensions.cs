@@ -10,7 +10,7 @@ using Yarp.ReverseProxy.Tunnel;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
-public static class TunnelExtensionsBasic
+public static class TunnelBasicExtensions
 {
     /// <summary>
     /// This adds basic tunnel authentication.

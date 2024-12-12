@@ -40,7 +40,6 @@ internal sealed class TunnelHTTP2HttpClientFactory
             if (!_tunnelHTTP2HttpClientFactoryBoundByClusterId.TryGetValue(context.ClusterId, out var result))
             {
                 result = new TunnelHTTP2HttpClientFactoryForCluster(
-                    //_proxyConfigManagerLazy.GetService(),
                     _tunnelConnectionChannelManager,
                     context.ClusterId,
                     _logger);

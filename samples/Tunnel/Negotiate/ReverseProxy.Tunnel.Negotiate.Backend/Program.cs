@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 
 using Yarp.ReverseProxy.Authentication;
 
-namespace ReverseProxy.Tunnel.API;
+namespace ReverseProxy.Tunnel.Backend;
 
 public class Program
 {
@@ -18,8 +18,8 @@ public class Program
         builder.Services.AddAuthentication(
             configureOptions: (options) =>
             {
-                options.DefaultScheme = "switch";
-                options.DefaultChallengeScheme = "switch";
+                options.DefaultScheme = "Default";
+                options.DefaultChallengeScheme = "Default";
             }
             )
             .AddNegotiate()
@@ -27,52 +27,60 @@ public class Program
                 configuration: builder.Configuration.GetSection("ReverseProxy:TransportJwtBearerToken"),
                 configure: (options) => { })
             .AddPolicyScheme(
-                authenticationScheme: "switch",
-                displayName: "switch",
+                authenticationScheme: "Default",
+                displayName: "Default",
                 configureOptions: static (options) =>
                 {
-                    options.ForwardDefaultSelector =
-                        static (context) => context.IsTransportTunnelRequest()
-                            ? TransportJwtBearerTokenDefaults.AuthenticationScheme
-                            : NegotiateDefaults.AuthenticationScheme;
+                    options.ForwardDefaultSelector = TransportTunnelExtensions.CreateForwardDefaultSelector(
+                        defaultTunnelAuthenticationScheme: TransportJwtBearerTokenDefaults.AuthenticationScheme,
+                        defaultAuthenticationScheme: NegotiateDefaults.AuthenticationScheme);
                 })
             ;
-
 
         builder.Services.AddAuthorization((options) =>
         {
             options.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-            options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+            // options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
         });
 
         builder.Services.AddControllers()
-            .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
+            .AddJsonOptions(
+                static (options) => options.JsonSerializerOptions.WriteIndented = true);
+        builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(
+            static (options) => options.SerializerOptions.WriteIndented = true);
 
         builder.Services
             .AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
             .AddAuthorizationTransportTransformProvider(
                 configuration: builder.Configuration.GetSection("ReverseProxy:AuthorizationTransport"))
-            .AddTunnelTransport(
+            .AddTransportTunnel(
                 configureTunnelHttp2: (options) =>
                 {
                     options.MaxConnectionCount = 1;
                     options.IsEnabled = true;
                 })
-            .AddTunnelTransportNegotiate()
+            .AddTransportTunnelNegotiate()
             ;
 
         var app = builder.Build();
 
-        // Using
-        // app.UseHttpsRedirection();
-        // stops the tunnel to work.
-        // The request comes from the normal HTTPS - endpoint
-        // AND from the TunnelTransport HTTP - endpoint.
-        app.UseWhen(
-            static (context) => !context.IsTransportTunnelRequest(),
-            static (app) => app.UseHttpsRedirection()
-            );
+        // Using app.UseHttpsRedirection(); stops the tunnel to work.
+        // The request comes from the normal HTTPS - endpoint AND from the TunnelTransport HTTP - endpoint.
+        //app.UseWhen(
+        //    static (context) => !context.IsTransportTunnelRequest(),
+        //    static (app) => app.UseHttpsRedirection()
+        //    );
+        app.Use((context, next) => {
+            if (context.GetEndpoint() is { } endpoint) {
+                var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+                foreach (var metadata in endpoint.Metadata)
+                {
+                    logger.LogDebug("metadata: {metadata}", metadata.GetType().FullName);
+                }
+                }
+            return next(context);
+        });
 
         app.UseAuthentication();
         app.UseAuthorization();

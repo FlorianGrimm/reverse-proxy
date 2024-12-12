@@ -123,6 +123,10 @@ internal sealed class TunnelAuthenticationCertificateHttp2
 
     public void MapAuthentication(IEndpointRouteBuilder endpoints, RouteHandlerBuilder conventionBuilder, string pattern)
     {
+        conventionBuilder.RequireAuthorization(TunnelCertificateConstants.PolicyName);
+        conventionBuilder.WithMetadata(
+            new TunnelAuthenticationSchemeMetadata(
+                TunnelCertificateConstants.AuthenticationScheme));
     }
 
     public async ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
@@ -139,6 +143,7 @@ internal sealed class TunnelAuthenticationCertificateHttp2
             return Results.Forbid();
         }
 #endif
+        await Task.CompletedTask;
         return null;
 
     }
@@ -159,11 +164,11 @@ internal sealed class TunnelAuthenticationCertificateHttp2
         }
 
         var config = cluster.Model.Config;
-        if (!IsClientCertificate(config.Authentication.Mode))
+        if (!IsClientCertificate(config.TransportAuthentication.Mode))
         {
             return false;
         }
-        if (!(config.Authentication.ClientCertificate is { Length: > 0 } clientCertificateId))
+        if (!(config.TransportAuthentication.ClientCertificate is { Length: > 0 } clientCertificateId))
         {
             return false;
         }

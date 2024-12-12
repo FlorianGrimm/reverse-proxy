@@ -45,6 +45,7 @@ public static class ReverseProxyServiceCollectionExtensions
         }
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransformProvider, AuthorizationTransportTransformProvider>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransformProvider, AuthorizationTransportTransformProvider>());
         return builder;
     }
 

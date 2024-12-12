@@ -128,7 +128,8 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             Url = section[nameof(TransportTunnelConfig.Url)] ?? string.Empty,
             RemoteTunnelId = section[nameof(TransportTunnelConfig.RemoteTunnelId)] ?? string.Empty,
             Transport = ConvertTransportMode(section[nameof(TransportTunnelConfig.Transport)]),
-            Authentication = CreateTunnelAuthentication(section.GetSection(nameof(TransportTunnelConfig.Authentication)))
+            TransportAuthentication = CreateTunnelAuthentication(section.GetSection(nameof(TransportTunnelConfig.TransportAuthentication))),
+            TunnelAuthenticationScheme = section[nameof(TransportTunnelConfig.TunnelAuthenticationScheme)] ?? string.Empty,
         };
     }
 
@@ -159,7 +160,7 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
             HttpClient = CreateHttpClientConfig(section.GetSection(nameof(ClusterConfig.HttpClient))),
             HttpRequest = CreateProxyRequestConfig(section.GetSection(nameof(ClusterConfig.HttpRequest))),
             Transport = ConvertTransportMode(section[nameof(ClusterConfig.Transport)]),
-            Authentication = CreateClusterTunnelAuthenticationConfig(section.GetSection(nameof(ClusterConfig.Authentication))),
+            TransportAuthentication = CreateClusterTunnelAuthenticationConfig(section.GetSection(nameof(ClusterConfig.TransportAuthentication))),
             Metadata = section.GetSection(nameof(ClusterConfig.Metadata)).ReadStringDictionary(),
             Destinations = destinations,
         };

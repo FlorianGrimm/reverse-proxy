@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 using System;
 
@@ -13,9 +15,13 @@ public static class TunnelNegotiateExtensions
         this AuthenticationBuilder builder,
         string? authenticationScheme = default,
         IConfiguration? configuration = default,
-        Action<Yarp.ReverseProxy.Authentication.TunnelNegotiateOptions>? configure = default)
+        Action<Yarp.ReverseProxy.Authentication.TunnelNegotiateOptions>? configure = default
+        )
     {
         if (builder is null) { throw new ArgumentNullException(nameof(builder)); }
+
+        builder.TryAddTunnelAuthentication();
+
         if (string.IsNullOrEmpty(authenticationScheme))
         {
             authenticationScheme = TunnelNegotiateDefaults.AuthenticationScheme;

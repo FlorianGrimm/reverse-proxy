@@ -147,13 +147,13 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
 
 
         var config = cluster.Model.Config;
-        if (!IsClientCertificate(config.Authentication.Mode))
+        if (!IsClientCertificate(config.TransportAuthentication.Mode))
         {
             // how can this be?
             _logger.LogInformation("Cluster.Authentication.Mode is not ClientCertificate");
             return false;
         }
-        if (!(config.Authentication.ClientCertificate is { Length: > 0 } authenticationClientCertificate))
+        if (!(config.TransportAuthentication.ClientCertificate is { Length: > 0 } authenticationClientCertificate))
         {
             _logger.LogInformation("Cluster.Authentication.ClientCertificate is empty.");
             return false;

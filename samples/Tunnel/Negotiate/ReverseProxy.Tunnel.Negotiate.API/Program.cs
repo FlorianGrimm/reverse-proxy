@@ -15,8 +15,8 @@ public class Program
         builder.Services.AddAuthentication(
             configureOptions: (options) =>
             {
-                options.DefaultScheme = "switch";
-                options.DefaultChallengeScheme = "switch";
+                options.DefaultScheme = "Default";
+                options.DefaultChallengeScheme = "Default";
             }
             )
             .AddTransportJwtBearerToken(
@@ -24,12 +24,12 @@ public class Program
                 configure: (options) => { })
             .AddNegotiate()
             .AddPolicyScheme(
-                authenticationScheme: "switch",
-                displayName: "switch",
+                authenticationScheme: "Default",
+                displayName: "Default",
                 configureOptions: static (options) =>
             {
                 options.ForwardDefaultSelector =
-                    static (context) => context.IsTransportJwtBearerTokenAuthentication()
+                    static (context) => context.IsForwardedRequest()
                         ? Yarp.ReverseProxy.Authentication.TransportJwtBearerTokenDefaults.AuthenticationScheme
                         : Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
             })
@@ -38,15 +38,14 @@ public class Program
         builder.Services.AddAuthorization((options) =>
         {
             options.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-            // options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+            options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
         });
 
         builder.Services.AddControllers()
-            .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
-        builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
-        {
-            options.SerializerOptions.WriteIndented = true;
-        });
+            .AddJsonOptions(
+                static (options) => options.JsonSerializerOptions.WriteIndented = true);
+        builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(
+            static (options) => options.SerializerOptions.WriteIndented = true);
 
         var app = builder.Build();
 

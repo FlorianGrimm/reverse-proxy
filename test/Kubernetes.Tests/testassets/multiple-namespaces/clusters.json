@@ -18,7 +18,7 @@
         "Metadata": null
       }
     },
-    "Authentication": {},
+    "TransportAuthentication": {},
     "Metadata": null
   },
   {
@@ -40,7 +40,7 @@
         "Metadata": null
       }
     },
-    "Authentication": {},
+    "TransportAuthentication": {},
     "Metadata": null
   }
 ]

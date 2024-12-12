@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.AspNetCore.Authorization;
+
 using Yarp.ReverseProxy.Forwarder;
 using Yarp.ReverseProxy.Tunnel;
 
-namespace ReverseProxy.Tunnel.API;
+namespace ReverseProxy.Tunnel.Frontend;
 
 public class Program
 {
@@ -14,34 +17,16 @@ public class Program
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
 
-        builder.Services.AddAuthentication(
-            //
-            "switch"
-            )
+        builder.Services.AddAuthentication("Default")
             .AddNegotiate()
-            .AddTunnelServicesNegotiate()
+            .AddTunnelAuthentication()
             .AddPolicyScheme(
-                authenticationScheme: "switch",
-                displayName: "switch",
+                authenticationScheme: "Default",
+                displayName: "Default",
                 configureOptions: static (options) =>
                 {
-#if true
-                    options.ForwardDefaultSelector = static (context) =>
-                    {
-                        if (context.GetEndpoint().TryGetTunnelAuthenticationScheme(out var authenticationScheme))
-                        {
-                            return authenticationScheme;
-                        }
-                        else
-                        {
-                            return Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
-                        }
-                    };
-#else
-                    options.ForwardDefaultSelector = static (context) =>
-                        context.GetEndpoint().GetTunnelAuthenticationSchemeOrDefault(
-                            Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme);
-#endif
+                    options.ForwardDefaultSelector = TunnelAuthenticationSchemeExtensions
+                        .CreateForwardDefaultSelector(NegotiateDefaults.AuthenticationScheme);
                 });
 
         builder.Services.AddAuthorization((options) =>
@@ -51,7 +36,10 @@ public class Program
         });
 
         builder.Services.AddControllers()
-            .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
+            .AddJsonOptions(
+                static (options) => options.JsonSerializerOptions.WriteIndented = true);
+        builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(
+            static (options) => options.SerializerOptions.WriteIndented = true);
 
         builder.Services
             .AddReverseProxy()
@@ -59,8 +47,7 @@ public class Program
                 .AddTunnelServices()
                 .AddTunnelServicesNegotiate()
                 .AddAuthorizationTransportTransformProvider(
-                    configuration: builder.Configuration.GetSection("ReverseProxy:AuthorizationTransport"))
-                ;
+                    configuration: builder.Configuration.GetSection("ReverseProxy:AuthorizationTransport"));
 
         var app = builder.Build();
 

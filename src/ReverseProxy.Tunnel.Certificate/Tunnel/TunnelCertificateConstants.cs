@@ -10,13 +10,18 @@ public class TunnelCertificateConstants
     /// </summary>
     public const string AuthenticationName = "ClientCertificate";
 
+
+    //public const string AuthenticationScheme = "Certificate";
+
     /// <summary>
     /// "Certificate"
     /// </summary>
-    public const string AuthenticationScheme = "Certificate";
+    public const string AuthenticationScheme = "TunnelClientCertificate";
 
     /// <summary>
     /// "YarpTunnelAuth"
     /// </summary>
     public const string CookieName = "YarpTunnelAuth";
+
+    public const string PolicyName = "YarpTunnelClientCertificate";
 }

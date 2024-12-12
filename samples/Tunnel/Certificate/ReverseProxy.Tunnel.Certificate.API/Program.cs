@@ -1,3 +1,7 @@
+using Microsoft.AspNetCore.Authentication.Negotiate;
+
+using Yarp.ReverseProxy.Authentication;
+
 namespace ReverseProxy.Tunnel.API;
 
 public class Program
@@ -6,14 +10,31 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
+        builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
 
+        // https://learn.microsoft.com/en-us/aspnet/core/security/authorization/limitingidentitybyscheme?view=aspnetcore-9.0
+        builder.Services.AddAuthentication("Default")
+            .AddTransportJwtBearerToken(
+                configuration: builder.Configuration.GetSection("ReverseProxy:TransportJwtBearerToken"),
+                configure: (options) => { })
+            .AddNegotiate()
+            .AddPolicyScheme(
+                authenticationScheme: "Default",
+                displayName: "Default",
+                configureOptions: static (options) =>
+                {
+                    options.ForwardDefaultSelector =
+                        static (context) => context.IsTransportJwtBearerTokenAuthentication()
+                            ? TransportJwtBearerTokenDefaults.AuthenticationScheme
+                            : NegotiateDefaults.AuthenticationScheme;
+                });
+
         builder.Services.AddControllers()
-                    .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
-        builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
-        {
-            options.SerializerOptions.WriteIndented = true;
-        });
+            .AddJsonOptions(
+                static (options) => options.JsonSerializerOptions.WriteIndented = true);
+        builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(
+            static (options) => options.SerializerOptions.WriteIndented = true);
 
         var app = builder.Build();
 
@@ -22,11 +43,13 @@ public class Program
         //app.UseAuthorization();
         //app.UseAuthentication();
 
-        app.Map("/API", async (context) => {
+        app.Map("/API", async (context) =>
+        {
             context.Response.Headers.ContentType = "text/plain";
             await context.Response.WriteAsync($"API: {System.DateTime.Now:s}");
         });
-        app.Map("/WhereAmI", async (context) => {
+        app.Map("/WhereAmI", async (context) =>
+        {
             context.Response.Headers.ContentType = "text/plain";
             await context.Response.WriteAsync($"WhereAmI: API: {System.DateTime.Now:s}");
         });

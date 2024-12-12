@@ -45,7 +45,7 @@ public static class TransportTunnelNegotiateExtensions
     ///         ^ (1) \/     || (6)
     /// --------------------------------
     /// | Backend                      |
-    /// | AddTunnelTransport           |
+    /// | AddTransportTunnel           |
     /// --------------------------------
     ///              (4) |  ^
     ///                  |  |
@@ -80,7 +80,7 @@ public static class TransportTunnelNegotiateExtensions
     /// <example>
     ///    builder.Services.AddReverseProxy()
     ///        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-    ///        .AddTunnelTransport();
+    ///        .AddTransportTunnel();
     ///
     ///    var app = builder.Build();
     ///
@@ -89,7 +89,7 @@ public static class TransportTunnelNegotiateExtensions
     ///        static (app) => app.UseHttpsRedirection()
     ///        );
     /// </example>
-    public static IReverseProxyBuilder AddTunnelTransportNegotiate(
+    public static IReverseProxyBuilder AddTransportTunnelNegotiate(
         this IReverseProxyBuilder builder
         )
     {

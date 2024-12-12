@@ -83,32 +83,4 @@ public static class HttpContextFeaturesExtensions
         };
         context.Features.Set<IReverseProxyFeature>(newFeature);
     }
-
-    public static bool IsTransportTunnelRequest(this HttpContext context)
-    {
-        if (context.RequestServices.GetService<ProxyConfigManager>() is { } proxyConfigManager)
-        {
-            return proxyConfigManager.TryGetTransportTunnelByUrl(context.Request.Host.Host, out var tunnel)
-                && tunnel is { TunnelId: { Length: > 0 } };
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    public static bool TryGetTransportTunnelByUrl(this HttpContext context, [MaybeNullWhenAttribute(false)] out TunnelState tunnel)
-    {
-        if (context.RequestServices.GetService<ProxyConfigManager>() is { } proxyConfigManager)
-        {
-            return proxyConfigManager.TryGetTransportTunnelByUrl(context.Request.Host.Host, out tunnel)
-                && tunnel is { TunnelId: { Length: > 0 } };
-        }
-        else
-        {
-            tunnel = default;
-            return false;
-        }
-    }
-
 }

@@ -18,7 +18,6 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.FileSystemGlobbing.Internal;
 using Microsoft.Extensions.Logging;
 
-using Yarp.ReverseProxy.Authentication;
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
@@ -59,7 +58,7 @@ internal class TunnelNegotiateBase
             TunnelNegotiateConstants.PolicyNamePayload,
             policy => policy
                 .RequireAuthenticatedUser()
-                .AddAuthenticationSchemes(TunnelNegotiateDefaults.AuthenticationScheme)
+                .AddAuthenticationSchemes(TunnelAuthenticationDefaults.AuthenticationScheme)
                 .Build()
         );
     }

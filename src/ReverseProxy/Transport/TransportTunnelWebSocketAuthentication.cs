@@ -27,7 +27,7 @@ internal sealed class TransportTunnelWebSocketAuthentication(
 
     public void ConfigureWebSocketConnectionOptions(TransportTunnelConfig config, HttpConnectionOptions options)
     {
-        var mode = config.Authentication.Mode;
+        var mode = config.TransportAuthentication.Mode;
         if (mode is { Length: > 0 }
             && _serviceByName.TryGetValue(mode, out var service))
         {
@@ -41,7 +41,7 @@ internal sealed class TransportTunnelWebSocketAuthentication(
 
     public async ValueTask<HttpMessageInvoker?> ConfigureClientWebSocket(TransportTunnelConfig config, ClientWebSocket clientWebSocketocket)
     {
-        var mode = config.Authentication.Mode;
+        var mode = config.TransportAuthentication.Mode;
         if (mode is { Length: > 0 }
             && _serviceByName.TryGetValue(mode, out var service))
         {

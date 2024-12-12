@@ -11,7 +11,7 @@ using Yarp.ReverseProxy.Transport;
 namespace Microsoft.AspNetCore.Builder;
 
 public static class TransportJwtBearerExtension {
-    public static IReverseProxyBuilder AddTunnelTransportJwtBearer(
+    public static IReverseProxyBuilder AddTransportTunnelJwtBearer(
         this IReverseProxyBuilder builder
 
         )

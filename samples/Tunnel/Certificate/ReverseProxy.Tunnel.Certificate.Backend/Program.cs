@@ -1,3 +1,8 @@
+using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.AspNetCore.Authorization;
+
+using Yarp.ReverseProxy.Authentication;
+
 namespace ReverseProxy.Tunnel.API;
 
 public class Program
@@ -6,43 +11,59 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.Services.AddAuthentication()
-            ;
-
+        builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
 
-        builder.Services.AddControllers()
-                    .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
-        builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+        builder.Services.AddAuthentication("Default")
+            .AddNegotiate()
+            .AddTransportJwtBearerToken(
+                configuration: builder.Configuration.GetSection("ReverseProxy:TransportJwtBearerToken"),
+                configure: (options) => { })
+            .AddPolicyScheme(
+                authenticationScheme: "Default",
+                displayName: "Default",
+                configureOptions: static (options) =>
+                {
+                    options.ForwardDefaultSelector = TransportTunnelExtensions.CreateForwardDefaultSelector(
+                        defaultAuthenticationScheme: NegotiateDefaults.AuthenticationScheme);
+                })
+            ;
+
+        builder.Services.AddAuthorization((options) =>
         {
-            options.SerializerOptions.WriteIndented = true;
+            options.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+            options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
         });
+
+        builder.Services.AddControllers()
+            .AddJsonOptions(
+                static (options) => options.JsonSerializerOptions.WriteIndented = true);
+        builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(
+            static (options) => options.SerializerOptions.WriteIndented = true);
 
         builder.Services
             .AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-            .AddTunnelTransport()
-            .AddTunnelTransportCertificate(
+            .AddAuthorizationTransportTransformProvider(
+                configuration: builder.Configuration.GetSection("ReverseProxy:AuthorizationTransport"))
+            .AddTransportTunnel()
+            .AddTransportTunnelCertificate(
                 configuration: builder.Configuration.GetSection("ReverseProxy:AuthenticationCertificate"))
             .AddCertificateManager(
                configuration: builder.Configuration.GetSection("CertificateManager"),
                configure: (options) => { }
-            )
-            ;
+            );
 
         var app = builder.Build();
 
-        // Using
-        // app.UseHttpsRedirection();
-        // stops the tunnel to work.
-        // The request comes from the normal HTTPS - endpoint
-        // AND from the TunnelTransport HTTP - endpoint.
+        // Using app.UseHttpsRedirection(); stops the tunnel to work.
+        // The request comes from the normal HTTPS - endpoint AND from the TunnelTransport HTTP - endpoint.
         app.UseWhen(
             static (context) => !context.IsTransportTunnelRequest(),
             static (app) => app.UseHttpsRedirection());
 
-        //app.UseAuthorization();
-        //app.UseAuthentication();
+        app.UseAuthorization();
+        app.UseAuthentication();
 
         app.Map("/Backend", async (context) =>
         {

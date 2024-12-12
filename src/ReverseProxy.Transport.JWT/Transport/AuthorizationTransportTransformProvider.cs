@@ -52,5 +52,9 @@ public class AuthorizationTransportTransformProvider : ITransformProvider
     {
         var requestTransform = new AuthorizationTransportRequestTransform(_options, _signingCertificate);
         context.RequestTransforms.Add(requestTransform);
+
+
+        var responseTransform = new AuthorizationTransportResponseTransform();
+        context.ResponseTransforms.Add(responseTransform);
     }
 }

@@ -112,7 +112,7 @@ internal sealed class TunnelWebSocketRoute
             Log.ParameterNotValid(_logger, "Transport");
             return Results.StatusCode(504);
         }
-        var authenticationMode = cluster.Model.Config.Authentication.Mode;
+        var authenticationMode = cluster.Model.Config.TransportAuthentication.Mode;
         if (string.IsNullOrEmpty(authenticationMode))
         {
             Log.ParameterNotValid(_logger, "Authentication.Mode");

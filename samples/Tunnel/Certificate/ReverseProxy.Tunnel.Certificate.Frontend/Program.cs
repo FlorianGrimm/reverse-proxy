@@ -1,3 +1,8 @@
+using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.AspNetCore.Authorization;
+
+using Yarp.ReverseProxy.Tunnel;
+
 namespace ReverseProxy.Tunnel.API;
 
 public class Program
@@ -8,12 +13,41 @@ public class Program
 
         builder.Logging.AddConsole();
 
-        builder.Services.AddControllers()
-                    .AddJsonOptions(options => options.JsonSerializerOptions.WriteIndented = true);
-        builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+        builder.Services.AddAuthentication("Default")
+            .AddNegotiate()
+            .AddPolicyScheme(
+                authenticationScheme: "Default",
+                displayName: "Default",
+                configureOptions: static (options) =>
+                {
+                    /*
+                    options.ForwardDefaultSelector = static (context) =>
+                    {
+                        if (context.GetEndpoint().TryGetTunnelAuthenticationScheme(out var authenticationScheme))
+                        {
+                            return authenticationScheme;
+                        }
+                        else
+                        {
+                            return Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
+                        }
+                    };
+                    */
+                    options.ForwardDefaultSelector = TunnelAuthenticationSchemeExtensions
+                        .CreateForwardDefaultSelector(NegotiateDefaults.AuthenticationScheme);
+                });
+
+        builder.Services.AddAuthorization((options) =>
         {
-            options.SerializerOptions.WriteIndented = true;
+            options.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
+            options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
         });
+
+        builder.Services.AddControllers()
+            .AddJsonOptions(
+                static (options) => options.JsonSerializerOptions.WriteIndented = true);
+        builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(
+            static (options) => options.SerializerOptions.WriteIndented = true);
 
         builder.Services
             .AddReverseProxy()
@@ -30,8 +64,8 @@ public class Program
         var app = builder.Build();
 
         app.UseHttpsRedirection();
-        //app.UseAuthorization();
-        //app.UseAuthentication();
+        app.UseAuthorization();
+        app.UseAuthentication();
         app.Map("/Frontend", async (context) => {
             context.Response.Headers.ContentType = "text/plain";
             await context.Response.WriteAsync($"Frontend: {System.DateTime.Now:s}");

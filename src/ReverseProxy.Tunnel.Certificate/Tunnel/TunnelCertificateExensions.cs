@@ -71,6 +71,18 @@ public static class TunnelExtensions
         // TODO:             options.CustomValidation = source.CustomValidation;
         // TODO:         });
 
+        builder.Services.AddAuthorization(
+            options =>
+            {
+                options.AddPolicy(
+                    TunnelCertificateConstants.PolicyName,
+                    policy => policy
+                        .RequireAuthenticatedUser()
+                        .AddAuthenticationSchemes(TunnelCertificateConstants.AuthenticationScheme)
+                        .Build()
+                    );
+            });
+
         return builder;
     }
 

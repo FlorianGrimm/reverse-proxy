@@ -109,6 +109,11 @@ public class ConfigurationConfigProviderTests
                         VersionPolicy = HttpVersionPolicy.RequestVersionExact,
                         AllowResponseBuffering = true
                     },
+                    Transport = "Forwarder",
+                    TransportAuthentication = new ClusterTunnelAuthenticationConfig(){
+                        Mode = "Anonymous",
+                        ClientCertificate = "test.pfx",
+                    },
                     Metadata = new Dictionary<string, string> { { "cluster1-K1", "cluster1-V1" }, { "cluster1-K2", "cluster1-V2" } }
                 }
             },
@@ -214,12 +219,14 @@ public class ConfigurationConfigProviderTests
                 TunnelId = "tunnel1",
                 Url = "https://remote",
                 RemoteTunnelId = "alpha",
-                Authentication = new TransportTunnelAuthenticationConfig
+                Transport = "TunnelHttp2",
+                TransportAuthentication = new TransportTunnelAuthenticationConfig
                 {
                     Mode = "Anonymous",
                     ClientCertificate = "test.pfx",
-                    Metadata = null
-                }
+                    Metadata = new Dictionary<string, string> { { "cluster1-K1", "cluster1-V1" }, { "cluster1-K2", "cluster1-V2" } }
+                },
+                TunnelAuthenticationScheme = "TransportJwtBearerToken"
             }
         }
     };
@@ -231,14 +238,15 @@ public class ConfigurationConfigProviderTests
             ""Url"":""https://remote"",
             ""RemoteTunnelId"":""alpha"",
             ""Transport"":""TunnelHttp2"",
-            ""Authentication"": {
+            ""TransportAuthentication"": {
                 ""Mode"": ""Anonymous"",
                 ""ClientCertificate"" : ""test.pfx"",
                 ""Metadata"": {
                     ""cluster1-K1"": ""cluster1-V1"",
                     ""cluster1-K2"": ""cluster1-V2""
                 }
-            }
+            },
+            ""TunnelAuthenticationScheme"": ""TransportJwtBearerToken""
         }
     },
     ""Clusters"": {
@@ -319,7 +327,7 @@ public class ConfigurationConfigProviderTests
                 }
             },
             ""Transport"": ""Forwarder"",
-            ""Authentication"": {
+            ""TransportAuthentication"": {
                 ""Mode"": ""Anonymous"",
                 ""ClientCertificate"": ""test.pfx"",
                 ""UserNames"": [""User""],
@@ -626,6 +634,9 @@ public class ConfigurationConfigProviderTests
         Assert.Equal(cluster1.HttpRequest.AllowResponseBuffering, abstractCluster1.HttpRequest.AllowResponseBuffering);
         Assert.Equal(cluster1.HttpClient.DangerousAcceptAnyServerCertificate, abstractCluster1.HttpClient.DangerousAcceptAnyServerCertificate);
         Assert.Equal(cluster1.Metadata, abstractCluster1.Metadata);
+        Assert.Equal(cluster1.Transport, abstractCluster1.Transport);
+        Assert.Equal(cluster1.TransportAuthentication.Mode, abstractCluster1.TransportAuthentication.Mode);
+        Assert.Equal(cluster1.TransportAuthentication.ClientCertificate, abstractCluster1.TransportAuthentication.ClientCertificate);
 
         var cluster2 = validConfig.Clusters.First(c => c.ClusterId == "cluster2");
         Assert.Single(abstractConfig.Clusters, c => c.ClusterId == "cluster2");
@@ -642,6 +653,8 @@ public class ConfigurationConfigProviderTests
 
         VerifyRoute(validConfig, abstractConfig, "routeA");
         VerifyRoute(validConfig, abstractConfig, "routeB");
+
+        VerifyTunnel(validConfig, abstractConfig, "tunnel1");
     }
 
     private void VerifyRoute(IProxyConfig validConfig, IProxyConfig abstractConfig, string routeId)
@@ -669,5 +682,18 @@ public class ConfigurationConfigProviderTests
 
         // Skipping header.Value/s because it's a fuzzy match
         Assert.Equal(route.Transforms, abstractRoute.Transforms);
+    }
+
+    private void VerifyTunnel(IProxyConfig validConfig, IProxyConfig abstractConfig, string tunnelId)
+    {
+        var tunnel = validConfig.Tunnels.Single(c => c.TunnelId == tunnelId);
+        Assert.Single(abstractConfig.Tunnels, r => r.TunnelId == tunnelId);
+        var abstractTunnel = abstractConfig.Tunnels.Single(c => c.TunnelId == tunnelId);
+        Assert.Equal(tunnel.TunnelId, abstractTunnel.TunnelId);
+        Assert.Equal(tunnel.Transport, abstractTunnel.Transport);
+        Assert.Equal(tunnel.TransportAuthentication.Mode, abstractTunnel.TransportAuthentication.Mode);
+        Assert.Equal(tunnel.TransportAuthentication.ClientCertificate, abstractTunnel.TransportAuthentication.ClientCertificate);
+        Assert.Equal(tunnel.TransportAuthentication.Metadata, abstractTunnel.TransportAuthentication.Metadata);
+        Assert.Equal(tunnel.TunnelAuthenticationScheme, abstractTunnel.TunnelAuthenticationScheme);
     }
 }

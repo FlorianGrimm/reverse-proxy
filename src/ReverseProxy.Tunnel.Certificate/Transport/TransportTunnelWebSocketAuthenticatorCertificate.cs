@@ -49,7 +49,7 @@ internal sealed class TransportTunnelWebSocketAuthenticatorCertificate
 
     public ValueTask<HttpMessageInvoker?> ConfigureClientWebSocket(TransportTunnelConfig config, ClientWebSocket clientWebSocket)
     {
-        if (config.Authentication.ClientCertificate is { Length: > 0 } clientCertificate)
+        if (config.TransportAuthentication.ClientCertificate is { Length: > 0 } clientCertificate)
         {
             try
             {

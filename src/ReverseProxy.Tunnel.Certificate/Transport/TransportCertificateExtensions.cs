@@ -36,8 +36,8 @@ public static class TransportCertificateExtensions
     ///         ^     \/     ||
     /// ---------------------------------
     /// | Backend                       |
-    /// | AddTunnelTransport            |
-    /// | AddTunnelTransportCertificate | ***
+    /// | AddTransportTunnel            |
+    /// | AddTransportTunnelCertificate | ***
     /// ---------------------------------
     ///
     /// @Backend: Start the tunnel transport connections - the authentication is done via ClientCertificate
@@ -47,7 +47,7 @@ public static class TransportCertificateExtensions
     /// <code>
     /// var reverseProxyBuilder = builder.Services.AddReverseProxy()
     ///     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-    ///     .AddTunnelTransport()
+    ///     .AddTransportTunnel()
     ///     .AddReverseProxyCertificateManager(
     ///         configure: (options) =>
     ///         {
@@ -58,7 +58,7 @@ public static class TransportCertificateExtensions
     ///             };
     ///         }
     ///     )
-    ///     .AddTunnelTransportCertificate()
+    ///     .AddTransportTunnelCertificate()
     ///     ;
     /// </code>
     /// </remarks>
@@ -69,7 +69,7 @@ public static class TransportCertificateExtensions
     /// <example>
     ///    builder.Services.AddReverseProxy()
     ///        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-    ///        .AddTunnelTransport();
+    ///        .AddTransportTunnel();
     ///
     ///    var app = builder.Build();
     ///
@@ -78,7 +78,7 @@ public static class TransportCertificateExtensions
     ///        static (app) => app.UseHttpsRedirection()
     ///        );
     /// </example>
-    public static IReverseProxyBuilder AddTunnelTransportCertificate(
+    public static IReverseProxyBuilder AddTransportTunnelCertificate(
         this IReverseProxyBuilder builder,
         IConfiguration? configuration = default,
         Action<TransportTunnelAuthenticationCertificateOptions>? configure = default

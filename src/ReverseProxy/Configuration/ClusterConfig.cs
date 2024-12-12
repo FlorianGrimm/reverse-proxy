@@ -64,7 +64,7 @@ public sealed record ClusterConfig
     /// <summary>
     /// Get or set the Authentication configuration.
     /// </summary>
-    public ClusterTunnelAuthenticationConfig Authentication { get; init; } = new();
+    public ClusterTunnelAuthenticationConfig TransportAuthentication { get; init; } = new();
 
     /// <inheritdoc/>
     public bool Equals(ClusterConfig? other)
@@ -93,7 +93,7 @@ public sealed record ClusterConfig
             && HttpClient == other.HttpClient
             && HttpRequest == other.HttpRequest
             && string.Equals(Transport, other.Transport, StringComparison.OrdinalIgnoreCase)
-            && Authentication == other.Authentication
+            && TransportAuthentication == other.TransportAuthentication
             && CaseSensitiveEqualHelper.Equals(Metadata, other.Metadata);
     }
 
@@ -108,7 +108,7 @@ public sealed record ClusterConfig
         hashCode.Add(HttpClient);
         hashCode.Add(HttpRequest);
         hashCode.Add(Transport);
-        hashCode.Add(Authentication);
+        hashCode.Add(TransportAuthentication);
         hashCode.Add(CollectionEqualityHelper.GetHashCode(Destinations));
         hashCode.Add(CaseSensitiveEqualHelper.GetHashCode(Metadata));
         return hashCode.ToHashCode();

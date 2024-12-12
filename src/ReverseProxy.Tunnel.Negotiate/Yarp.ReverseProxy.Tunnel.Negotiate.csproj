@@ -15,11 +15,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Authentication\TunnelNegotiateDefaults.cs" />
+    <Compile Remove="Authentication\TunnelNegotiateExtensions.cs" />
+    <Compile Remove="Authentication\TunnelNegotiateHandler.cs" />
+    <Compile Remove="Authentication\TunnelNegotiateOptions.cs" />
+    <Compile Remove="Authentication\TunnelNegotiateOptionsExtensions.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.IO.Hashing" Version="$(SystemIOHashingVersion)" />
     <PackageReference Include="System.Collections.Immutable" Version="$(SystemCollectionsImmutableVersion)" Condition="'$(TargetFramework)' != 'net8.0'" />
     <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="$(MicrosoftBclTimeProviderVersion)" Condition="'$(TargetFramework)' != 'net8.0'" />
     <PackageReference Include="Microsoft.AspNetCore.Http.Connections.Client" Version="$(MicrosoftAspNetCoreHttpConnectionsClient)" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="$(MicrosoftAspNetCoreAuthenticationNegotiate)" /
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="$(MicrosoftAspNetCoreAuthenticationNegotiate)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,6 +37,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Authentication\TunnelNegotiateDefaults.cs" />
+    <None Include="Authentication\TunnelNegotiateExtensions.cs" />
+    <None Include="Authentication\TunnelNegotiateHandler.cs" />
+    <None Include="Authentication\TunnelNegotiateOptions.cs" />
+    <None Include="Authentication\TunnelNegotiateOptionsExtensions.cs" />
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 

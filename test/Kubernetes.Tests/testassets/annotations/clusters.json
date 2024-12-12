@@ -42,7 +42,8 @@
         "Metadata": null
       }
     },
-    "Authentication": { },
+    "Transport": "Forwarder",
+    "TransportAuthentication": {},
     "Metadata": null
   }
 ]

@@ -2,15 +2,18 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Yarp.ReverseProxy.Configuration;
@@ -21,7 +24,7 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Microsoft.AspNetCore.Builder;
 
-public static class WebHostBuilderExtensions
+public static class TransportTunnelExtensions
 {
     /// <summary>
     /// Enable the tunnel transport (on the backend).
@@ -45,7 +48,7 @@ public static class WebHostBuilderExtensions
     ///         ^ (1) \/     || (6)
     /// --------------------------------
     /// | Backend                      |
-    /// | AddTunnelTransport           | &lt- this
+    /// | AddTransportTunnel           | &lt;- this
     /// --------------------------------
     ///              (4) |  ^
     ///                  |  |
@@ -82,7 +85,7 @@ public static class WebHostBuilderExtensions
     /// <example>
     ///    builder.Services.AddReverseProxy()
     ///        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-    ///        .AddTunnelTransport();
+    ///        .AddTransportTunnel();
     ///
     ///    var app = builder.Build();
     ///
@@ -91,7 +94,7 @@ public static class WebHostBuilderExtensions
     ///        static (app) => app.UseHttpsRedirection()
     ///        );
     /// </example>
-    public static IReverseProxyBuilder AddTunnelTransport(
+    public static IReverseProxyBuilder AddTransportTunnel(
         this IReverseProxyBuilder builder,
         Action<TransportTunnelHttp2Options>? configureTunnelHttp2 = default,
         Action<TransportTunnelWebSocketOptions>? configureTunnelWebSocket = default
@@ -149,15 +152,84 @@ public static class WebHostBuilderExtensions
 
             var transport = cfg.Transport;
 
-            var cfgAuthenticationMode = cfg.Authentication.Mode;
+            var cfgAuthenticationMode = cfg.TransportAuthentication.Mode;
 
             if (transportTunnelFactory.TryGetTransportTunnelFactory(cfg.Transport, out var factory))
             {
                 factory.Listen(tunnel, options);
             }
-            else {
+            else
+            {
                 throw new Exception($"Transport {cfg.Transport} is unknow");
             }
         }
     }
+
+    public static bool IsTransportTunnelRequest(this HttpContext context)
+    {
+        if (context.RequestServices.GetService<ProxyConfigManager>() is { } proxyConfigManager
+               && context.GetEndpoint() is { } endpoint
+               && endpoint.Metadata.GetMetadata<RouteModel>() is { } routeModel
+               && proxyConfigManager.TryGetTransportTunnelByUrl(context.Request.Host.Host, out var tunnel)
+               && tunnel.Model.Config.RemoteTunnelId is { Length: > 0 } remoteTunnelId
+               && string.Equals(remoteTunnelId, routeModel.Config.ClusterId, StringComparison.OrdinalIgnoreCase)
+               )
+        {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    public static bool TryGetTransportTunnelByUrl(
+        this HttpContext context,
+        [MaybeNullWhenAttribute(false)] out TunnelState tunnel)
+    {
+        if (context.RequestServices.GetService<ProxyConfigManager>() is { } proxyConfigManager
+            && proxyConfigManager.TryGetTransportTunnelByUrl(context.Request.Host.Host, out tunnel)
+            && tunnel.Model.Config.RemoteTunnelId is { Length: > 0 } remoteTunnelId
+            )
+        {
+            return true;
+        }
+        else
+        {
+            tunnel = default;
+            return false;
+        }
+    }
+
+    public static Func<HttpContext, string?> CreateForwardDefaultSelector(
+        string? defaultTunnelAuthenticationScheme,
+        string defaultAuthenticationScheme
+        )
+    {
+        ILogger? logger = null;
+        return ForwardDefaultSelector;
+
+        string? ForwardDefaultSelector(HttpContext context)
+        {
+            logger ??= context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("Microsoft.AspNetCore.Builder.TransportTunnelExtensions");
+            if (context.TryGetTransportTunnelByUrl(out var tunnel))
+            {
+                if (tunnel.Model.Config.TunnelAuthenticationScheme is { Length: > 0 } tunnelAuthenticationScheme)
+                {
+                    logger.LogDebug("CreateForwardDefaultSelector.ForwardDefaultSelector(TunnelId:{TunnelId}; found) => Result:tunnel.TunnelAuthenticationScheme:{tunnelAuthenticationScheme};", tunnel.TunnelId, tunnelAuthenticationScheme);
+                    return tunnelAuthenticationScheme;
+                }
+                else
+                {
+                    logger.LogDebug("CreateForwardDefaultSelector.ForwardDefaultSelector(TunnelId:{TunnelId}; found) => Result:defaultTunnelAuthenticationScheme:{tunnelAuthenticationScheme};", tunnel.TunnelId, defaultTunnelAuthenticationScheme);
+                    return defaultTunnelAuthenticationScheme;
+                }
+            }
+            else
+            {
+                logger.LogDebug("Fallback: CreateForwardDefaultSelector.ForwardDefaultSelector(TunnelId: empty) => Result:defaultAuthenticationScheme:{defaultAuthenticationScheme};", defaultAuthenticationScheme);
+                return defaultAuthenticationScheme;
+            }
+        }
+    }
+
 }

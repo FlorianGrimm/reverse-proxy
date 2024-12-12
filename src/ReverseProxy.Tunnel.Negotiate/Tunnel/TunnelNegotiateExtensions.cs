@@ -7,7 +7,7 @@ using Yarp.ReverseProxy.Tunnel;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
-public static class TunnelExtensions
+public static class TunnelNegotiateExtensions
 {
     /// <summary>
     /// Adds the services required for tunneling.
@@ -26,6 +26,8 @@ public static class TunnelExtensions
             {
                 TunnelNegotiateBase.ConfigureAuthorizationPolicy(options);
             });
+
+        builder.Services.TryAddTunnelAuthentication();
 
         return builder;
     }

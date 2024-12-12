@@ -107,9 +107,3 @@ public interface ITunnelAuthenticationConfigService
     bool TryGetTunnelAuthenticationServices(string transport, string authenticationMode, [MaybeNullWhen(false)] out ITunnelAuthenticationService result);
 }
 
-public interface ITunnelAuthentication
-{
-    ValueTask<AuthenticateResult> HandleAuthenticateAsync(HttpContext context, string scheme, string claimsIssuer);
-}
-
-public sealed record TunnelAuthenticationFeature(ITunnelAuthentication TunnelAuthentication);
