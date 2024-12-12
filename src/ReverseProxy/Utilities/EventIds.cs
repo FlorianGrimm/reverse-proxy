@@ -70,6 +70,7 @@ internal static class EventIds
     public static readonly EventId TimeoutNotApplied = new(64, nameof(TimeoutNotApplied));
     public static readonly EventId DelegationQueueNoLongerExists = new(65, nameof(DelegationQueueNoLongerExists));
     public static readonly EventId ForwardingRequestCancelled = new(66, nameof(ForwardingRequestCancelled));
+    public static readonly EventId DelegationQueueDisposed = new(67, nameof(DelegationQueueDisposed));
     public static readonly EventId TunnelAdded = new EventId(67, "TunnelAdded");
     public static readonly EventId TunnelChanged = new EventId(68, "TunnelChanged");
     public static readonly EventId TunnelRemoved = new EventId(69, "TunnelRemoved");
@@ -94,7 +95,7 @@ internal static class EventIds
     public static readonly EventId NotHttps = new EventId(85, "NotHttps");
     public static readonly EventId TransportIsNotUnique = new EventId(86, "TransportIsNotUnique");
     public static readonly EventId TransportIsUnknown = new EventId(87, "TransportIsUnknown");
-    
+
 
 
 
