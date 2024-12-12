@@ -71,41 +71,29 @@ internal static class EventIds
     public static readonly EventId DelegationQueueNoLongerExists = new(65, nameof(DelegationQueueNoLongerExists));
     public static readonly EventId ForwardingRequestCancelled = new(66, nameof(ForwardingRequestCancelled));
     public static readonly EventId DelegationQueueDisposed = new(67, nameof(DelegationQueueDisposed));
-    public static readonly EventId TunnelAdded = new EventId(67, "TunnelAdded");
-    public static readonly EventId TunnelChanged = new EventId(68, "TunnelChanged");
-    public static readonly EventId TunnelRemoved = new EventId(69, "TunnelRemoved");
-    public static readonly EventId ParameterNotValid = new EventId(70, "ParameterNotValid");
-    public static readonly EventId ClusterNotFound = new EventId(71, "ClusterNotFound");
-    public static readonly EventId TunnelConnectionChannelNotFound = new EventId(72, "TunnelConnectionChannelNotFound");
-    public static readonly EventId TunnelCreateHttpMessageInvoker = new EventId(73, "TunnelCreateHttpMessageInvoker");
-    public static readonly EventId TunnelCannotConnectTunnel = new EventId(74, "TunnelCannotConnectTunnel");
-    public static readonly EventId TunnelResumeConnectTunnel = new EventId(75, "TunnelResumeConnectTunnel");
+    public static readonly EventId TunnelAdded = new EventId(68, "TunnelAdded");
+    public static readonly EventId TunnelChanged = new EventId(69, "TunnelChanged");
+    public static readonly EventId TunnelRemoved = new EventId(70, "TunnelRemoved");
+    public static readonly EventId ParameterNotValid = new EventId(71, "ParameterNotValid");
+    public static readonly EventId ClusterNotFound = new EventId(72, "ClusterNotFound");
+    public static readonly EventId TunnelConnectionChannelNotFound = new EventId(73, "TunnelConnectionChannelNotFound");
+    public static readonly EventId TunnelCreateHttpMessageInvoker = new EventId(74, "TunnelCreateHttpMessageInvoker");
+    public static readonly EventId TunnelCannotConnectTunnel = new EventId(75, "TunnelCannotConnectTunnel");
+    public static readonly EventId TunnelResumeConnectTunnel = new EventId(76, "TunnelResumeConnectTunnel");
 
-    public static readonly EventId TransportWebSocketAcceptFailed = new EventId(76, "TransportWebSocketAcceptFailed");
-    public static readonly EventId TransportHttp2AcceptFailed = new EventId(77, "TransportHttp2AcceptFailed");
-    public static readonly EventId TransportSendTransportTunnel = new EventId(78, "TransportSendTransportTunnel");
-    public static readonly EventId TransportConnectCallbackRequestCanceled = new EventId(79, "TransportConnectCallbackRequestCanceled");
+    public static readonly EventId TransportWebSocketAcceptFailed = new EventId(77, "TransportWebSocketAcceptFailed");
+    public static readonly EventId TransportHttp2AcceptFailed = new EventId(78, "TransportHttp2AcceptFailed");
+    public static readonly EventId TransportSendTransportTunnel = new EventId(79, "TransportSendTransportTunnel");
+    public static readonly EventId TransportConnectCallbackRequestCanceled = new EventId(80, "TransportConnectCallbackRequestCanceled");
 
-    public static readonly EventId ClusterAuthenticationSuccess = new EventId(80, "ClusterAuthenticationSuccess");
-    public static readonly EventId ClusterAuthenticationFailed = new EventId(81, "ClusterAuthenticationFailed");
-    public static readonly EventId SuccessfullyLoadedCertificate = new EventId(82, "SuccessfullyLoadedCertificate");
-    public static readonly EventId SuccessfullyLoadedCertificateKey = new EventId(83, "SuccessfullyLoadedCertificateKey");
+    public static readonly EventId ClusterAuthenticationSuccess = new EventId(81, "ClusterAuthenticationSuccess");
+    public static readonly EventId ClusterAuthenticationFailed = new EventId(82, "ClusterAuthenticationFailed");
+    public static readonly EventId SuccessfullyLoadedCertificate = new EventId(83, "SuccessfullyLoadedCertificate");
+    public static readonly EventId SuccessfullyLoadedCertificateKey = new EventId(84, "SuccessfullyLoadedCertificateKey");
 
-    public static readonly EventId NoCertificate = new EventId(84, "NoCertificate");
-    public static readonly EventId NotHttps = new EventId(85, "NotHttps");
-    public static readonly EventId TransportIsNotUnique = new EventId(86, "TransportIsNotUnique");
-    public static readonly EventId TransportIsUnknown = new EventId(87, "TransportIsUnknown");
-
-
-
-
-    //public static readonly EventId MissingOrInvalidCertificateFile = new EventId(84, "MissingOrInvalidCertificateFile");
-    //public static readonly EventId MissingOrInvalidCertificateKeyFile = new EventId(77, "MissingOrInvalidCertificateKeyFile");
-    //public static readonly EventId CertificateRejected = new EventId(122, "CertificateRejected");
-    //public static readonly EventId CertificateFailedValidation = new EventId(123, "CertificateFailedValidation");
-    //public static readonly EventId RemoteCertificateValidationSuccess = new EventId(124, "RemoteCertificateValidationSuccess");
-    //public static readonly EventId RemoteCertificateValidationFailed = new EventId(125, "RemoteCertificateValidationFailed");
-    //public static readonly EventId ClientCertificateValidationSuccess = new EventId(126, "ClientCertificateValidationSuccess");
-    //public static readonly EventId ClientCertificateValidationFailed = new EventId(127, "ClientCertificateValidationFailed");
+    public static readonly EventId NoCertificate = new EventId(85, "NoCertificate");
+    public static readonly EventId NotHttps = new EventId(86, "NotHttps");
+    public static readonly EventId TransportIsNotUnique = new EventId(87, "TransportIsNotUnique");
+    public static readonly EventId TransportIsUnknown = new EventId(88, "TransportIsUnknown");
 
 }
