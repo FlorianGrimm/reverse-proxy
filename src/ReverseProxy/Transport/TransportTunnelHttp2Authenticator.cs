@@ -8,8 +8,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-using Microsoft.AspNetCore.Http;
-
 using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Transport;
@@ -18,7 +16,7 @@ namespace Yarp.ReverseProxy.Transport;
 /// Calls all registered ITransportTunnelHttp2Authentication services.
 /// </summary>
 /// <param name="services">the known services.</param>
-internal sealed class TransportTunnelHttp2Authentication(
+internal sealed class TransportTunnelHttp2Authenticator(
     IEnumerable<ITransportTunnelHttp2Authenticator> services
     ) : ITransportTunnelHttp2Authenticator
 {

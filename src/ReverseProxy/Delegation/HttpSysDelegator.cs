@@ -81,7 +81,7 @@ internal sealed class HttpSysDelegator : IHttpSysDelegator, IClusterChangeListen
             return;
         }
 
-        Delegate(context, destination, _serverDelegationFeature, requestDelegationFeature, queue, _logger, shouldRetry: true);
+        Delegate(context, destination, serverDelegationFeature, requestDelegationFeature, queue, _logger, shouldRetry: true);
 
         static void Delegate(
             HttpContext context,

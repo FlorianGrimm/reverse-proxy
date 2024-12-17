@@ -11,9 +11,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Yarp.ReverseProxy.Management;
-using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
+
 internal sealed class TransportTunnelHttp2ConnectionListenerFactory
     : IConnectionListenerFactory
 #if NET8_0_OR_GREATER
@@ -22,13 +22,13 @@ internal sealed class TransportTunnelHttp2ConnectionListenerFactory
 {
     private readonly TransportTunnelHttp2Options _options;
     private readonly LazyProxyConfigManager _proxyConfigManagerLazy;
-    private readonly TransportTunnelHttp2Authentication _transportTunnelHttp2Authentication;
+    private readonly TransportTunnelHttp2Authenticator _transportTunnelHttp2Authentication;
     private readonly ILogger _logger;
 
     public TransportTunnelHttp2ConnectionListenerFactory(
         IOptions<TransportTunnelHttp2Options> options,
         LazyProxyConfigManager proxyConfigManagerLazy,
-        TransportTunnelHttp2Authentication transportTunnelHttp2Authentication,
+        TransportTunnelHttp2Authenticator transportTunnelHttp2Authentication,
         ILogger<TransportTunnelHttp2ConnectionListener> logger
         )
     {

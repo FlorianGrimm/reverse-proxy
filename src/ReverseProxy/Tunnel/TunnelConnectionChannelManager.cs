@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable IDE0058 // Expression value is never used
+
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
@@ -65,7 +67,6 @@ public sealed class TunnelConnectionChannelManager
     internal void UnregisterConnectionChannel(string clusterId)
     {
         _clusterConnections.TryRemove(clusterId, out _);
-
     }
 }
 
@@ -74,12 +75,12 @@ public sealed class TunnelConnectionChannels : IDisposable
     private readonly Channel<TunnelConnectionRequest> _channelTCR;
     private bool _isDisposed;
 
-    internal TunnelConnectionChannels()
+    public TunnelConnectionChannels()
     {
         _channelTCR = System.Threading.Channels.Channel.CreateUnbounded<TunnelConnectionRequest>();
     }
 
-    internal ChannelWriter<TunnelConnectionRequest> Writer
+    public ChannelWriter<TunnelConnectionRequest> Writer
     {
         get
         {
@@ -91,7 +92,7 @@ public sealed class TunnelConnectionChannels : IDisposable
         }
     }
 
-    internal ChannelReader<TunnelConnectionRequest> Reader
+    public ChannelReader<TunnelConnectionRequest> Reader
     {
         get
         {
@@ -113,7 +114,7 @@ public sealed class TunnelConnectionChannels : IDisposable
     }
 }
 
-internal sealed class TunnelConnectionRequest(ILogger logger)
+public sealed class TunnelConnectionRequest(ILogger logger)
     : IDisposable
     /* IResettable */
 {
@@ -124,7 +125,7 @@ internal sealed class TunnelConnectionRequest(ILogger logger)
     private Stream? _stream;
     private bool _isDisposed;
 
-    internal bool SetStream(Stream stream)
+    public bool SetStream(Stream stream)
     {
         if (_isDisposed)
         {
@@ -138,7 +139,7 @@ internal sealed class TunnelConnectionRequest(ILogger logger)
         }
     }
 
-    internal async Task<Stream?> GetStreamAsync(CancellationToken cancellationToken)
+    public async Task<Stream?> GetStreamAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -152,7 +153,7 @@ internal sealed class TunnelConnectionRequest(ILogger logger)
         }
     }
 
-    internal TunnelConnectionRequest? GetReseted()
+    public TunnelConnectionRequest? GetReseted()
     {
         if (_isDisposed || _stream is not null || _lock.CurrentCount != 0)
         {
@@ -165,7 +166,7 @@ internal sealed class TunnelConnectionRequest(ILogger logger)
         }
     }
 
-    internal bool TryReset() {
+    public bool TryReset() {
         if (_isDisposed || _stream is not null || _lock.CurrentCount != 0)
         {
             Dispose();
@@ -177,7 +178,7 @@ internal sealed class TunnelConnectionRequest(ILogger logger)
         }
     }
 
-    internal void Failed()
+    public void Failed()
     {
         Dispose();
     }
@@ -208,7 +209,7 @@ internal sealed class TunnelConnectionRequest(ILogger logger)
     }
 
 
-    internal sealed class TCRPooledObjectPolicy(ILogger logger)
+    public sealed class TCRPooledObjectPolicy(ILogger logger)
         : PooledObjectPolicy<TunnelConnectionRequest>()
     {
         private readonly ILogger _logger = logger;

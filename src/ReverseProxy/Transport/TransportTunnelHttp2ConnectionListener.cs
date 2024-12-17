@@ -8,14 +8,12 @@ using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Reflection.PortableExecutable;
 using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 
-using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
 
@@ -36,7 +34,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
     private readonly ILogger _logger;
     private readonly TransportTunnelHttp2Options _options;
     private readonly TunnelState _tunnel;
-    private readonly ITransportTunnelHttp2Authenticator _transportTunnelHttp2Authentication;
+    private readonly ITransportTunnelHttp2Authenticator _authenticatior;
     private readonly UriEndPointHttp2 _endPoint;
     private readonly IncrementalDelay _delay = new();
 
@@ -46,7 +44,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
     public TransportTunnelHttp2ConnectionListener(
         UriEndPointHttp2 endpoint,
         TunnelState tunnel,
-        ITransportTunnelHttp2Authenticator transportTunnelHttp2Authentication,
+        ITransportTunnelHttp2Authenticator authenticatior,
         TransportTunnelHttp2Options options,
         ILogger logger
         )
@@ -61,7 +59,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
         _logger = logger;
         _options = options;
         _tunnel = tunnel;
-        _transportTunnelHttp2Authentication = transportTunnelHttp2Authentication;
+        _authenticatior = authenticatior;
         _endPoint = endpoint;
     }
 
@@ -116,7 +114,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                         }
 
                         {
-                            await _transportTunnelHttp2Authentication.ConfigureHttpRequestMessageAsync(_tunnel, requestMessage);
+                            await _authenticatior.ConfigureHttpRequestMessageAsync(_tunnel, requestMessage);
                             if (_options.ConfigureHttpRequestMessageAsync is { } configure)
                             {
                                 await configure(config, requestMessage);
@@ -180,12 +178,12 @@ internal sealed class TransportTunnelHttp2ConnectionListener
 
         var config = _tunnel.Model.Config;
 
-        var result = await _transportTunnelHttp2Authentication.ConfigureSocketsHttpHandlerAsync(_tunnel, socketsHttpHandler);
+        var result = await _authenticatior.ConfigureSocketsHttpHandlerAsync(_tunnel, socketsHttpHandler);
 
         // allow the user to configure the handler
         if (_options.ConfigureSocketsHttpHandlerAsync is { } configureSocketsHttpHandlerAsync)
         {
-            await configureSocketsHttpHandlerAsync(config, socketsHttpHandler, _transportTunnelHttp2Authentication);
+            await configureSocketsHttpHandlerAsync(config, socketsHttpHandler, _authenticatior);
         }
 
         if (result is null)

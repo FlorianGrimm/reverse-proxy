@@ -38,20 +38,20 @@ public sealed class TransportTunnelFactory
     }
 }
 
-internal class TransportTunnelHttp2Factory : ITransportTunnelFactory
+internal sealed class TransportTunnelHttp2Factory : ITransportTunnelFactory
 {
     private readonly TransportTunnelHttp2Options _options;
-    private readonly TransportTunnelHttp2Authentication _transportTunnelHttp2Authentication;
-    private readonly List<string> _ListAuthenticationNameH2;
+    private readonly TransportTunnelHttp2Authenticator _authenticator;
+    private readonly List<string> _listAuthenticationName;
 
     public TransportTunnelHttp2Factory(
         IOptions<TransportTunnelHttp2Options> options,
-        TransportTunnelHttp2Authentication transportTunnelHttp2Authentication
+        TransportTunnelHttp2Authenticator authenticator
         )
     {
         _options = options.Value;
-        _transportTunnelHttp2Authentication = transportTunnelHttp2Authentication;
-        _ListAuthenticationNameH2 = _transportTunnelHttp2Authentication.GetAuthenticationNames();
+        _authenticator = authenticator;
+        _listAuthenticationName = _authenticator.GetAuthenticationNames();
     }
     public string GetTransport()
         => Yarp.ReverseProxy.Tunnel.TunnelConstants.TransportNameTunnelHTTP2;
@@ -67,7 +67,7 @@ internal class TransportTunnelHttp2Factory : ITransportTunnelFactory
         var remoteTunnelId = cfg.GetRemoteTunnelId();
         var host = cfg.Url.TrimEnd('/');
         var cfgAuthenticationMode = cfg.TransportAuthentication.Mode;
-        if (_ListAuthenticationNameH2.FirstOrDefault(n => string.Equals(n, cfgAuthenticationMode)) is { } authenticationMode)
+        if (_listAuthenticationName.FirstOrDefault(n => string.Equals(n, cfgAuthenticationMode)) is { } authenticationMode)
         {
             var uriTunnel = new Uri($"{host}/_Tunnel/H2/{authenticationMode}/{remoteTunnelId}", UriKind.Absolute);
             options.Listen(new UriEndPointHttp2(uriTunnel, tunnel.TunnelId));
@@ -79,11 +79,12 @@ internal class TransportTunnelHttp2Factory : ITransportTunnelFactory
         }
     }
 }
-internal class TransportTunnelWebSocketFactory : ITransportTunnelFactory
+
+internal sealed class TransportTunnelWebSocketFactory : ITransportTunnelFactory
 {
     private readonly TransportTunnelWebSocketOptions _options;
     private readonly TransportTunnelWebSocketAuthentication _transportTunnelWebSocketAuthentication;
-    private readonly List<string> _listAuthenticationNameWS;
+    private readonly List<string> _listAuthenticationName;
 
     public TransportTunnelWebSocketFactory(
         IOptions<TransportTunnelWebSocketOptions> options,
@@ -92,7 +93,7 @@ internal class TransportTunnelWebSocketFactory : ITransportTunnelFactory
     {
         _options = options.Value;
         _transportTunnelWebSocketAuthentication = transportTunnelWebSocketAuthentication;
-        _listAuthenticationNameWS = transportTunnelWebSocketAuthentication.GetAuthenticationNames();
+        _listAuthenticationName = transportTunnelWebSocketAuthentication.GetAuthenticationNames();
     }
     public string GetTransport()
         => Yarp.ReverseProxy.Tunnel.TunnelConstants.TransportNameTunnelWebSocket;
@@ -108,7 +109,7 @@ internal class TransportTunnelWebSocketFactory : ITransportTunnelFactory
         var host = cfg.Url.TrimEnd('/');
 
         var cfgAuthenticationMode = cfg.TransportAuthentication.Mode;
-        if (_listAuthenticationNameWS.FirstOrDefault(n => string.Equals(n, cfgAuthenticationMode)) is { } authenticationMode)
+        if (_listAuthenticationName.FirstOrDefault(n => string.Equals(n, cfgAuthenticationMode)) is { } authenticationMode)
         {
             var uriTunnel = new Uri($"{host}/_Tunnel/WS/{authenticationMode}/{remoteTunnelId}", UriKind.Absolute);
             options.Listen(new UriWebSocketEndPoint(uriTunnel, tunnel.TunnelId));

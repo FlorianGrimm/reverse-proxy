@@ -14,7 +14,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ObjectPool;
 
 using Yarp.ReverseProxy.Forwarder;
-using Yarp.ReverseProxy.Management;
 
 namespace Yarp.ReverseProxy.Tunnel;
 

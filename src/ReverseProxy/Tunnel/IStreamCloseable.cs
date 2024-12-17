@@ -1,7 +1,7 @@
 /// <summary>
 /// Represents an interface for a stream that can be closed.
 /// </summary>
-internal interface IStreamCloseable
+public interface IStreamCloseable
 {
     /// <summary>
     /// Gets a value indicating whether the stream is closed.

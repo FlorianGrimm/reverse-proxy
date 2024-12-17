@@ -61,6 +61,7 @@ internal sealed class TransportTunnelHttp2ConnectionContext
     public override IFeatureCollection Features { get; } = new FeatureCollection();
 
     public override IDictionary<object, object?> Items { get; set; } = new ConnectionItems();
+
     public override IDuplexPipe Transport { get; set; }
 
     public override EndPoint? LocalEndPoint { get; set; }

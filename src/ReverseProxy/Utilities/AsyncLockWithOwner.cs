@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Yarp.ReverseProxy.Utilities;
 
-internal interface IAsyncLockWithOwner
+public interface IAsyncLockWithOwner
 {
     void Release();
 }
@@ -17,7 +17,7 @@ internal interface IAsyncLockWithOwner
 /// Also the WaitAsync need an owner, that can be transfered to another owner.
 /// Only if latest owner release it's acutal released.
 /// </summary>
-internal sealed class AsyncLockWithOwner
+public sealed class AsyncLockWithOwner
     : IDisposable
     , IAsyncLockWithOwner
 {
@@ -32,7 +32,7 @@ internal sealed class AsyncLockWithOwner
 
     public bool IsDisposed { get; private set; }
 
-    internal async ValueTask<AsyncLockOwner> LockAsync(object? owner, CancellationToken cancellationToken)
+    public async ValueTask<AsyncLockOwner> LockAsync(object? owner, CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
         return AsyncLockOwnership.Create(owner, this);
@@ -67,7 +67,7 @@ internal sealed class AsyncLockWithOwner
     }
 }
 
-internal interface IAsyncLockOwnership
+public interface IAsyncLockOwnership
 {
     AsyncLockOwner Transfer<T>(object? oldOwner, T? owner) where T : class;
 
@@ -77,12 +77,12 @@ internal interface IAsyncLockOwnership
 /// <summary>
 /// One semiphore count/step with an owner.
 /// </summary>
-internal sealed class AsyncLockOwnership
+public sealed class AsyncLockOwnership
     : IAsyncLockOwnership
 {
     private static readonly object _notAOwner = new();
 
-    internal static AsyncLockOwner Create<T>(T? owner, AsyncLockWithOwner asyncLockWithOwner)
+    public static AsyncLockOwner Create<T>(T? owner, AsyncLockWithOwner asyncLockWithOwner)
         where T : class
     {
         var asyncLockOwnership = new AsyncLockOwnership(owner, asyncLockWithOwner);
@@ -125,7 +125,7 @@ internal sealed class AsyncLockOwnership
 /// <summary>
 /// 
 /// </summary>
-internal struct AsyncLockOwner : IDisposable
+public struct AsyncLockOwner : IDisposable
 {
     private readonly IAsyncLockOwnership _asyncLockOwnership;
     private readonly object? _owner;

@@ -9,14 +9,14 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
 
-internal interface ITrackLifetimeConnectionContext
+public interface ITrackLifetimeConnectionContext
 {
     void SetTrackLifetime(
         TrackLifetimeConnectionContextCollection trackLifetimeConnectionContextCollection,
         AsyncLockOwner asyncLockOwner);
 }
 
-internal sealed class TrackLifetimeConnectionContextCollection
+public sealed class TrackLifetimeConnectionContextCollection
 {
     private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections;
 
@@ -25,7 +25,7 @@ internal sealed class TrackLifetimeConnectionContextCollection
         _connections = connections;
     }
 
-    internal ConnectionContext AddInnerConnection(ConnectionContext connectionContext, AsyncLockOwner connectionLock)
+    public ConnectionContext AddInnerConnection(ConnectionContext connectionContext, AsyncLockOwner connectionLock)
     {
         // Track this connection lifetime
         var trackLifetimeConnectionContext = (ITrackLifetimeConnectionContext)connectionContext;
@@ -39,7 +39,7 @@ internal sealed class TrackLifetimeConnectionContextCollection
         return connectionContext;
     }
 
-    internal bool TryRemove(ConnectionContext connection)
+    public bool TryRemove(ConnectionContext connection)
     {
         return _connections.TryRemove(connection, out _);
     }

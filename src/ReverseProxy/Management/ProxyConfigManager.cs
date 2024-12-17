@@ -1106,8 +1106,6 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
     internal bool TryGetTransportTunnelByUrl(string host, [MaybeNullWhenAttribute(false)] out TunnelState result)
     {
-#warning TODO: check if _tunnels can change
-
         var tunnelsByRemoteId = _tunnelsByRemoteId;
         if (tunnelsByRemoteId is null)
         {
@@ -1123,22 +1121,6 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
             _tunnelsByRemoteId = tunnelsByRemoteId;
         }
         return tunnelsByRemoteId.TryGetValue(host, out  result);
-#if false
-        foreach (var (_, tunnel) in _tunnels)
-        {
-            var cfg = tunnel.Model.Config;
-            if (cfg.IsTunnelTransport())
-            {
-                if (string.Equals(cfg.GetRemoteTunnelId(), host, StringComparison.OrdinalIgnoreCase))
-                {
-                    result = tunnel;
-                    return true;
-                }
-            }
-        }
-        result = default;
-        return false;
-#endif
     }
 
 

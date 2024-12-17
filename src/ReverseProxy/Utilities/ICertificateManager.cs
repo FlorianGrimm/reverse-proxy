@@ -1,5 +1,6 @@
-using System;
-using System.Net.Http.Headers;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Security.Cryptography.X509Certificates;
 
 namespace Yarp.ReverseProxy.Utilities;
@@ -23,7 +24,7 @@ public interface ICertificateManager
 public sealed class NoOpCertificateManager : ICertificateManager
 {
     public ISharedValue<X509Certificate2Collection?> GetCertificateCollection(string certificateId)
-        => null;
+        => new EmptySharedValue<X509Certificate2Collection>();
 }
 
 public sealed class EmptySharedValue<T>

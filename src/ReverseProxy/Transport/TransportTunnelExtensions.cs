@@ -100,12 +100,9 @@ public static class TransportTunnelExtensions
         Action<TransportTunnelWebSocketOptions>? configureTunnelWebSocket = default
         )
     {
-        var services = builder.Services
-            .AddSingleton<ITunnelChangeListener, TransportTunnelConnectionChangeListener>()
-            .AddSingleton<TransportTunnelFactory>()
-            ;
+        TryAddTransportTunnelCore(builder);
 
-        services.TryAdd(ServiceDescriptor.Transient<IncrementalDelay, IncrementalDelay>());
+        var services = builder.Services;
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelFactory, TransportTunnelHttp2Factory>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelFactory, TransportTunnelWebSocketFactory>());
@@ -113,7 +110,7 @@ public static class TransportTunnelExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelHttp2ConnectionListenerFactory>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelWebSocketConnectionListenerFactory>());
 
-        services.AddSingleton<TransportTunnelHttp2Authentication>();
+        services.AddSingleton<TransportTunnelHttp2Authenticator>();
         services.AddSingleton<TransportTunnelWebSocketAuthentication>();
 
         if (configureTunnelHttp2 is not null)
@@ -126,9 +123,28 @@ public static class TransportTunnelExtensions
             _ = services.Configure(configureTunnelWebSocket);
         }
 
+        return builder;
+    }
+
+    public static bool TryAddTransportTunnelCore(
+        IReverseProxyBuilder builder
+    )
+    {
+        var services = builder.Services;
+
+        foreach (var serviceDescriptor in services) {
+            if (typeof(TransportTunnelFactory).Equals(serviceDescriptor.ServiceType)) {
+                return false;
+            }
+        }
+
+        services.TryAddSingleton<ITunnelChangeListener, TransportTunnelConnectionChangeListener>();
+        services.TryAddSingleton<TransportTunnelFactory>();
+        services.TryAdd(ServiceDescriptor.Transient<IncrementalDelay, IncrementalDelay>());
+
         _ = services.Configure<KestrelServerOptions>(ConfigureTransportTunnels);
 
-        return builder;
+        return true;
     }
 
     private static void ConfigureTransportTunnels(KestrelServerOptions options)
@@ -137,13 +153,6 @@ public static class TransportTunnelExtensions
         var tunnels = proxyConfigManager.GetTransportTunnels();
 
         var transportTunnelFactory = options.ApplicationServices.GetRequiredService<TransportTunnelFactory>();
-
-        var transportTunnelHttp2Options = options.ApplicationServices.GetRequiredService<IOptions<TransportTunnelHttp2Options>>().Value;
-        var transportTunnelWebSocketOptions = options.ApplicationServices.GetRequiredService<IOptions<TransportTunnelWebSocketOptions>>().Value;
-
-        var listAuthenticationNameH2 = options.ApplicationServices.GetRequiredService<TransportTunnelHttp2Authentication>().GetAuthenticationNames();
-        var listAuthenticationNameWS = options.ApplicationServices.GetRequiredService<TransportTunnelWebSocketAuthentication>().GetAuthenticationNames();
-
         foreach (var tunnel in tunnels)
         {
             var cfg = tunnel.Model.Config;
@@ -177,7 +186,8 @@ public static class TransportTunnelExtensions
         {
             return true;
         }
-        else {
+        else
+        {
             return false;
         }
     }

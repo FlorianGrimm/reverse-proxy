@@ -71,13 +71,9 @@ public class TunnelAuthenticationHandler<TOptions>
             return authenticateResult;
         }
 
-#warning TODO: TEST
+        // TODO: TEST
         if (forwardScheme is { Length: > 0 }
             && ResolveTarget(forwardScheme) is { } target
-            // && Context.RequestServices.GetService<IAuthenticationSchemeProvider>() is { } authenticationSchemeProvider
-            // && (await authenticationSchemeProvider.GetSchemeAsync(target)) is { } scheme
-            // && Context.RequestServices.GetService<IAuthenticationHandlerProvider>() is { } authenticationHandlerProvider
-            // && (await authenticationHandlerProvider.GetHandlerAsync(Context, scheme.Name)) is { } handler
             && Context.RequestServices.GetService<IAuthenticationHandlerProvider>() is { } authenticationHandlerProvider
             && (await authenticationHandlerProvider.GetHandlerAsync(Context, target)) is { } handler
             )

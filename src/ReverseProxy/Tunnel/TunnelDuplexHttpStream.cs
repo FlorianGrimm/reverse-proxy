@@ -10,6 +10,7 @@ using System.Threading.Tasks.Sources;
 using Microsoft.AspNetCore.Http;
 
 namespace Yarp.ReverseProxy.Tunnel;
+
 internal sealed class TunnelDuplexHttpStream
     : Stream,
     IValueTaskSource<object?>,
