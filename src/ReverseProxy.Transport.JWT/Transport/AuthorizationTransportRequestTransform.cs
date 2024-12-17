@@ -11,7 +11,7 @@ using Yarp.ReverseProxy.Transforms;
 
 namespace Yarp.ReverseProxy.Transport;
 
-internal class AuthorizationTransportRequestTransform : RequestTransform
+internal sealed class AuthorizationTransportRequestTransform : RequestTransform
 {
     private const string Authorization = "Authorization";
     private const string WWWAuthenticate = "WWW-Authenticate";
@@ -160,7 +160,7 @@ internal class AuthorizationTransportRequestTransform : RequestTransform
 
 
 
-internal class AuthorizationTransportResponseTransform : ResponseTransform
+internal sealed class AuthorizationTransportResponseTransform : ResponseTransform
 {
     public override async ValueTask ApplyAsync(ResponseTransformContext context)
     {

@@ -19,8 +19,7 @@ public class Program
             {
                 options.DefaultScheme = "Default";
                 options.DefaultChallengeScheme = "Default";
-            }
-            )
+            })
             .AddNegotiate()
             .AddTransportJwtBearerToken(
                 configuration: builder.Configuration.GetSection("ReverseProxy:TransportJwtBearerToken"),
@@ -44,12 +43,11 @@ public class Program
                 })
             ;
 
-        builder.Services.AddAuthorization((options) =>
-        {
-            options.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-            //options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-            options.AddPolicy("AuthenticatedUser", new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
-        });
+        builder.Services.AddAuthorizationBuilder()
+            .SetDefaultPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            //.SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            .AddPolicy("AuthenticatedUser", new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            ;
 
         builder.Services.AddControllers()
             .AddJsonOptions(
@@ -58,7 +56,7 @@ public class Program
             static (options) => options.SerializerOptions.WriteIndented = true);
 
         builder.Services.AddHealthChecks();
-#warning TODO:AddHealthChecks
+        // TODO:AddHealthChecks
         /*
         builder.Services.AddHealthChecks()
             .AddCheck<SampleHealthCheck>(
@@ -76,31 +74,29 @@ public class Program
 
         app.MapHealthChecks(
             pattern: "/health",
-            options: new HealthCheckOptions
+            options: new HealthCheckOptions { })
+            .AllowAnonymous();
+
+        app.Map("/API",
+            async (HttpContext context) =>
             {
-                AllowCachingResponses = true
+                context.Response.Headers.ContentType = "text/plain";
+                await context.Response.WriteAsync($"API: {System.DateTime.Now:s}");
             }).AllowAnonymous();
 
-        app.Map("/API", async (context) =>
-        {
-            context.Response.Headers.ContentType = "text/plain";
-            await context.Response.WriteAsync($"API: {System.DateTime.Now:s}");
-        }).AllowAnonymous();
+        app.Map("/WhereAmI",
+            async (HttpContext context) =>
+            {
+                context.Response.Headers.ContentType = "text/plain";
+                await context.Response.WriteAsync($"WhereAmI: API: {System.DateTime.Now:s}");
+            }).AllowAnonymous();
 
-        var handlerWhereAmI = async (HttpContext context) =>
-        {
-            context.Response.Headers.ContentType = "text/plain";
-            await context.Response.WriteAsync($"WhereAmI: API: {System.DateTime.Now:s}");
-        };
-        app.Map("/WhereAmI", handlerWhereAmI).AllowAnonymous();
-        app.Map("/alpha/WhereAmI", handlerWhereAmI).AllowAnonymous();
-        var handlerDump = async (HttpContext context) =>
+        app.Map("/APIDump",
+            async (HttpContext context) =>
             {
                 var result = await HttpRequestDump.GetDumpAsync(context, context.Request, false);
                 return TypedResults.Ok(result);
-            };
-        app.Map("/APIDump", handlerDump).RequireAuthorization("AuthenticatedUser");
-        app.Map("/alpha/APIDump", handlerDump).RequireAuthorization("AuthenticatedUser");
+            }).RequireAuthorization("AuthenticatedUser");
 
         app.MapControllers();
 

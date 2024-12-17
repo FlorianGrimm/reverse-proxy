@@ -28,23 +28,6 @@ public static class TunnelAuthenticationSchemeExtensions
         }
     }
 
-    public static string GetTunnelAuthenticationSchemeOrDefault(
-        this Endpoint? endpoint,
-        string defaultAuthenticationScheme)
-    {
-        if (endpoint?
-            .Metadata
-            .GetMetadata<TunnelAuthenticationSchemeMetadata>()?
-            .AuthenticationScheme is { Length: > 0 } scheme)
-        {
-            return scheme;
-        }
-        else
-        {
-            return defaultAuthenticationScheme;
-        }
-    }
-
     public static Func<HttpContext, string?> CreateForwardDefaultSelector(
         string defaultAuthenticationScheme
         )

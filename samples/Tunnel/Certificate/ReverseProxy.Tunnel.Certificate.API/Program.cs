@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Authentication.Negotiate;
-
+using Microsoft.AspNetCore.Authorization;
 using Yarp.ReverseProxy.Authentication;
 
 namespace ReverseProxy.Tunnel.API;
@@ -14,21 +14,40 @@ public class Program
         builder.Logging.AddConsole();
 
         // https://learn.microsoft.com/en-us/aspnet/core/security/authorization/limitingidentitybyscheme?view=aspnetcore-9.0
-        builder.Services.AddAuthentication("Default")
+        builder.Services.AddAuthentication(
+            configureOptions: (options) =>
+            {
+                options.DefaultScheme = "Default";
+                options.DefaultChallengeScheme = "Default";
+            }
+            )
+            .AddNegotiate()
             .AddTransportJwtBearerToken(
                 configuration: builder.Configuration.GetSection("ReverseProxy:TransportJwtBearerToken"),
                 configure: (options) => { })
-            .AddNegotiate()
             .AddPolicyScheme(
                 authenticationScheme: "Default",
                 displayName: "Default",
                 configureOptions: static (options) =>
                 {
-                    options.ForwardDefaultSelector =
-                        static (context) => context.IsTransportJwtBearerTokenAuthentication()
-                            ? TransportJwtBearerTokenDefaults.AuthenticationScheme
-                            : NegotiateDefaults.AuthenticationScheme;
+                    ILogger? logger = null;
+                    options.ForwardDefaultSelector = (context) =>
+                        {
+                            logger ??= context.RequestServices.GetRequiredService<ILogger<Program>>();
+                            var isForwardedRequest = context.IsForwardedRequest();
+                            var result = isForwardedRequest
+                                ? Yarp.ReverseProxy.Authentication.TransportJwtBearerTokenDefaults.AuthenticationScheme
+                                : Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
+                            logger.LogDebug("ForwardDefaultSelector:(isForwardedRequest:{isForwardedRequest};) -> result:{ForwardDefaultSelector};", isForwardedRequest, result);
+                            return result;
+                        };
                 });
+
+        builder.Services.AddAuthorizationBuilder()
+            .SetDefaultPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            //.SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            .AddPolicy("AuthenticatedUser", new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            ;
 
         builder.Services.AddControllers()
             .AddJsonOptions(
@@ -36,43 +55,50 @@ public class Program
         builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(
             static (options) => options.SerializerOptions.WriteIndented = true);
 
+        builder.Services.AddHealthChecks();
+        // TODO:AddHealthChecks
+        /*
+        builder.Services.AddHealthChecks()
+            .AddCheck<SampleHealthCheck>(
+                "Sample",
+                failureStatus: HealthStatus.Degraded,
+                tags: new[] { "sample" });
+        */
+
         var app = builder.Build();
 
         app.UseHttpsRedirection();
 
-        //app.UseAuthorization();
-        //app.UseAuthentication();
+        app.UseAuthentication();
+        app.UseAuthorization();
 
-        app.Map("/API", async (context) =>
-        {
-            context.Response.Headers.ContentType = "text/plain";
-            await context.Response.WriteAsync($"API: {System.DateTime.Now:s}");
-        });
-        app.Map("/WhereAmI", async (context) =>
-        {
-            context.Response.Headers.ContentType = "text/plain";
-            await context.Response.WriteAsync($"WhereAmI: API: {System.DateTime.Now:s}");
-        });
-        app.Map("/APIDump", async (HttpContext context) =>
-        {
-            var request = context.Request;
-            var result = new {
-                request.Protocol,
-                request.Method,
-                request.Scheme,
-                Host = request.Host.Value,
-                PathBase = request.PathBase.Value,
-                Path = request.Path.Value,
-                Query = request.QueryString.Value,
-                Headers = request.Headers.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToArray()),
-                Time = DateTimeOffset.UtcNow,
-                UserIsAuthenticated = context.User.Identity?.IsAuthenticated,
-                UserName = context.User.Identity?.Name,
-                UserClaims = context.User.Claims.Select(claim => new { Type = claim.Type, Value = claim.Value }),
-                Body = await new StreamReader(request.Body).ReadToEndAsync(),
-            };
-            return TypedResults.Ok(result);
-        });
+        /* TODO
+        app.MapHealthChecks(
+            pattern: "/health",
+            options: new HealthCheckOptions { })
+            .AllowAnonymous();
+        */
+
+       app.Map("/API",
+            async (HttpContext context) =>
+            {
+                context.Response.Headers.ContentType = "text/plain";
+                await context.Response.WriteAsync($"API: {System.DateTime.Now:s}");
+            }).AllowAnonymous();
+
+        app.Map("/WhereAmI",
+            async (HttpContext context) =>
+            {
+                context.Response.Headers.ContentType = "text/plain";
+                await context.Response.WriteAsync($"WhereAmI: API: {System.DateTime.Now:s}");
+            }).AllowAnonymous();
+
+        app.Map("/APIDump",
+            async (HttpContext context) =>
+            {
+                var result = await HttpRequestDump.GetDumpAsync(context, context.Request, false);
+                return TypedResults.Ok(result);
+            }).RequireAuthorization("AuthenticatedUser");
 
         app.MapControllers();
 

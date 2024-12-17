@@ -37,11 +37,11 @@ public class Program
                 })
             ;
 
-        builder.Services.AddAuthorization((options) =>
-        {
-            options.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-            // options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-        });
+        builder.Services.AddAuthorizationBuilder()
+            .SetDefaultPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            //.SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            .AddPolicy("AuthenticatedUser", new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            ;
 
         builder.Services.AddControllers()
             .AddJsonOptions(
@@ -85,36 +85,24 @@ public class Program
         app.UseAuthentication();
         app.UseAuthorization();
 
-        app.Map("/Backend", async (context) =>
-        {
-            context.Response.Headers.ContentType = "text/plain";
-            await context.Response.WriteAsync($"Backend: {System.DateTime.Now:s}");
-        });
-        app.Map("/WhereAmI", async (context) =>
-        {
-            context.Response.Headers.ContentType = "text/plain";
-            await context.Response.WriteAsync($"WhereAmI: Backend: {System.DateTime.Now:s}");
-        });
-        app.Map("/BackendDump", async (HttpContext context) =>
-        {
-            var request = context.Request;
-            var result = new {
-                request.Protocol,
-                request.Method,
-                request.Scheme,
-                Host = request.Host.Value,
-                PathBase = request.PathBase.Value,
-                Path = request.Path.Value,
-                Query = request.QueryString.Value,
-                Headers = request.Headers.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToArray()),
-                Time = DateTimeOffset.UtcNow,
-                UserIsAuthenticated = context.User.Identity?.IsAuthenticated,
-                UserName = context.User.Identity?.Name,
-                UserClaims = context.User.Claims.Select(claim => new { Type = claim.Type, Value = claim.Value }),
-                Body = await new StreamReader(request.Body).ReadToEndAsync(),
-            };
-            return TypedResults.Ok(result);
-        });
+        app.Map("/Backend",
+            async (context) => {
+                context.Response.Headers.ContentType = "text/plain";
+                await context.Response.WriteAsync($"Backend: {System.DateTime.Now:s}");
+            }).AllowAnonymous();
+
+        app.Map("/WhereAmI",
+            async (context) => {
+                context.Response.Headers.ContentType = "text/plain";
+                await context.Response.WriteAsync($"WhereAmI: Backend: {System.DateTime.Now:s}");
+            }).AllowAnonymous();
+
+        app.Map("/BackendDump",
+            async (HttpContext context) =>
+            {
+                var result = await HttpRequestDump.GetDumpAsync(context, context.Request, false);
+                return TypedResults.Ok(result);
+            }).RequireAuthorization("AuthenticatedUser");
 
         app.MapControllers();
         app.MapReverseProxy();

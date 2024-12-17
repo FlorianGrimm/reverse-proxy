@@ -29,11 +29,11 @@ public class Program
                         .CreateForwardDefaultSelector(NegotiateDefaults.AuthenticationScheme);
                 });
 
-        builder.Services.AddAuthorization((options) =>
-        {
-            //options.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-            //options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-        });
+        builder.Services.AddAuthorizationBuilder()
+            .SetDefaultPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            //.SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            .AddPolicy("AuthenticatedUser", new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            ;
 
         builder.Services.AddControllers()
             .AddJsonOptions(
@@ -52,8 +52,10 @@ public class Program
         var app = builder.Build();
 
         app.UseHttpsRedirection();
+
         app.UseAuthentication();
         app.UseAuthorization();
+
         app.Map("/Frontend", async (context) =>
         {
             context.Response.Headers.ContentType = "text/plain";

@@ -20,8 +20,7 @@ public class Program
             {
                 options.DefaultScheme = "Default";
                 options.DefaultChallengeScheme = "Default";
-            }
-            )
+            })
             .AddNegotiate()
             .AddTransportJwtBearerToken(
                 configuration: builder.Configuration.GetSection("ReverseProxy:TransportJwtBearerToken"),
@@ -37,17 +36,11 @@ public class Program
                 })
             ;
 
-        builder.Services.AddAuthorization((options) =>
-        {
-            options.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-            // options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
-        });
-
-        builder.Services.AddControllers()
-            .AddJsonOptions(
-                static (options) => options.JsonSerializerOptions.WriteIndented = true);
-        builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(
-            static (options) => options.SerializerOptions.WriteIndented = true);
+        builder.Services.AddAuthorizationBuilder()
+            .SetDefaultPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            //.SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            .AddPolicy("AuthenticatedUser", new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
+            ;
 
         builder.Services.AddControllers()
             .AddJsonOptions(
@@ -63,7 +56,6 @@ public class Program
                 configuration: builder.Configuration.GetSection("ReverseProxy:AuthenticationBasic"))
             .AddAuthorizationTransportTransformProvider(
                 configuration: builder.Configuration.GetSection("ReverseProxy:AuthorizationTransport"));
-
 
         builder.Services.AddHealthChecks();
 #warning TODO:AddHealthChecks
@@ -83,38 +75,33 @@ public class Program
             static (context) => !context.IsTransportTunnelRequest(),
             static (app) => {
                 app.UseHttpsRedirection();
-                app.UseAuthorization();
-                app.UseAuthentication();
             });
-
-        app.UseWhen(
-            static (context) => context.IsTransportTunnelRequest(),
-            static (app) => {
-                app.UseAuthorization();
-                app.UseAuthentication();
-            });
+        app.UseAuthorization();
+        app.UseAuthentication();
 
         app.MapHealthChecks(
             pattern: "/health",
-            options: new HealthCheckOptions
-            {
-                AllowCachingResponses = true
+            options: new HealthCheckOptions { })
+            .AllowAnonymous();
+
+        app.Map("/Backend",
+            async (context) => {
+                context.Response.Headers.ContentType = "text/plain";
+                await context.Response.WriteAsync($"Backend: {System.DateTime.Now:s}");
             }).AllowAnonymous();
 
+        app.Map("/WhereAmI",
+            async (context) => {
+                context.Response.Headers.ContentType = "text/plain";
+                await context.Response.WriteAsync($"WhereAmI: Backend: {System.DateTime.Now:s}");
+            }).AllowAnonymous();
 
-        app.Map("/Backend", async (context) => {
-            context.Response.Headers.ContentType = "text/plain";
-            await context.Response.WriteAsync($"Backend: {System.DateTime.Now:s}");
-        });
-        app.Map("/WhereAmI", async (context) => {
-            context.Response.Headers.ContentType = "text/plain";
-            await context.Response.WriteAsync($"WhereAmI: Backend: {System.DateTime.Now:s}");
-        });
-        app.Map("/BackendDump", async (HttpContext context) =>
-        {
-            var result = await HttpRequestDump.GetDumpAsync(context, context.Request, false);
-            return TypedResults.Ok(result);
-        });
+        app.Map("/BackendDump",
+            async (HttpContext context) =>
+            {
+                var result = await HttpRequestDump.GetDumpAsync(context, context.Request, false);
+                return TypedResults.Ok(result);
+            }).RequireAuthorization("AuthenticatedUser");
 
         app.MapControllers();
         app.MapReverseProxy();
