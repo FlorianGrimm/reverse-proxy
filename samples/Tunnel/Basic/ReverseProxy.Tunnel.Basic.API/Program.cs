@@ -24,6 +24,7 @@ public class Program
             .AddTransportJwtBearerToken(
                 configuration: builder.Configuration.GetSection("ReverseProxy:TransportJwtBearerToken"),
                 configure: (options) => { })
+            //.AddScheme
             .AddPolicyScheme(
                 authenticationScheme: "Default",
                 displayName: "Default",
@@ -42,6 +43,7 @@ public class Program
                         };
                 })
             ;
+            //Microsoft.AspNetCore.Authentication.PolicySchemeHandler
 
         builder.Services.AddAuthorizationBuilder()
             .SetDefaultPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())

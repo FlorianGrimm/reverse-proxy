@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 using Yarp.ReverseProxy;
+using Yarp.ReverseProxy.Transforms;
 using Yarp.ReverseProxy.Tunnel;
 
 namespace ReverseProxy.Tunnel.Frontend;
@@ -31,13 +32,15 @@ public class Program
                 displayName: "Default",
                 configureOptions: static (options) =>
                 {
-                    // options.ForwardDefaultSelector = TunnelAuthenticationSchemeExtensions
-                    //     .CreateForwardDefaultSelector(NegotiateDefaults.AuthenticationScheme);
                     ILogger? logger = null;
                     options.ForwardDefaultSelector = (HttpContext httpContext) =>
                     {
                         logger ??= httpContext.RequestServices.GetRequiredService<ILogger<Program>>();
                         var hasTunnelAuthenticationScheme = TunnelAuthenticationSchemeExtensions.TryGetTunnelAuthenticationScheme(httpContext.GetEndpoint(), out var result);
+                        if (!hasTunnelAuthenticationScheme)
+                        {
+                            result = NegotiateDefaults.AuthenticationScheme;
+                        }
                         logger.LogDebug("ForwardDefaultSelector:(hasTunnelAuthenticationScheme:{hasTunnelAuthenticationScheme};) -> result:{ForwardDefaultSelector};", hasTunnelAuthenticationScheme, result);
                         return result;
                     };
@@ -62,7 +65,15 @@ public class Program
             .AddTunnelServicesBasic(
                 configuration: builder.Configuration.GetSection("ReverseProxy:AuthenticationBasic"))
             .AddAuthorizationTransportTransformProvider(
-                configuration: builder.Configuration.GetSection("ReverseProxy:AuthorizationTransport"));
+                configuration: builder.Configuration.GetSection("ReverseProxy:AuthorizationTransport"),
+                configure: (options) =>
+                {
+                    options.ChallengeSchemeSelector = static (ResponseTransformContext responseTransformContext) =>
+                    {
+                        //string? result=null; return result;
+                        return NegotiateDefaults.AuthenticationScheme;
+                    };
+                });
 
         builder.Services.AddHealthChecks();
 #warning TODO:AddHealthChecks
@@ -99,6 +110,13 @@ public class Program
             }).AllowAnonymous();
 
         app.Map("/FrontendDump",
+            async (HttpContext context) =>
+            {
+                var result = await HttpRequestDump.GetDumpAsync(context, context.Request, false);
+                return TypedResults.Ok(result);
+            }).RequireAuthorization("AuthenticatedUser");
+
+        app.Map("/Todo",
             async (HttpContext context) =>
             {
                 var result = await HttpRequestDump.GetDumpAsync(context, context.Request, false);

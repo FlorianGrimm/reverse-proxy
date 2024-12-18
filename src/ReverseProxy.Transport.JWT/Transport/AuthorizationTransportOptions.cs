@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
-
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
 using Yarp.ReverseProxy.Configuration;
+using Yarp.ReverseProxy.Transforms;
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
@@ -44,6 +45,10 @@ public class AuthorizationTransportOptions : IEquatable<AuthorizationTransportOp
     /// Gets or sets the scheme to be used for authorization.
     /// </summary>
     public string? Scheme { get; set; }
+
+    public Func<HttpContext, string?>? AuthenticationSchemeSelector {get;set;}
+
+    public Func<ResponseTransformContext, string?>? ChallengeSchemeSelector {get;set;}
 
     /// <summary>
     /// Gets or sets the claim types to be excluded.

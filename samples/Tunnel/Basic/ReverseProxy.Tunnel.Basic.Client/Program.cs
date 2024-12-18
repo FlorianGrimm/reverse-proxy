@@ -1,3 +1,5 @@
+#pragma warning disable CA1866 // Use char overload
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -40,16 +42,20 @@ public class Program : BackgroundService
     {
         try
         {
-            using var clientAPI = GetHttpClient(_options.UrlAPI);
-            await TestUntilStarted(clientAPI, stoppingToken);
+            using var clientAPIUnauthenticated = GetHttpClient(_options.UrlAPI, false);
+            using var clientBackendUnauthenticated = GetHttpClient(_options.UrlFrontend, false);
+            using var clientFrontendUnauthenticated = GetHttpClient(_options.UrlBackend, false);
 
-            using var clientBackend = GetHttpClient(_options.UrlFrontend);
-            await TestUntilStarted(clientBackend, stoppingToken);
+            using var clientAPIAuthenticated = GetHttpClient(_options.UrlAPI, true);
+            using var clientBackendAuthenticated = GetHttpClient(_options.UrlFrontend, true);
+            using var clientFrontendAuthenticated = GetHttpClient(_options.UrlBackend, true);
 
-            using var clientFrontend = GetHttpClient(_options.UrlBackend);
-            await TestUntilStarted(clientFrontend, stoppingToken);
+            await TestUntilStarted(clientAPIAuthenticated, stoppingToken);
+            await TestUntilStarted(clientBackendAuthenticated, stoppingToken);
+            await TestUntilStarted(clientFrontendAuthenticated, stoppingToken);
 
-            HttpClient[] clients = [clientAPI, clientBackend, clientFrontend];
+            HttpClient[] clientsUnauthenticated = [clientAPIUnauthenticated, clientBackendUnauthenticated, clientFrontendUnauthenticated];
+            HttpClient[] clientsAuthenticated = [clientAPIAuthenticated, clientBackendAuthenticated, clientFrontendAuthenticated];
 
             var limit = System.DateTime.UtcNow.AddSeconds(10);
             var log = true;
@@ -60,6 +66,7 @@ public class Program : BackgroundService
 
                 foreach (var test in _options.Tests)
                 {
+                    var clients = test.Authenticate?clientsAuthenticated:clientsAuthenticated;
                     if (test.UrlPath.StartsWith("/"))
                     {
                         foreach (var client in clients)
@@ -71,10 +78,11 @@ public class Program : BackgroundService
                     else
                     {
                         var uri = new Uri(test.UrlPath);
-                        using var client = GetHttpClient(uri.GetLeftPart(UriPartial.Authority));
+                        using var client = GetHttpClient(uri.GetLeftPart(UriPartial.Authority), test.Authenticate);
                         var content = await GetAsync(client, uri.PathAndQuery, log, stoppingToken);
                         TestContent(uri, test.Content, content, log);
                     }
+#pragma warning restore CA1866 // Use char overload
                 }
                 log = false;
             }
@@ -89,8 +97,8 @@ public class Program : BackgroundService
         _logger.LogInformation("Success");
         /*
         await Task.Delay(2000);
-        _serviceProvider.GetRequiredService<IHostApplicationLifetime>().StopApplication();
         */
+        _serviceProvider.GetRequiredService<IHostApplicationLifetime>().StopApplication();
     }
 
     private async Task TestUntilStarted(HttpClient client, CancellationToken stoppingToken)
@@ -145,15 +153,18 @@ public class Program : BackgroundService
         }
     }
 
-    public HttpClient GetHttpClient(string url)
+    public HttpClient GetHttpClient(string url, bool authenticated)
     {
-        var client = new HttpClient(new HttpClientHandler()
+        var httpClientHandler = new HttpClientHandler();
+        if (authenticated)
         {
-            Credentials = System.Net.CredentialCache.DefaultCredentials
-        });
+            httpClientHandler.Credentials = System.Net.CredentialCache.DefaultCredentials;
+        }
+        var client = new HttpClient(httpClientHandler);
         client.BaseAddress = new Uri(url);
         return client;
     }
+
 }
 
 public class ProgramOptions
@@ -169,6 +180,7 @@ public class ProgramOptions
 
 public class TestOptions
 {
+    public bool Authenticate { get; set; }
     public string UrlPath { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
 

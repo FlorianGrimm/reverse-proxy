@@ -65,7 +65,13 @@ internal sealed class AuthorizationTransportRequestTransform : RequestTransform
                 if (contextUser.Identity is null
                     || !contextUser.Identity.IsAuthenticated)
                 {
-                    var ticket = await httpContext.AuthenticateAsync(_options.Scheme);
+                    string? scheme=null;
+                    if (_options.AuthenticationSchemeSelector is { } schemeSelector) {
+                        scheme = schemeSelector(httpContext);
+                    }
+                    scheme ??= _options.Scheme;
+
+                    var ticket = await httpContext.AuthenticateAsync(scheme);
                     if (ticket is { Succeeded: true, Principal: { } principal })
                     {
                         inboundUser = principal;
@@ -162,11 +168,24 @@ internal sealed class AuthorizationTransportRequestTransform : RequestTransform
 
 internal sealed class AuthorizationTransportResponseTransform : ResponseTransform
 {
+    private readonly AuthorizationTransportOptions _options;
+
+    public AuthorizationTransportResponseTransform(AuthorizationTransportOptions options)
+    {
+        _options = options;
+    }
+
     public override async ValueTask ApplyAsync(ResponseTransformContext context)
     {
         if (context.ProxyResponse is { } proxyResponse
-            && HttpStatusCode.Unauthorized == proxyResponse.StatusCode) {
-            await context.HttpContext.ChallengeAsync();
+            && HttpStatusCode.Unauthorized == proxyResponse.StatusCode)
+        {
+            string? scheme=null;
+            if (_options.ChallengeSchemeSelector is { } schemeSelector) {
+                scheme = schemeSelector(context);
+            }
+            scheme ??= _options.Scheme;
+            await context.HttpContext.ChallengeAsync(scheme);
         }
     }
 }
