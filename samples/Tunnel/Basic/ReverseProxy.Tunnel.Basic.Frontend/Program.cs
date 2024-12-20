@@ -3,9 +3,11 @@ using System;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 using Yarp.ReverseProxy;
 using Yarp.ReverseProxy.Transforms;
+using Yarp.ReverseProxy.Transport;
 using Yarp.ReverseProxy.Tunnel;
 
 namespace ReverseProxy.Tunnel.Frontend;
@@ -15,6 +17,14 @@ public class Program
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+        //var socketPath = System.IO.Path.GetTempFileName();
+        //var socketPathDS = socketPath.Replace(@"\", @"\\");
+        //builder.Configuration.AddInMemoryCollection(new System.Collections.Generic.Dictionary<string, string?>
+        //{
+        //    { "Kestrel:Endpoints:Loopback:Url", $"https://unix:{socketPathDS}" }
+        //});
+        
+        
 
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole();
@@ -61,6 +71,13 @@ public class Program
         builder.Services
             .AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+            .AddTransportTunnel()
+            .AddTransportLoopback(
+                configure: (options) =>
+                {
+                    //options.SocketPath = socketPath;
+                }
+            )
             .AddTunnelServices()
             .AddTunnelServicesBasic(
                 configuration: builder.Configuration.GetSection("ReverseProxy:AuthenticationBasic"))
@@ -73,7 +90,8 @@ public class Program
                         //string? result=null; return result;
                         return NegotiateDefaults.AuthenticationScheme;
                     };
-                });
+                })
+            ;
 
         builder.Services.AddHealthChecks();
 #warning TODO:AddHealthChecks
@@ -84,6 +102,7 @@ public class Program
                 failureStatus: HealthStatus.Degraded,
                 tags: new[] { "sample" });
         */
+
         var app = builder.Build();
 
         app.UseHttpsRedirection();
@@ -119,9 +138,29 @@ public class Program
         app.Map("/Todo",
             async (HttpContext context) =>
             {
-                var result = await HttpRequestDump.GetDumpAsync(context, context.Request, false);
-                return TypedResults.Ok(result);
-            }).RequireAuthorization("AuthenticatedUser");
+                try
+                {
+                    var jwtUtilityService = context.RequestServices.GetRequiredService<AuthorizationTransportJWTUtilityService>();
+                    using var client = context.RequestServices.GetRequiredService<ILoopbackForwardHttpClientFactory>().CreateHttpClient();
+                    var requestMessage = new HttpRequestMessage(
+                        HttpMethod.Get,
+                        "/API"
+                        );
+                    if (jwtUtilityService.CreateJWTClaimsIdentity(context.User) is { } jwtClaimsIdentity)
+                    {
+                        var jwtToken = jwtUtilityService.CreateJWTToken(jwtClaimsIdentity);
+                        requestMessage.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", jwtToken);
+                    }
+                    using var response = await client.SendAsync(requestMessage, context.RequestAborted);
+                    var content = await response.Content.ReadAsStringAsync();
+                    return Results.Ok(content);
+                }
+                catch (Exception ex)
+                {
+                    return Results.BadRequest(ex.Message);
+                }
+            }).AllowAnonymous();
+        //.RequireAuthorization("AuthenticatedUser");
 
         app.MapControllers();
         app.MapReverseProxy();

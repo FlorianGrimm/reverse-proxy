@@ -95,5 +95,7 @@ internal static class EventIds
     public static readonly EventId NotHttps = new EventId(86, "NotHttps");
     public static readonly EventId TransportIsNotUnique = new EventId(87, "TransportIsNotUnique");
     public static readonly EventId TransportIsUnknown = new EventId(88, "TransportIsUnknown");
+    public static readonly EventId TunnelConnectionRequestIsNotReusable = new EventId(89, "TunnelConnectionRequestIsNotReusable");
+    
 
 }

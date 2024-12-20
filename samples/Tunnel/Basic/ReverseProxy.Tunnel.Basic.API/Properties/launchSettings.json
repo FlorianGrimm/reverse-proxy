@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/launchsettings.json",
   "profiles": {
-    "ReverseProxy.Tunnel.Anonymous": {
+    "ReverseProxy.Tunnel.Basic": {
       "commandName": "Project",
       "launchBrowser": false,
       "launchUrl": "https://localhost:5005",

@@ -90,8 +90,8 @@ public static class TunnelExtensions
         var services = builder.Services;
 
         services.TryAddNoOpCertificateManager();
-        services.TryAddSingleton<TunnelConnectionChannelManager>();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IClusterChangeListener, TunnelConnectionChannelManager.ClusterChangeListener>());
+        TunnelConnectionChannelManager.RegisterTunnelConnectionChannelManagerCluster(services);
+
         services.TryAddSingleton<TransportForwarderHttpClientFactorySelector>();
 
         if (options is null || options.TunnelHTTP2)

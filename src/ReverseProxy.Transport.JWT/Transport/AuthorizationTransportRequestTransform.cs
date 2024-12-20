@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net;
 using System.Security.Claims;
@@ -57,16 +58,19 @@ internal sealed class AuthorizationTransportRequestTransform : RequestTransform
                 return;
             }
 
+            var proxyRequest = context.ProxyRequest;
             var httpContext = context.HttpContext;
+
             ClaimsPrincipal? inboundUser;
             {
-                var contextUser = context.HttpContext.User;
+                var contextUser = httpContext.User;
 
                 if (contextUser.Identity is null
                     || !contextUser.Identity.IsAuthenticated)
                 {
-                    string? scheme=null;
-                    if (_options.AuthenticationSchemeSelector is { } schemeSelector) {
+                    string? scheme = null;
+                    if (_options.AuthenticationSchemeSelector is { } schemeSelector)
+                    {
                         scheme = schemeSelector(httpContext);
                     }
                     scheme ??= _options.Scheme;
@@ -91,58 +95,17 @@ internal sealed class AuthorizationTransportRequestTransform : RequestTransform
                 && inboundUser.Identity is { } identity
                 && identity.IsAuthenticated)
             {
-                var outboundClaimsIdentity = new ClaimsIdentity();
-
-                var includeAll = _options.IncludeClaimType.Contains("ALL")
-                    || ((_options.ExcludeClaimType.Count == 0)
-                        && (_options.TransformClaimType.Count == 0)
-                        && (_options.IncludeClaimType.Count == 0)
-                        );
-                foreach (var inboundClaim in inboundUser.Claims)
-                {
-                    if (_options.ExcludeClaimType.Contains(inboundClaim.Type))
-                    {
-                        continue;
-                    }
-
-                    if (_options.TransformClaimType.TryGetValue(inboundClaim.Type, out var destinationClaimType))
-                    {
-                        var outboundClaim = new Claim(type: destinationClaimType, value: inboundClaim.Value,
-                            valueType: inboundClaim.ValueType);
-                        outboundClaimsIdentity.AddClaim(outboundClaim);
-                    }
-                    else if (includeAll || _options.IncludeClaimType.Contains(inboundClaim.Type))
-                    {
-                        var outboundClaim = new Claim(type: inboundClaim.Type, value: inboundClaim.Value,
-                            valueType: inboundClaim.ValueType);
-                        outboundClaimsIdentity.AddClaim(outboundClaim);
-                    }
-                }
+                var outboundClaimsIdentity = AuthorizationTransportJWTUtility.CreateJWTClaimsIdentity(inboundUser, _options);
 
                 if (outboundClaimsIdentity.Claims.Any())
                 {
-                    var now = DateTime.UtcNow;
-                    var descriptor = new SecurityTokenDescriptor
-                    {
-                        Issuer = _options.Issuer,
-                        Audience = _options.Audience,
-                        IssuedAt = now,
-                        NotBefore = now.Add(_options.AdjustNotBefore),
-                        Expires = now.Add(_options.AdjustExpires),
-                        Subject = outboundClaimsIdentity,
-                        SigningCredentials = signingCredentials
-                    };
+                    var jwtToken = AuthorizationTransportJWTUtility.CreateJWTToken(outboundClaimsIdentity, signingCredentials, _options);
 
-                    Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler jsonWebTokenHandler = new();
-
-                    var jwtToken = jsonWebTokenHandler.CreateToken(descriptor);
-
-                    context.ProxyRequest.Headers.Authorization =
-                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", jwtToken);
+                    proxyRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", jwtToken);
 
                     //if (_options.RemoveHeaderAuthenticate)
                     //{
-                    context.ProxyRequest.Headers.Remove(WWWAuthenticate);
+                    proxyRequest.Headers.Remove(WWWAuthenticate);
                     //}
 
                     // https://dev.to/eduardstefanescu/jwt-authentication-with-asymmetric-encryption-using-certificates-in-asp-net-core-2o7e
@@ -162,6 +125,7 @@ internal sealed class AuthorizationTransportRequestTransform : RequestTransform
 
         return;
     }
+
 }
 
 
@@ -180,8 +144,9 @@ internal sealed class AuthorizationTransportResponseTransform : ResponseTransfor
         if (context.ProxyResponse is { } proxyResponse
             && HttpStatusCode.Unauthorized == proxyResponse.StatusCode)
         {
-            string? scheme=null;
-            if (_options.ChallengeSchemeSelector is { } schemeSelector) {
+            string? scheme = null;
+            if (_options.ChallengeSchemeSelector is { } schemeSelector)
+            {
                 scheme = schemeSelector(context);
             }
             scheme ??= _options.Scheme;

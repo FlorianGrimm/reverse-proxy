@@ -123,7 +123,7 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
                 {
                     if (_isDisposed) { return null; }
 
-                    tunnelConnectionRequest = tunnelConnectionRequest.GetReseted() ?? _poolTunnelConnectionRequest.Get();
+                    tunnelConnectionRequest = tunnelConnectionRequest.GetIfReusable() ?? _poolTunnelConnectionRequest.Get();
                     continue;
                 }
 
@@ -147,7 +147,7 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
             // TODO: replace with proper monitoring??
             System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSink);
 
-            var backToPool = tunnelConnectionRequest.GetReseted();
+            var backToPool = tunnelConnectionRequest.GetIfReusable();
             if (backToPool is not null)
             {
                 _poolTunnelConnectionRequest.Return(backToPool);

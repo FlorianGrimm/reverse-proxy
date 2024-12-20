@@ -29,6 +29,7 @@ public static class ReverseProxyServiceCollectionExtensions
     {
         var services = builder.Services;
         services.TryAddNoOpCertificateManager();
+        services.TryAddSingleton<AuthorizationTransportJWTUtilityService>();
 
         var optionsBuilder = services.AddOptions<AuthorizationTransportOptions>();
         if (configuration is not null || configure is not null)

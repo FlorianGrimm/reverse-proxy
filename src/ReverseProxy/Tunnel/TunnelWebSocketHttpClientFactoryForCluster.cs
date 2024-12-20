@@ -42,7 +42,7 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
 
         if (!string.Equals(clusterId, _clusterId, StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Unexpected clusterid");
+            throw new InvalidOperationException("Unexpected ClusterId");
         }
 
         if (CanReuseOldClient(context))
@@ -97,7 +97,7 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
                             {
                                 throw new ObjectDisposedException(nameof(TunnelHTTP2HttpClientFactoryForCluster));
                             }
-                            tunnelConnectionRequest = tunnelConnectionRequest.GetReseted() ?? _poolTunnelConnectionRequest.Get();
+                            tunnelConnectionRequest = tunnelConnectionRequest.GetIfReusable() ?? _poolTunnelConnectionRequest.Get();
                             continue;
                         }
 
@@ -119,7 +119,7 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
                 finally
                 {
                     System.Threading.Interlocked.Decrement(ref tunnelConnectionChannels.CountSink);
-                    var pool = tunnelConnectionRequest.GetReseted();
+                    var pool = tunnelConnectionRequest.GetIfReusable();
                     if (pool is not null)
                     {
                         _poolTunnelConnectionRequest.Return(pool);

@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\src\ReverseProxy.Transport.JWT\Yarp.ReverseProxy.Transport.JWT.csproj" />
+    <ProjectReference Include="..\..\..\..\src\ReverseProxy.Transport.Loopback\Yarp.ReverseProxy.Transport.Loopback.csproj" />
     <ProjectReference Include="..\..\..\..\src\ReverseProxy.Tunnel.Basic\Yarp.ReverseProxy.Tunnel.Basic.csproj" />
     <ProjectReference Include="..\..\..\..\src\ReverseProxy\Yarp.ReverseProxy.csproj" />
   </ItemGroup>
