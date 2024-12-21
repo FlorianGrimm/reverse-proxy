@@ -38,7 +38,6 @@ public static class TransportLoopbackExtensions
         var services = builder.Services;
         
         services.TryAddSingleton<ILoopbackForwardHttpClientFactory, LoopbackForwardHttpClientFactory>();
-        /*
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IConnectionListenerFactory, TransportTunnelLoopbackConnectionListenerFactory>());
         services.TryAddSingleton<TransportTunnelFactory>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelFactory, TransportTunnelLoopbackFactory>());
@@ -47,7 +46,6 @@ public static class TransportLoopbackExtensions
         services.TryAddSingleton<TransportTunnelLoopbackAuthenticator, TransportTunnelLoopbackAuthenticator>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ITransportTunnelLoopbackAuthenticator, TransportTunnelLoopbackAuthenticatorLoopback>());
 
-        */
         var optionsBuilder = builder.Services.AddOptions<TransportTunnelLoopbackOptions>();
         if (configuration is { } || configure is { })
         {

@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging;
 
+using Yarp.ReverseProxy.Tunnel;
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
@@ -26,9 +27,11 @@ internal sealed class TransportTunnelHttp2ConnectionContext
     , IConnectionItemsFeature
     , IConnectionIdFeature
     , IConnectionTransportFeature
+    , IConnectionTransportTunnelFeature
     , IDuplexPipe
     , ITrackLifetimeConnectionContext
 {
+    private static readonly ConnectionTransportTunnelFeature _connectionTransportTunnelFeature = new(TunnelConstants.TransportNameTunnelHTTP2);
 
     internal static (TransportTunnelHttp2ConnectionContext innerConnection, HttpContent httpContent) Create(ILogger logger)
     {
@@ -51,6 +54,10 @@ internal sealed class TransportTunnelHttp2ConnectionContext
         Features.Set<IConnectionItemsFeature>(this);
         Features.Set<IConnectionEndPointFeature>(this);
         Features.Set<IConnectionLifetimeFeature>(this);
+        Features.Set<IConnectionTransportTunnelFeature>(this);
+
+        Features.Set<IConnectionTransportTunnelFeature>(_connectionTransportTunnelFeature);
+        Items.Add(typeof(IConnectionTransportTunnelFeature), _connectionTransportTunnelFeature);
         _logger = logger;
     }
 
@@ -75,6 +82,8 @@ internal sealed class TransportTunnelHttp2ConnectionContext
     public override CancellationToken ConnectionClosed { get; set; }
 
     public HttpResponseMessage HttpResponseMessage { get; set; } = default!;
+
+    public string? TransportMode => TunnelConstants.TransportNameTunnelHTTP2;
 
     public void SetTrackLifetime(
         TrackLifetimeConnectionContextCollection trackLifetimeConnectionContextCollection,

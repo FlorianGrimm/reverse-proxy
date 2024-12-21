@@ -1,12 +1,9 @@
-using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.IdentityModel.Tokens;
 
 using Yarp.ReverseProxy.Transforms;
 
@@ -130,23 +127,17 @@ internal sealed class AuthorizationTransportRequestTransform : RequestTransform
 
 
 
-internal sealed class AuthorizationTransportResponseTransform : ResponseTransform
+internal sealed class AuthorizationTransportResponseTransform(AuthorizationTransportOptions options) : ResponseTransform
 {
-    private readonly AuthorizationTransportOptions _options;
+    private readonly AuthorizationTransportOptions _options = options;
 
-    public AuthorizationTransportResponseTransform(AuthorizationTransportOptions options)
-    {
-        _options = options;
-    }
-
-    public override async ValueTask ApplyAsync(ResponseTransformContext context)
-    {
+    public override async ValueTask ApplyAsync(ResponseTransformContext context) {
+        // If the proxy response status code is Unauthorized (401),
+        // initiate a challenge to authenticate the user using the specified scheme.
         if (context.ProxyResponse is { } proxyResponse
-            && HttpStatusCode.Unauthorized == proxyResponse.StatusCode)
-        {
+            && HttpStatusCode.Unauthorized == proxyResponse.StatusCode) {
             string? scheme = null;
-            if (_options.ChallengeSchemeSelector is { } schemeSelector)
-            {
+            if (_options.ChallengeSchemeSelector is { } schemeSelector) {
                 scheme = schemeSelector(context);
             }
             scheme ??= _options.Scheme;

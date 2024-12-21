@@ -36,7 +36,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
     private readonly TransportTunnelWebSocketOptions _options;
     private readonly ILogger _logger;
     private readonly TunnelState _tunnel;
-    private readonly ITransportTunnelWebSocketAuthenticator _transportTunnelWebSocketAuthentication;
+    private readonly ITransportTunnelWebSocketAuthenticator _authenticator;
     private readonly UriWebSocketEndPoint _endPoint;
     private readonly TrackLifetimeConnectionContextCollection _connectionCollection;
     private readonly IncrementalDelay _delay = new();
@@ -45,7 +45,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
     public TransportTunnelWebSocketConnectionListener(
         UriWebSocketEndPoint endpoint,
         TunnelState tunnel,
-        ITransportTunnelWebSocketAuthenticator transportTunnelWebSocketAuthentication,
+        ITransportTunnelWebSocketAuthenticator authenticator,
         TransportTunnelWebSocketOptions options,
         ILogger logger
         )
@@ -56,7 +56,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
         }
         _endPoint = endpoint;
         _tunnel = tunnel;
-        _transportTunnelWebSocketAuthentication = transportTunnelWebSocketAuthentication;
+        _authenticator = authenticator;
         _options = options;
         _logger = logger;
         _connectionLock = new(options.MaxConnectionCount);
@@ -97,7 +97,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                                 underlyingWebSocket = new ClientWebSocket();
                                 underlyingWebSocket.Options.KeepAliveInterval = TimeSpan.FromSeconds(5);
 
-                                var httpMessageInvoker = await _transportTunnelWebSocketAuthentication.ConfigureClientWebSocket(config, underlyingWebSocket);
+                                var httpMessageInvoker = await _authenticator.ConfigureClientWebSocket(config, underlyingWebSocket);
 
                                 if (_options.ConfigureClientWebSocket is { } configureClientWebSocket)
                                 {
@@ -132,7 +132,7 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                                 return underlyingWebSocket;
                             }
                         };
-                        _transportTunnelWebSocketAuthentication.ConfigureWebSocketConnectionOptions(config, options);
+                        _authenticator.ConfigureWebSocketConnectionOptions(config, options);
 
                         var innerConnection = new TransportTunnelWebSocketConnectionContext(options, _logger, null);
                         await innerConnection.StartAsync(TransferFormat.Binary, cancellationToken);

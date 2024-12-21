@@ -96,8 +96,8 @@ internal sealed class TransportTunnelLoopbackConnectionListener
                         await channelsReader.WaitToReadAsync(cancellationToken);
                     }
 
-                    var (innerConnection, stream) = TransportTunnelLoopbackConnectionContext.Create(_logger);
-                    tunnelConnectionStream.SetStream(stream);
+                    var (innerConnection, streamClient) = TransportTunnelLoopbackConnectionContext.Create(_logger);
+                    tunnelConnectionStream.SetStream(streamClient);
 
                     var connectionContext = _connectionCollection.AddInnerConnection(innerConnection, currentConnectionLock);
 
@@ -106,66 +106,6 @@ internal sealed class TransportTunnelLoopbackConnectionListener
                         Log.TunnelResumeConnectTunnel(_logger, config.TunnelId, config.Url, config.Transport, null);
                     }
                     return connectionContext;
-
-#if false
-
-
-                    HttpResponseMessage? response = null;
-                    var requestMessage = new HttpRequestMessage(
-                            HttpMethod.Post, _endPoint.Uri!)
-                    {
-                        Version = new Version(2, 0)
-                    };
-
-                    try
-                    {
-
-                        if (cancellationToken.IsCancellationRequested || _isDisposed)
-                        {
-                            return null;
-                        }
-
-                        {
-                            await _authenticatior.ConfigureHttpRequestMessageAsync(_tunnel, requestMessage);
-                            if (_options.ConfigureHttpRequestMessageAsync is { } configure)
-                            {
-                                await configure(config, requestMessage);
-                            }
-                        }
-                        (innerConnection, httpContent) = TransportTunnelLoopbackConnectionContext.Create(_logger);
-                        if (Log.IsTransportSendTransportTunnelEnabled(_logger))
-                        {
-                            Log.TransportSendTransportTunnel(_logger, _tunnel.TunnelId, requestMessage.Method, requestMessage.RequestUri, requestMessage.Content?.Headers.ContentLength);
-                        }
-                        requestMessage.Content = httpContent;
-                        response = await _httpMessageInvoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
-                        response.EnsureSuccessStatusCode();
-                        innerConnection.HttpResponseMessage = response;
-                        var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-                        innerConnection.Input = PipeReader.Create(responseStream);
-                        var connectionContext = _connectionCollection.AddInnerConnection(innerConnection, currentConnectionLock);
-
-                        if (_delay.Reset())
-                        {
-                            Log.TunnelResumeConnectTunnel(_logger, config.TunnelId, config.Url, config.Transport, null);
-                        }
-                        return connectionContext;
-
-                    }
-                    catch (Exception error)
-                    {
-                        Log.TransportFailureSendTransportTunnel(_logger, config.TunnelId, config.Url, config.Transport);
-                        if (requestMessage is not null) { requestMessage.Dispose(); }
-                        if (innerConnection is not null) { await innerConnection.DisposeAsync(); }
-                        if (httpContent is not null) { httpContent.Dispose(); }
-
-                        if (error is OperationCanceledException) { return null; }
-
-                        // TODO: More sophisticated back off and retry
-                        Log.TunnelCannotConnectTunnel(_logger, config.TunnelId, config.Url, config.Transport, error);
-                        await _delay.Delay(cancellationToken);
-                    }
-#endif
                 }
             }
             catch (OperationCanceledException)

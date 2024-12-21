@@ -1,3 +1,4 @@
+#if false
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
@@ -149,7 +150,7 @@ internal sealed class TransportTunnelLoopbackConnectionContextStream
     }
 }
 
-
+#endif
 #if false
 internal sealed class TransportTunnelLoopbackConnectionContextStream : Stream, IValueTaskSource<object?>
 {

@@ -26,18 +26,22 @@ internal sealed class TransportTunnelLoopbackConnectionContext
     , IConnectionItemsFeature
     , IConnectionIdFeature
     , IConnectionTransportFeature
+    , IConnectionTransportTunnelFeature
     , IDuplexPipe
     , ITrackLifetimeConnectionContext
 {
-    internal static (TransportTunnelLoopbackConnectionContext innerConnection, Stream stream) Create(ILogger logger)
+    private static readonly ConnectionTransportTunnelFeature _connectionTransportTunnelFeature = new(TransportTunnelLoopbackConstants.TransportNameTunnelLoopback);
+
+    internal static (TransportTunnelLoopbackConnectionContext connectionContext, Stream stream) Create(ILogger logger)
     {
-        var innerConnection = new TransportTunnelLoopbackConnectionContext(logger);
-        Stream stream = new TransportTunnelLoopbackConnectionContextStream(innerConnection, logger);
-        return (innerConnection, stream);
+        var connectionContext = new TransportTunnelLoopbackConnectionContext(logger);
+        var streamClient = new TransportTunnelLoopbackClientStream(connectionContext, logger);
+        return (connectionContext, streamClient);
     }
 
     private readonly TaskCompletionSource _executionTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ILogger _logger;
+
     private TrackLifetimeConnectionContextCollection? _trackLifetimeConnectionContextCollection;
     private AsyncLockOwner _asyncLockOwner;
 
@@ -50,17 +54,27 @@ internal sealed class TransportTunnelLoopbackConnectionContext
         Features.Set<IConnectionItemsFeature>(this);
         Features.Set<IConnectionEndPointFeature>(this);
         Features.Set<IConnectionLifetimeFeature>(this);
+        Features.Set<IConnectionTransportTunnelFeature>(_connectionTransportTunnelFeature);
+        Items.Add(typeof(IConnectionTransportTunnelFeature), _connectionTransportTunnelFeature);
         _logger = logger;
 
-        RequestStream = new MemoryStream();
-        ResponseStream = new MemoryStream();
+        PipeRequest = new Pipe();
+        PipeResponse = new Pipe();
 
-        Input = PipeReader.Create(RequestStream);
-        Output = PipeWriter.Create(ResponseStream);
+        // RequestStream = PipeRequest.Reader.AsStream();
+        // ResponseStream = PipeRequest.Writer.AsStream();
+
+        Input = PipeRequest.Reader;
+        Output = PipeResponse.Writer;
     }
 
-    public MemoryStream RequestStream { get; }
-    public MemoryStream ResponseStream { get; }
+    public string? TransportMode => TransportTunnelLoopbackConstants.TransportNameTunnelLoopback;
+
+    public Pipe PipeRequest { get; }
+    public Pipe PipeResponse { get; }
+
+    // public Stream RequestStream { get; }
+    // public Stream ResponseStream { get; }
 
     public Task ExecutionTask => _executionTcs.Task;
 
@@ -76,9 +90,9 @@ internal sealed class TransportTunnelLoopbackConnectionContext
 
     public override EndPoint? RemoteEndPoint { get; set; }
 
-    public PipeReader Input { get; set; } = default!;
+    public PipeReader Input { get; set; }
 
-    public PipeWriter Output { get; set; } = default!;
+    public PipeWriter Output { get; set; }
 
     public override CancellationToken ConnectionClosed { get; set; }
 

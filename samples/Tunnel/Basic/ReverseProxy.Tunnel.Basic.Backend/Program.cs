@@ -71,11 +71,12 @@ public class Program
 
         // Using app.UseHttpsRedirection(); stops the tunnel to work.
         // The request comes from the normal HTTPS - endpoint AND from the TunnelTransport HTTP - endpoint.
-        app.UseWhen(
-            static (context) => !context.IsTransportTunnelRequest(),
-            static (app) => {
-                app.UseHttpsRedirection();
-            });
+        //app.UseWhen(
+        //    static (context) => !context.IsTransportTunnelRequest(),
+        //    static (app) => {
+        //        app.UseHttpsRedirection();
+        //    });
+
         app.UseAuthorization();
         app.UseAuthentication();
 
@@ -97,6 +98,13 @@ public class Program
             }).AllowAnonymous();
 
         app.Map("/BackendDump",
+            async (HttpContext context) =>
+            {
+                var result = await HttpRequestDump.GetDumpAsync(context, context.Request, false);
+                return TypedResults.Ok(result);
+            }).AllowAnonymous();
+
+        app.Map("/BackendDumpUser",
             async (HttpContext context) =>
             {
                 var result = await HttpRequestDump.GetDumpAsync(context, context.Request, false);

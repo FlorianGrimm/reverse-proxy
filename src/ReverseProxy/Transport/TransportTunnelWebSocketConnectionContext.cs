@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Connections.Client;
 using Microsoft.Extensions.Logging;
 
+using Yarp.ReverseProxy.Tunnel;
 using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
@@ -16,7 +17,9 @@ namespace Yarp.ReverseProxy.Transport;
 internal sealed class TransportTunnelWebSocketConnectionContext
     : HttpConnection
     , ITrackLifetimeConnectionContext
+    , IConnectionTransportTunnelFeature
 {
+    private static readonly ConnectionTransportTunnelFeature _connectionTransportTunnelFeature = new(TunnelConstants.TransportNameTunnelWebSocket);
     private readonly CancellationTokenSource _cts = new();
     private readonly ILogger _logger;
     internal WebSocket? underlyingWebSocket;
@@ -30,7 +33,12 @@ internal sealed class TransportTunnelWebSocketConnectionContext
         : base(options, loggerFactory)
     {
         _logger = logger;
+        
+        Features.Set<IConnectionTransportTunnelFeature>(_connectionTransportTunnelFeature);
+        Items.Add(typeof(IConnectionTransportTunnelFeature), _connectionTransportTunnelFeature);
     }
+
+    public string? TransportMode => TunnelConstants.TransportNameTunnelWebSocket;
 
     public override CancellationToken ConnectionClosed
     {

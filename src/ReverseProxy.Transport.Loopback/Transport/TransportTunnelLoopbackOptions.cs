@@ -31,5 +31,4 @@ public sealed class TransportTunnelLoopbackOptions
     /// Allows Authentication for the tunnel.
     /// </summary>
     public Func<TransportTunnelConfig, HttpRequestMessage, ValueTask>? ConfigureHttpRequestMessageAsync { get; set; }
-    public string? SocketPath { get; set; }
 }

@@ -1,6 +1,6 @@
-using System;
-using System.Collections.Immutable;
-using System.Security.Cryptography.X509Certificates;
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Text;
 
 using Microsoft.Extensions.Options;
@@ -15,8 +15,8 @@ namespace Yarp.ReverseProxy.Transport;
 /// </summary>
 internal class AuthorizationTransportSigningCertificate
 {
-    private AuthorizationTransportOptions _options;
     private readonly ICertificateManager _certificateManager;
+    private AuthorizationTransportOptions _options;
 
     /// <summary>
     /// Creates a new instance of <see cref="AuthorizationTransportSigningCertificate"/>.
@@ -102,4 +102,3 @@ internal class AuthorizationTransportSigningCertificate
         return new ImmutableSharedValue<SigningCredentials>(signingCredentials);
     }
 }
-

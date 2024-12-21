@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Net.Http;
 using System.Security.Claims;
 
 using Microsoft.Extensions.Options;
@@ -9,52 +10,20 @@ using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Transport;
 
-public sealed class AuthorizationTransportJWTUtilityService
-{
-    private readonly AuthorizationTransportSigningCertificate _signingCertificate;
-    private AuthorizationTransportOptions _options;
-
-    public AuthorizationTransportJWTUtilityService(
-        ICertificateManager certificateManager,
-        IOptionsMonitor<AuthorizationTransportOptions> options)
-    {
-        _signingCertificate = new AuthorizationTransportSigningCertificate(
-            certificateManager,
-            options);
-        options.OnChange(OptionsOnChange);
-        _options = options.CurrentValue;
-    }
-
-    private void OptionsOnChange(AuthorizationTransportOptions options, string? name)
-    {
-        if (!string.IsNullOrEmpty(name)) { return; }
-        _options = options;
-    }
-
-    [return: NotNullIfNotNull(nameof(inboundUser))]
-    public ClaimsIdentity? CreateJWTClaimsIdentity(
-        ClaimsPrincipal? inboundUser)
-        => AuthorizationTransportJWTUtility.CreateJWTClaimsIdentity(inboundUser, _options);
-
-    public string CreateJWTToken(ClaimsIdentity outboundClaimsIdentity)
-    {
-        using (var shareSigningCredentials = _signingCertificate.GetSigningCredentials()) {
-            if (!(shareSigningCredentials?.Value is { } certificate))
-            {
-                throw new InvalidOperationException("No signing credentials available.");
-            }
-            return AuthorizationTransportJWTUtility.CreateJWTToken(outboundClaimsIdentity, certificate, _options);
-        }
-    }
-}
-
-public static class AuthorizationTransportJWTUtility
-{
+/// <summary>
+/// Utility class for creating JWT tokens and claims identities.
+/// </summary>
+public static class AuthorizationTransportJWTUtility {
+    /// <summary>
+    /// Creates a <see cref="ClaimsIdentity"/> for the JWT token from the inbound user.
+    /// </summary>
+    /// <param name="inboundUser">The inbound user principal.</param>
+    /// <param name="options">The options for creating the JWT token.</param>
+    /// <returns>A <see cref="ClaimsIdentity"/> for the JWT token, or null if the inbound user is null.</returns>
     [return: NotNullIfNotNull(nameof(inboundUser))]
     public static ClaimsIdentity? CreateJWTClaimsIdentity(
         ClaimsPrincipal? inboundUser,
-        AuthorizationTransportOptions options)
-    {
+        AuthorizationTransportOptions options) {
         if (inboundUser is null) { return default; }
 
         var outboundClaimsIdentity = new ClaimsIdentity();
@@ -64,21 +33,16 @@ public static class AuthorizationTransportJWTUtility
                 && (options.TransformClaimType.Count == 0)
                 && (options.IncludeClaimType.Count == 0)
                 );
-        foreach (var inboundClaim in inboundUser.Claims)
-        {
-            if (options.ExcludeClaimType.Contains(inboundClaim.Type))
-            {
+        foreach (var inboundClaim in inboundUser.Claims) {
+            if (options.ExcludeClaimType.Contains(inboundClaim.Type)) {
                 continue;
             }
 
-            if (options.TransformClaimType.TryGetValue(inboundClaim.Type, out var destinationClaimType))
-            {
+            if (options.TransformClaimType.TryGetValue(inboundClaim.Type, out var destinationClaimType)) {
                 var outboundClaim = new Claim(type: destinationClaimType, value: inboundClaim.Value,
                     valueType: inboundClaim.ValueType);
                 outboundClaimsIdentity.AddClaim(outboundClaim);
-            }
-            else if (includeAll || options.IncludeClaimType.Contains(inboundClaim.Type))
-            {
+            } else if (includeAll || options.IncludeClaimType.Contains(inboundClaim.Type)) {
                 var outboundClaim = new Claim(type: inboundClaim.Type, value: inboundClaim.Value,
                     valueType: inboundClaim.ValueType);
                 outboundClaimsIdentity.AddClaim(outboundClaim);
@@ -88,14 +52,19 @@ public static class AuthorizationTransportJWTUtility
         return outboundClaimsIdentity;
     }
 
+    /// <summary>
+    /// Creates a JWT token from the specified claims identity.
+    /// </summary>
+    /// <param name="outboundClaimsIdentity">The claims identity for the JWT token.</param>
+    /// <param name="signingCredentials">The signing credentials for the JWT token.</param>
+    /// <param name="options">The options for creating the JWT token.</param>
+    /// <returns>The created JWT token.</returns>
     public static string CreateJWTToken(
         ClaimsIdentity outboundClaimsIdentity,
         SigningCredentials signingCredentials,
-        AuthorizationTransportOptions options)
-    {
+        AuthorizationTransportOptions options) {
         var now = DateTime.UtcNow;
-        var descriptor = new SecurityTokenDescriptor
-        {
+        var descriptor = new SecurityTokenDescriptor {
             Issuer = options.Issuer,
             Audience = options.Audience,
             IssuedAt = now,
@@ -109,5 +78,4 @@ public static class AuthorizationTransportJWTUtility
         var jwtToken = jsonWebTokenHandler.CreateToken(descriptor);
         return jwtToken;
     }
-
 }

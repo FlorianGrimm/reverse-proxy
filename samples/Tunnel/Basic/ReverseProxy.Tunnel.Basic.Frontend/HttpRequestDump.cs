@@ -1,4 +1,8 @@
 
+using Microsoft.AspNetCore.Connections.Features;
+
+using Yarp.ReverseProxy.Transport;
+
 namespace ReverseProxy.Tunnel;
 
 public class HttpRequestDump
@@ -14,6 +18,7 @@ public class HttpRequestDump
         string? Query,
         Dictionary<string, string?[]> Headers,
         DateTimeOffset Time,
+        string? TransportMode,
         bool? UserIsAuthenticated,
         string? UserName,
         IEnumerable<object> UserClaims,
@@ -28,6 +33,7 @@ public class HttpRequestDump
         this.Query = Query;
         this.Headers = Headers;
         this.Time = Time;
+        this.TransportMode = TransportMode;
         this.UserIsAuthenticated = UserIsAuthenticated;
         this.UserName = UserName;
         this.UserClaims = UserClaims;
@@ -43,6 +49,7 @@ public class HttpRequestDump
     public string? Query { get; set; }
     public Dictionary<string, string?[]> Headers { get; set; } = new();
     public DateTimeOffset Time { get; set; }
+    public string? TransportMode { get; set; }
     public bool? UserIsAuthenticated { get; set; }
     public string? UserName { get; set; }
     public IEnumerable<object> UserClaims { get; set; } = [];
@@ -50,6 +57,10 @@ public class HttpRequestDump
 
     public static async Task<HttpRequestDump> GetDumpAsync(HttpContext httpContext, HttpRequest httpRequest, bool readBody)
     {
+        var transportMode = (httpContext.Features.Get<IConnectionItemsFeature>()?.Items is { } items
+            && items.TryGetValue(typeof(IConnectionTransportTunnelFeature), out var objValue)
+            && objValue is IConnectionTransportTunnelFeature feature) ? feature.TransportMode : default(string?);
+
         var body = readBody ? (await new StreamReader(httpRequest.Body).ReadToEndAsync()) : string.Empty;
         var result = new HttpRequestDump(
             Protocol: httpRequest.Protocol,
@@ -61,6 +72,7 @@ public class HttpRequestDump
             Query: httpRequest.QueryString.Value,
             Headers: httpRequest.Headers.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.ToArray()),
             Time: DateTimeOffset.UtcNow,
+            TransportMode: transportMode,
             UserIsAuthenticated: httpContext.User.Identity?.IsAuthenticated,
             UserName: httpContext.User.Identity?.Name,
             UserClaims: httpContext.User.Claims.Select(claim => new { Type = claim.Type, Value = claim.Value }),
