@@ -3,11 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
-using System.Security.Cryptography.X509Certificates;
-using Microsoft.AspNetCore.Http;
-
-using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 using Yarp.ReverseProxy.Utilities;
 

@@ -61,9 +61,6 @@ internal sealed class TransportTunnelLoopbackConnectionContext
         PipeRequest = new Pipe();
         PipeResponse = new Pipe();
 
-        // RequestStream = PipeRequest.Reader.AsStream();
-        // ResponseStream = PipeRequest.Writer.AsStream();
-
         Input = PipeRequest.Reader;
         Output = PipeResponse.Writer;
     }
@@ -72,9 +69,6 @@ internal sealed class TransportTunnelLoopbackConnectionContext
 
     public Pipe PipeRequest { get; }
     public Pipe PipeResponse { get; }
-
-    // public Stream RequestStream { get; }
-    // public Stream ResponseStream { get; }
 
     public Task ExecutionTask => _executionTcs.Task;
 
@@ -96,8 +90,6 @@ internal sealed class TransportTunnelLoopbackConnectionContext
 
     public override CancellationToken ConnectionClosed { get; set; }
 
-    //public HttpResponseMessage HttpResponseMessage { get; set; } = default!;
-
     public void SetTrackLifetime(
         TrackLifetimeConnectionContextCollection trackLifetimeConnectionContextCollection,
         AsyncLockOwner asyncLockOwner)
@@ -111,7 +103,6 @@ internal sealed class TransportTunnelLoopbackConnectionContext
         var releasedLock = _asyncLockOwner.Release();
         var removedFromCollection = _trackLifetimeConnectionContextCollection?.TryRemove(this) ?? false;
         _executionTcs?.TrySetCanceled();
-        //HttpResponseMessage?.Dispose();
         Input?.CancelPendingRead();
         Output?.CancelPendingFlush();
         System.Diagnostics.Debug.Assert(releasedLock == removedFromCollection);
@@ -128,48 +119,4 @@ internal sealed class TransportTunnelLoopbackConnectionContext
 
         return base.DisposeAsync();
     }
-    /*
-    internal sealed class TunnelHttpContent : HttpContent
-    {
-        private readonly TransportTunnelLoopbackConnectionContext _connectionContext;
-
-        public TunnelHttpContent(TransportTunnelLoopbackConnectionContext connectionContext)
-        {
-            _connectionContext = connectionContext;
-        }
-
-        protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken)
-        {
-            _connectionContext.Output = PipeWriter.Create(stream);
-
-            // Immediately flush request stream to send headers
-            // https://github.com/dotnet/corefx/issues/39586#issuecomment-516210081
-            await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
-
-            await _connectionContext.ExecutionTask.ConfigureAwait(false);
-        }
-
-        protected override async Task SerializeToStreamAsync(Stream stream, TransportContext? context)
-        {
-            _connectionContext.Output = PipeWriter.Create(stream);
-
-            // Immediately flush request stream to send headers
-            // https://github.com/dotnet/corefx/issues/39586#issuecomment-516210081
-            await stream.FlushAsync().ConfigureAwait(false);
-
-            await _connectionContext.ExecutionTask.ConfigureAwait(false);
-        }
-
-        protected override bool TryComputeLength(out long length)
-        {
-            length = -1;
-            return false;
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            base.Dispose(disposing);
-        }
-    }
-    */
 }

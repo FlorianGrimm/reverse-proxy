@@ -96,7 +96,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                         }
                     }
 
-                    TransportTunnelHttp2ConnectionContext? innerConnection = null;
+                    TransportTunnelHttp2ConnectionContext? connectionContext = null;
                     HttpContent? httpContent = null;
                     HttpResponseMessage? response = null;
                     var requestMessage = new HttpRequestMessage(
@@ -120,7 +120,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                                 await configure(config, requestMessage);
                             }
                         }
-                        (innerConnection, httpContent) = TransportTunnelHttp2ConnectionContext.Create(_logger);
+                        (connectionContext, httpContent) = TransportTunnelHttp2ConnectionContext.Create(_logger);
                         if (Log.IsTransportSendTransportTunnelEnabled(_logger))
                         {
                             Log.TransportSendTransportTunnel(_logger, _tunnel.TunnelId, requestMessage.Method, requestMessage.RequestUri, requestMessage.Content?.Headers.ContentLength);
@@ -128,10 +128,10 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                         requestMessage.Content = httpContent;
                         response = await _httpMessageInvoker.SendAsync(requestMessage, cancellationToken).ConfigureAwait(false);
                         response.EnsureSuccessStatusCode();
-                        innerConnection.HttpResponseMessage = response;
+                        connectionContext.HttpResponseMessage = response;
                         var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-                        innerConnection.Input = PipeReader.Create(responseStream);
-                        var connectionContext = _connectionCollection.AddInnerConnection(innerConnection, currentConnectionLock);
+                        connectionContext.Input = PipeReader.Create(responseStream);
+                        _connectionCollection.AddInnerConnection(connectionContext, currentConnectionLock);
 
                         if (_delay.Reset())
                         {
@@ -143,7 +143,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                     {
                         Log.TransportFailureSendTransportTunnel(_logger, config.TunnelId, config.Url, config.Transport);
                         if (requestMessage is not null) { requestMessage.Dispose(); }
-                        if (innerConnection is not null) { await innerConnection.DisposeAsync(); }
+                        if (connectionContext is not null) { await connectionContext.DisposeAsync(); }
                         if (httpContent is not null) { httpContent.Dispose(); }
 
                         if (error is OperationCanceledException) { return null; }

@@ -145,4 +145,5 @@ public record struct TunnelAuthenticationResponse(
     }
 }
 
-public sealed record TunnelAuthenticationMetadata(ITunnelAuthentication TunnelAuthentication);
+public sealed record TunnelAuthenticationMetadata(
+    ITunnelAuthentication TunnelAuthentication);

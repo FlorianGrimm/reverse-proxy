@@ -12,14 +12,15 @@ public class Program : BackgroundService
 {
     public static async Task Main(string[] args)
     {
-        await Task.Delay(1000);
-
         var builder = Host.CreateApplicationBuilder(args);
+        builder.Configuration.AddJsonFile(System.IO.Path.Combine(System.AppContext.BaseDirectory, "appsettings.json"), false);
         builder.Logging.AddConsole();
+
         builder.Services.AddOptions<ProgramOptions>()
             .Bind(builder.Configuration.GetRequiredSection(nameof(Program)));
         builder.Services.AddHostedService<Program>();
         var app = builder.Build();
+        await Task.Delay(1000);
         await app.RunAsync();
     }
 
@@ -56,6 +57,8 @@ public class Program : BackgroundService
 
             HttpClient[] clientsUnauthenticated = [clientAPIUnauthenticated, clientBackendUnauthenticated, clientFrontendUnauthenticated];
             HttpClient[] clientsAuthenticated = [clientAPIAuthenticated, clientBackendAuthenticated, clientFrontendAuthenticated];
+            var clientsUnauthenticatedByBaseAddress = clientsUnauthenticated.ToDictionary(client => client.BaseAddress!.GetLeftPart(UriPartial.Authority));
+            var clientsAuthenticatedByBaseAddress = clientsAuthenticated.ToDictionary(client => client.BaseAddress!.GetLeftPart(UriPartial.Authority));
 
             var limit = System.DateTime.UtcNow.AddSeconds(10);
             var log = true;
@@ -64,25 +67,36 @@ public class Program : BackgroundService
             {
                 loop++;
 
-                foreach (var test in _options.Tests)
+                for (var index = 0; index < _options.Tests.Count; index++)
                 {
-                    var clients = test.Authenticate?clientsAuthenticated:clientsAuthenticated;
+                    var test = _options.Tests[index];
+                    // _logger.LogInformation("test.UrlPath:{UrlPath}", test.UrlPath);
                     if (test.UrlPath.StartsWith("/"))
                     {
+                        var clients = test.Authenticate ? clientsAuthenticated : clientsUnauthenticated;
                         foreach (var client in clients)
                         {
-                            var content = await GetAsync(client, test.UrlPath, log, stoppingToken);
-                            TestContent(new Uri(client.BaseAddress!, test.UrlPath), test.Content, content, log);
+                            var content = await GetContentAsync(client, test.UrlPath, log, stoppingToken);
+                            TestContent(index, new Uri(client.BaseAddress!, test.UrlPath), test.Content, content, log);
                         }
                     }
                     else
                     {
                         var uri = new Uri(test.UrlPath);
-                        using var client = GetHttpClient(uri.GetLeftPart(UriPartial.Authority), test.Authenticate);
-                        var content = await GetAsync(client, uri.PathAndQuery, log, stoppingToken);
-                        TestContent(uri, test.Content, content, log);
+                        var dictClients = test.Authenticate ? clientsAuthenticatedByBaseAddress : clientsUnauthenticatedByBaseAddress;
+                        var uriAuthority = uri.GetLeftPart(UriPartial.Authority);
+                        if (dictClients.TryGetValue(uriAuthority.ToString(), out var existingClient))
+                        {
+                            var content = await GetContentAsync(existingClient, test.UrlPath, log, stoppingToken);
+                            TestContent(index, uri, test.Content, content, log);
+                        }
+                        else
+                        {
+                            using var extraClient = GetHttpClient(uri.GetLeftPart(UriPartial.Authority), test.Authenticate);
+                            var content = await GetContentAsync(extraClient, test.UrlPath, log, stoppingToken);
+                            TestContent(index, uri, test.Content, content, log);
+                        }
                     }
-#pragma warning restore CA1866 // Use char overload
                 }
                 log = false;
             }
@@ -91,14 +105,15 @@ public class Program : BackgroundService
         catch (System.Exception error)
         {
             _logger.LogError(error, "Failed");
+            _serviceProvider.GetRequiredService<IHostApplicationLifetime>().StopApplication();
             return;
         }
 
         _logger.LogInformation("Success");
         /*
-        await Task.Delay(2000);
-        */
-        _serviceProvider.GetRequiredService<IHostApplicationLifetime>().StopApplication();
+            await Task.Delay(2000);
+            */
+            _serviceProvider.GetRequiredService<IHostApplicationLifetime>().StopApplication();
     }
 
     private async Task TestUntilStarted(HttpClient client, CancellationToken stoppingToken)
@@ -109,7 +124,7 @@ public class Program : BackgroundService
         {
             try
             {
-                await GetAsync(client, "/", false, stoppingToken);
+                await GetContentAsync(client, "/", false, stoppingToken);
                 return;
             }
             catch (System.Exception error)
@@ -122,6 +137,7 @@ public class Program : BackgroundService
     }
 
     private void TestContent(
+        int index,
         Uri urlRequest,
         string expectedContent,
         string actualContent,
@@ -131,15 +147,15 @@ public class Program : BackgroundService
         {
             if (log)
             {
-                _logger.LogInformation("OK");
+                _logger.LogInformation("{index} - OK", index);
             }
             return;
         }
-        _logger.LogWarning("Failed {UrlRequest} {expectedContent}", urlRequest.ToString(), expectedContent);
+        _logger.LogWarning("{index} Failed {UrlRequest} {expectedContent}", index, urlRequest.ToString(), expectedContent);
         throw new Exception("Failed");
     }
 
-    public async Task<string> GetAsync(HttpClient client, string path, bool log, CancellationToken stoppingToken)
+    public async Task<string> GetContentAsync(HttpClient client, string path, bool log, CancellationToken stoppingToken)
     {
         if (log)
         {

@@ -73,9 +73,6 @@ internal sealed class TunnelNegotiateHttp2
         conventionBuilder.RequireAuthorization(TunnelNegotiateConstants.PolicyNamePayload);
         conventionBuilder
             .WithMetadata(
-#warning TODO: weichei
-                //new TunnelAuthenticationSchemeMetadata(
-                //    Yarp.ReverseProxy.Authentication.TunnelNegotiateDefaults.AuthenticationScheme),
                 new TunnelAuthenticationSchemeMetadata(
                     Yarp.ReverseProxy.Tunnel.TunnelAuthenticationDefaults.AuthenticationScheme),
                 new TunnelAuthenticationMetadata(this));

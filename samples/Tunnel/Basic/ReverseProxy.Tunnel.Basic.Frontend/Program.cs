@@ -23,14 +23,6 @@ https://localhost:5001/LoopbackUser/API
 https://localhost:5001/LoopbackAnonymous/API
 https://localhost:5001/LoopbackUser/APIDump
 https://localhost:5001/LoopbackAnonymous/APIDump
-https://localhost:5001/
-https://localhost:5001/
-https://localhost:5001/
-https://localhost:5001/
-
-https://localhost:5003/
-https://localhost:5005/
-
  */
 public class Program
 {
@@ -95,7 +87,6 @@ public class Program
             .AddTransportLoopback(
                 configure: (options) =>
                 {
-                    //options.SocketPath = socketPath;
                 }
             )
             .AddTunnelServices()
@@ -107,7 +98,6 @@ public class Program
                 {
                     options.ChallengeSchemeSelector = static (ResponseTransformContext responseTransformContext) =>
                     {
-                        //string? result=null; return result;
                         return NegotiateDefaults.AuthenticationScheme;
                     };
                 })

@@ -34,9 +34,9 @@ public static class TunnelAuthenticationSchemeExtensions
     {
         return ForwardDefaultSelector;
 
-        string? ForwardDefaultSelector(HttpContext context)
+        string? ForwardDefaultSelector(HttpContext httpContext)
         {
-            if (context.GetEndpoint()?
+            if (httpContext.GetEndpoint()?
                 .Metadata
                 .GetMetadata<TunnelAuthenticationSchemeMetadata>()?
                 .AuthenticationScheme is { Length: > 0 } scheme)

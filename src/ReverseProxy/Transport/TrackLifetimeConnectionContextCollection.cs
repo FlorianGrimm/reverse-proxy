@@ -16,27 +16,39 @@ public interface ITrackLifetimeConnectionContext
         AsyncLockOwner asyncLockOwner);
 }
 
+/// <summary>
+/// Collection of connections that are tracked for lifetime management.
+/// </summary>
 public sealed class TrackLifetimeConnectionContextCollection
 {
     private readonly ConcurrentDictionary<ConnectionContext, ConnectionContext> _connections;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TrackLifetimeConnectionContextCollection"/> class.
+    /// </summary>
+    /// <param name="connections">The connections to manage</param>
     public TrackLifetimeConnectionContextCollection(ConcurrentDictionary<ConnectionContext, ConnectionContext> connections)
     {
         _connections = connections;
     }
 
-    public ConnectionContext AddInnerConnection(ConnectionContext connectionContext, AsyncLockOwner connectionLock)
+    /// <summary>
+    /// Adds a connection to the collection.
+    /// </summary>
+    /// <param name="connectionContext"></param>
+    /// <param name="connectionLock"></param>
+    public void AddInnerConnection(ConnectionContext connectionContext, AsyncLockOwner connectionLock)
     {
         // Track this connection lifetime
-        var trackLifetimeConnectionContext = (ITrackLifetimeConnectionContext)connectionContext;
-        if (_connections.TryAdd(connectionContext, connectionContext))
+        if (connectionContext is ITrackLifetimeConnectionContext trackLifetimeConnectionContext)
         {
-            trackLifetimeConnectionContext.SetTrackLifetime(
-                this,
-                connectionLock.Transfer(connectionContext));
+            if (_connections.TryAdd(connectionContext, connectionContext))
+            {
+                trackLifetimeConnectionContext.SetTrackLifetime(
+                    this,
+                    connectionLock.Transfer(connectionContext));
+            }
         }
-
-        return connectionContext;
     }
 
     public bool TryRemove(ConnectionContext connection)

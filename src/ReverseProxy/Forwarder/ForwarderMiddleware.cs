@@ -72,49 +72,49 @@ internal sealed class ForwarderMiddleware
         }
         else
         {
-        if (destinations.Count == 0)
-        {
-            Log.NoAvailableDestinations(_logger, cluster.ClusterId);
-            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-            context.Features.Set<IForwarderErrorFeature>(new ForwarderErrorFeature(ForwarderError.NoAvailableDestinations, ex: null));
-            activity?.SetStatus(ActivityStatusCode.Error);
-            activity?.AddError("Proxy forwarding failed", "No available destinations to forward to");
-            return;
-        }
+            if (destinations.Count == 0)
+            {
+                Log.NoAvailableDestinations(_logger, cluster.ClusterId);
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                context.Features.Set<IForwarderErrorFeature>(new ForwarderErrorFeature(ForwarderError.NoAvailableDestinations, ex: null));
+                activity?.SetStatus(ActivityStatusCode.Error);
+                activity?.AddError("Proxy forwarding failed", "No available destinations to forward to");
+                return;
+            }
 
-        var destination = destinations[0];
-        if (destinations.Count > 1)
-        {
-            var random = _randomFactory.CreateRandomInstance();
-            Log.MultipleDestinationsAvailable(_logger, cluster.ClusterId);
-            destination = destinations[random.Next(destinations.Count)];
-        }
+            var destination = destinations[0];
+            if (destinations.Count > 1)
+            {
+                var random = _randomFactory.CreateRandomInstance();
+                Log.MultipleDestinationsAvailable(_logger, cluster.ClusterId);
+                destination = destinations[random.Next(destinations.Count)];
+            }
 
-        reverseProxyFeature.ProxiedDestination = destination;
-        activity?.AddTag("proxy.destination_id", destination.DestinationId);
+            reverseProxyFeature.ProxiedDestination = destination;
+            activity?.AddTag("proxy.destination_id", destination.DestinationId);
 
-        var destinationModel = destination.Model;
-        if (destinationModel is null)
-        {
-            throw new InvalidOperationException($"Chosen destination has no model set: '{destination.DestinationId}'");
-        }
+            var destinationModel = destination.Model;
+            if (destinationModel is null)
+            {
+                throw new InvalidOperationException($"Chosen destination has no model set: '{destination.DestinationId}'");
+            }
 
-        try
-        {
-            cluster.ConcurrencyCounter.Increment();
-            destination.ConcurrencyCounter.Increment();
-            ForwarderTelemetry.Log.ForwarderInvoke(cluster.ClusterId, route.Config.RouteId, destination.DestinationId);
+            try
+            {
+                cluster.ConcurrencyCounter.Increment();
+                destination.ConcurrencyCounter.Increment();
+                ForwarderTelemetry.Log.ForwarderInvoke(cluster.ClusterId, route.Config.RouteId, destination.DestinationId);
 
-            var clusterConfig = reverseProxyFeature.Cluster;
-            var result = await _forwarder.SendAsync(context, destinationModel.Config.Address, clusterConfig.HttpClient,
-                clusterConfig.Config.HttpRequest ?? ForwarderRequestConfig.Empty, route.Transformer);
+                var clusterConfig = reverseProxyFeature.Cluster;
+                var result = await _forwarder.SendAsync(context, destinationModel.Config.Address, clusterConfig.HttpClient,
+                    clusterConfig.Config.HttpRequest ?? ForwarderRequestConfig.Empty, route.Transformer);
 
-            activity?.SetStatus((result == ForwarderError.None) ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
-        }
-        finally
-        {
-            destination.ConcurrencyCounter.Decrement();
-            cluster.ConcurrencyCounter.Decrement();
+                activity?.SetStatus((result == ForwarderError.None) ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
+            }
+            finally
+            {
+                destination.ConcurrencyCounter.Decrement();
+                cluster.ConcurrencyCounter.Decrement();
             }
         }
     }

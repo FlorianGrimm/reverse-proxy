@@ -25,6 +25,7 @@ public class Program
                 configureOptions: static (options) =>
                 {
                     options.ForwardDefaultSelector = TransportTunnelExtensions.CreateForwardDefaultSelector(
+                        defaultTunnelAuthenticationScheme: TransportJwtBearerTokenDefaults.AuthenticationScheme,
                         defaultAuthenticationScheme: NegotiateDefaults.AuthenticationScheme);
                 })
             ;

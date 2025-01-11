@@ -20,19 +20,6 @@ public class Program
                 displayName: "Default",
                 configureOptions: static (options) =>
                 {
-                    /*
-                    options.ForwardDefaultSelector = static (context) =>
-                    {
-                        if (context.GetEndpoint().TryGetTunnelAuthenticationScheme(out var authenticationScheme))
-                        {
-                            return authenticationScheme;
-                        }
-                        else
-                        {
-                            return Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
-                        }
-                    };
-                    */
                     options.ForwardDefaultSelector = TunnelAuthenticationSchemeExtensions
                         .CreateForwardDefaultSelector(NegotiateDefaults.AuthenticationScheme);
                 });

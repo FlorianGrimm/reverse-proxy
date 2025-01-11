@@ -131,17 +131,26 @@ internal sealed class AuthorizationTransportResponseTransform(AuthorizationTrans
 {
     private readonly AuthorizationTransportOptions _options = options;
 
-    public override async ValueTask ApplyAsync(ResponseTransformContext context) {
+    public override async ValueTask ApplyAsync(ResponseTransformContext context)
+    {
         // If the proxy response status code is Unauthorized (401),
         // initiate a challenge to authenticate the user using the specified scheme.
         if (context.ProxyResponse is { } proxyResponse
-            && HttpStatusCode.Unauthorized == proxyResponse.StatusCode) {
+            && HttpStatusCode.Unauthorized == proxyResponse.StatusCode)
+        {
+            // this does not work since context.ProxyResponse is the one the is returned to the client
+            // and context.HttpContext is not the original
+            // big TODO future me
             string? scheme = null;
-            if (_options.ChallengeSchemeSelector is { } schemeSelector) {
+            if (_options.ChallengeSchemeSelector is { } schemeSelector)
+            {
                 scheme = schemeSelector(context);
             }
             scheme ??= _options.Scheme;
             await context.HttpContext.ChallengeAsync(scheme);
+
+            // so instead of that, we might use 307 Temporary Redirect and redirect to a login page
+            // someting like /login?challange=scheme&returnUrl=originalUrl
         }
     }
 }

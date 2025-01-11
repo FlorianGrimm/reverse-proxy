@@ -134,10 +134,10 @@ internal sealed class TransportTunnelWebSocketConnectionListener
                         };
                         _authenticator.ConfigureWebSocketConnectionOptions(config, options);
 
-                        var innerConnection = new TransportTunnelWebSocketConnectionContext(options, _logger, null);
-                        await innerConnection.StartAsync(TransferFormat.Binary, cancellationToken);
-                        innerConnection.underlyingWebSocket = underlyingWebSocket;
-                        var connectionContext = _connectionCollection.AddInnerConnection(innerConnection, connectionLock);
+                        var connectionContext = new TransportTunnelWebSocketConnectionContext(options, _logger, null);
+                        await connectionContext.StartAsync(TransferFormat.Binary, cancellationToken);
+                        connectionContext.underlyingWebSocket = underlyingWebSocket;
+                        _connectionCollection.AddInnerConnection(connectionContext, connectionLock);
 
                         if (_delay.Reset())
                         {

@@ -96,10 +96,10 @@ internal sealed class TransportTunnelLoopbackConnectionListener
                         await channelsReader.WaitToReadAsync(cancellationToken);
                     }
 
-                    var (innerConnection, streamClient) = TransportTunnelLoopbackConnectionContext.Create(_logger);
+                    var (connectionContext, streamClient) = TransportTunnelLoopbackConnectionContext.Create(_logger);
                     tunnelConnectionStream.SetStream(streamClient);
 
-                    var connectionContext = _connectionCollection.AddInnerConnection(innerConnection, currentConnectionLock);
+                    _connectionCollection.AddInnerConnection(connectionContext, currentConnectionLock);
 
                     if (_delay.Reset())
                     {

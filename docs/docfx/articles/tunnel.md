@@ -213,7 +213,7 @@ In the config: and Transport and Authentication.
                 "RemoteTunnelId": "alpha",
                 "Transport": "TunnelHTTP2",
                 "Authentication": {
-                    "Mode": "Anonymous"
+                    "Mode": "Basic"
                 }
             }
         }
@@ -255,7 +255,7 @@ In the config: and Transport and Authentication.
                 "RemoteTunnelId": "alpha",
                 "Transport": "TunnelHTTP2",
                 "Authentication": {
-                    "Mode": "Anonymous"
+                    "Mode": "Basic"
                 }
             }
         }
@@ -327,8 +327,10 @@ To pass down the user the frontend have to create a JWT token from you HTTPConte
   - the auth should be switched, because of the tunnel (url) not of the header
   - Yarp.ReverseProxy.Transport.JWT is not finished.
   - is Yarp.ReverseProxy.Transport.JWT not just a bad copy of JwtBearer
+  - is their a good solution for 401 \src\ReverseProxy.Transport.JWT\Transport\AuthorizationTransportRequestTransform.cs 
 - Yarp.ReverseProxy.Tunnel.Certificate sample
 - Yarp.ReverseProxy.Tunnel.JWT sample
 - Yarp.ReverseProxy.Transport.JWT for the others?
+- Yarp.ReverseProxy.Tunnel.Negotiate remove it?
 - nicer version of - app.UseWhen(static (context) => !context.TryGetTransportTunnelByUrl(out var _), static (app) => app.UseHttpsRedirection());
 - a version of TryGetTransportTunnelByUrl that can be used in the AddPolicyScheme

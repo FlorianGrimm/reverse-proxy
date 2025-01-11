@@ -72,63 +72,6 @@ public static class TransportJwtBearerTokenExtensions
         return builder;
     }
 
-    public static bool IsForwardedRequest(this HttpContext? httpContext)
-    {
-        if (httpContext is { })
-        {
-            foreach (var xForwardedHost in httpContext.Request.Headers["x-forwarded-host"])
-            {
-                if (xForwardedHost is { Length: > 0 })
-                {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    public static bool IsForwardedJwtBearerTokenAuthentication(this HttpContext? httpContext)
-    {
-        if (httpContext is { })
-        {
-            var foundForwardedHosts = false;
-            foreach (var xForwardedHost in httpContext.Request.Headers["x-forwarded-host"])
-            {
-                if (xForwardedHost is { Length: > 0 })
-                {
-                    foundForwardedHosts = true;
-                    break;
-                }
-            }
-
-            if (foundForwardedHosts)
-            {
-                foreach (var valueAuthorization in httpContext.Request.Headers.Authorization)
-                {
-                    if (valueAuthorization is { Length: > 7 }
-                        && valueAuthorization.StartsWith(PrefixBearer))
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    private const string PrefixBearer = "Bearer ";
-    public static string? GetBearerToken(StringValues authorization)
-    {
-        foreach (var valueAuthorization in authorization)
-        {
-            if (valueAuthorization is { Length: > 7 }
-                && valueAuthorization.StartsWith(PrefixBearer))
-            {
-                return valueAuthorization.Substring(PrefixBearer.Length);
-            }
-        }
-        return null;
-    }
     public static void Bind(this TransportJwtBearerTokenOptions that, IConfiguration configuration)
     {
 
