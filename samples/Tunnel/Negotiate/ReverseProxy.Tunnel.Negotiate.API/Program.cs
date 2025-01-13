@@ -29,7 +29,7 @@ public class Program
                 configureOptions: static (options) =>
             {
                 options.ForwardDefaultSelector =
-                    static (context) => context.IsForwardedRequest()
+                    static (context) => context.IsXForwardedHostRequest()
                         ? Yarp.ReverseProxy.Authentication.TransportJwtBearerTokenDefaults.AuthenticationScheme
                         : Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
             })

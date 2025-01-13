@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Yarp.ReverseProxy.Model;
 
 namespace Yarp.ReverseProxy.Tunnel;
+
 internal sealed class TunnelNegotiateWebSocket
     : TunnelNegotiateBase
     , ITunnelAuthenticationService
@@ -40,9 +41,8 @@ internal sealed class TunnelNegotiateWebSocket
                 Yarp.ReverseProxy.Tunnel.TunnelNegotiateConstants.NegotiateAuthenticationName));
     }
 
-    public async ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
+    public ValueTask<IResult?> CheckTunnelRequestIsAuthenticated(HttpContext context, ClusterState cluster)
     {
-        await Task.CompletedTask;
-        return default;
+        return ValueTask.FromResult<IResult?>(default);
     }
 }

@@ -25,7 +25,7 @@ namespace Yarp.ReverseProxy.Tunnel;
 internal sealed class TunnelNegotiateHttp2
     : TunnelNegotiateBase
     , ITunnelAuthenticationService
-    , ITunnelAuthentication
+    , ITunnelAuthenticationHandler
 {
     private static readonly string[] AuthenticationTypes = ["NTLM", "Kerberos", "Kerberos2"];
 
@@ -67,7 +67,8 @@ internal sealed class TunnelNegotiateHttp2
         endpointMapGet.RequireAuthorization(TunnelNegotiateConstants.PolicyNameGetAuth);
         endpointMapGet.WithMetadata(
             new TunnelAuthenticationSchemeMetadata(
-                Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme));
+                Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme),
+            new TunnelAuthenticationMetadata(this));
 
         // will use
         conventionBuilder.RequireAuthorization(TunnelNegotiateConstants.PolicyNamePayload);
@@ -212,7 +213,10 @@ internal sealed class TunnelNegotiateHttp2
         return result;
     }
 
-    public ValueTask<TunnelAuthenticationResponse> HandleAuthenticateAsync(
+
+    // ITunnelAuthentication
+
+    public ValueTask<TunnelAuthenticationResponse> HandleTunnelAuthenticateAsync(
         HttpContext context,
         ClusterConfig clusterConfig,
         string scheme,

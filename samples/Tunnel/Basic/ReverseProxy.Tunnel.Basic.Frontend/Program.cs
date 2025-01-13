@@ -117,6 +117,7 @@ public class Program
         logger = app.Services.GetRequiredService<ILogger<Program>>();
 
         //app.UseHttpsRedirection();
+        app.UseRouting();
         app.UseAuthentication();
         app.UseAuthorization();
 

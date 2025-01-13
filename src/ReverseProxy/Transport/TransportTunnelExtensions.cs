@@ -3,24 +3,20 @@
 
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
+using Yarp.ReverseProxy;
 using Yarp.ReverseProxy.Configuration;
 using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Transport;
-using Yarp.ReverseProxy.Utilities;
 
 namespace Microsoft.AspNetCore.Builder;
 
@@ -81,7 +77,7 @@ public static class TransportTunnelExtensions
     /// <param name="builder">this</param>
     /// <param name="configureTunnelHttp2">configure transport tunnel for Http2.</param>
     /// <param name="configureTunnelWebSocket">configure transport tunnel for WebSocket.</param>
-    /// <returns></returns>
+    /// <returns>fluent this.</returns>
     /// <example>
     ///    builder.Services.AddReverseProxy()
     ///        .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
@@ -126,14 +122,19 @@ public static class TransportTunnelExtensions
         return builder;
     }
 
-    public static bool TryAddTransportTunnelCore(
-        IReverseProxyBuilder builder
-    )
+    /// <summary>
+    /// Add the tunnel transport service (on the backend).
+    /// </summary>
+    /// <param name="builder"></param>
+    /// <returns></returns>
+    public static bool TryAddTransportTunnelCore(IReverseProxyBuilder builder)
     {
         var services = builder.Services;
 
-        foreach (var serviceDescriptor in services) {
-            if (typeof(TransportTunnelFactory).Equals(serviceDescriptor.ServiceType)) {
+        foreach (var serviceDescriptor in services)
+        {
+            if (typeof(TransportTunnelFactory).Equals(serviceDescriptor.ServiceType))
+            {
                 return false;
             }
         }
@@ -241,5 +242,16 @@ public static class TransportTunnelExtensions
             }
         }
     }
+    private static class Log
+    {
+        private static readonly Action<ILogger, string, string, string, Exception?> _clusterAuthenticationSuccess = LoggerMessage.Define<string, string, string>(
+            LogLevel.Debug,
+            EventIds.ClusterAuthenticationSuccess,
+            "Cluster {clusterId} Authentication {AuthenticationName} success {subject}.");
 
+        public static void ClusterAuthenticationSuccess(ILogger logger, string clusterId, string authenticationName, string subject)
+        {
+            _clusterAuthenticationSuccess(logger, clusterId, authenticationName, subject, null);
+        }
+    }
 }

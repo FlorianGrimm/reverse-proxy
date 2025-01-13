@@ -3,33 +3,23 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Net.Security;
-using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
-using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 
-using Yarp.ReverseProxy.Configuration;
-using Yarp.ReverseProxy.Management;
 using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Utilities;
-
-using Microsoft.AspNetCore.Authentication.Certificate;
-using System.Security.Cryptography;
-using Microsoft.AspNetCore.Hosting;
-using System.Security.Principal;
-using System.Collections.Concurrent;
-using Microsoft.AspNetCore.Connections;
 
 namespace Yarp.ReverseProxy.Tunnel;
 
@@ -173,7 +163,7 @@ internal sealed class TunnelAuthenticationCertificateHttp2
             return false;
         }
 
-        // TODO: is this really needed? - since their must be a matching certificate?
+        // THINKOF: is this really needed? - since their must be a matching certificate
         //if (!ValidateCertificateAsync(clientCertificate))
         //{
         //    Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, GetAuthenticationMode(), clientCertificate.Subject);

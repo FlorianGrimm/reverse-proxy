@@ -36,7 +36,6 @@ internal sealed class TransportTunnelLoopbackConnectionListener
     private readonly LoopbackEndPoint _endPoint;
     private readonly IncrementalDelay _delay = new();
 
-    private HttpMessageInvoker? _httpMessageInvoker;
     private bool _isDisposed;
 
     public TransportTunnelLoopbackConnectionListener(
@@ -193,7 +192,6 @@ internal sealed class TransportTunnelLoopbackConnectionListener
                         _createHttpMessageInvokerLock = null!;
                         _connectionLock = null!;
                         _closedCts = null!;
-                        _httpMessageInvoker = null;
                     }
                 }
             }

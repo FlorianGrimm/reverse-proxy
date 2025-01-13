@@ -7,10 +7,11 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.IdentityModel.Tokens;
 
+using Yarp.ReverseProxy.Utilities;
+
 namespace Yarp.ReverseProxy.Authentication;
 
-public class TransportJwtBearerTokenOptions
-    : AuthenticationSchemeOptions
+public class TransportJwtBearerTokenOptions : AuthenticationSchemeOptions
 {
     /// <summary>
     /// Gets or sets a single valid audience value for any received token.
@@ -25,6 +26,11 @@ public class TransportJwtBearerTokenOptions
     /// The default is <c>null</c>.
     /// </summary>
     public IEnumerable<string> ValidIssuers { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets the algorithm used for signing the token. Default is RsaSha256
+    /// </summary>
+    public string Algorithm { get; set; } = SecurityAlgorithms.RsaSha256;
 
     /// <summary>
     /// Gets or sets the secret for a SymmetricSecurityKey.

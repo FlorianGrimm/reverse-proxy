@@ -34,7 +34,7 @@ public class Program
                     options.ForwardDefaultSelector = (context) =>
                         {
                             logger ??= context.RequestServices.GetRequiredService<ILogger<Program>>();
-                            var isForwardedRequest = context.IsForwardedRequest();
+                            var isForwardedRequest = context.IsXForwardedHostRequest();
                             var result = isForwardedRequest
                                 ? Yarp.ReverseProxy.Authentication.TransportJwtBearerTokenDefaults.AuthenticationScheme
                                 : Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;

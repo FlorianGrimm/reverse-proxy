@@ -3,19 +3,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Net;
-using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 
 using Yarp.ReverseProxy.Authentication;
 
@@ -47,9 +39,6 @@ public static class TransportJwtBearerTokenExtensions
         }
         builder.Services.TryAddNoOpCertificateManager();
 
-#if NET8_0_OR_GREATER
-        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IConfigureOptions<JsonOptions>, TransportJwtBearerTokenConfigureJsonOptions>());
-#endif
         builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IConfigureOptions<TransportJwtBearerTokenOptions>, TransportJwtBearerTokenConfigureOptions>());
         var optionsBuilder = builder.Services.AddOptions<TransportJwtBearerTokenOptions>();
         if (configuration is { } || configure is { })
@@ -72,6 +61,11 @@ public static class TransportJwtBearerTokenExtensions
         return builder;
     }
 
+    /// <summary>
+    /// Binds the options to the configuration.
+    /// </summary>
+    /// <param name="that">the target options.</param>
+    /// <param name="configuration">the source configuration.</param>
     public static void Bind(this TransportJwtBearerTokenOptions that, IConfiguration configuration)
     {
 
@@ -105,3 +99,4 @@ public static class TransportJwtBearerTokenExtensions
         }
     }
 }
+

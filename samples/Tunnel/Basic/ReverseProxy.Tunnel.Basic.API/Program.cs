@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace ReverseProxy.Tunnel.API;
 
+/// <summary>
+/// This does not use the ReverseProxy - it's only using the TransportJwtBearerToken authentication .
+/// </summary>
 public class Program
 {
     public static void Main(string[] args)
@@ -34,7 +36,7 @@ public class Program
                     options.ForwardDefaultSelector = (context) =>
                         {
                             logger ??= context.RequestServices.GetRequiredService<ILogger<Program>>();
-                            var isForwardedRequest = context.IsForwardedRequest();
+                            var isForwardedRequest = context.IsXForwardedHostRequest();
                             var result = isForwardedRequest
                                 ? Yarp.ReverseProxy.Authentication.TransportJwtBearerTokenDefaults.AuthenticationScheme
                                 : Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
@@ -43,7 +45,6 @@ public class Program
                         };
                 })
             ;
-            //Microsoft.AspNetCore.Authentication.PolicySchemeHandler
 
         builder.Services.AddAuthorizationBuilder()
             .SetDefaultPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build())
@@ -66,7 +67,7 @@ public class Program
                 failureStatus: HealthStatus.Degraded,
                 tags: new[] { "sample" });
         */
-
+        
         var app = builder.Build();
 
         app.UseHttpsRedirection();

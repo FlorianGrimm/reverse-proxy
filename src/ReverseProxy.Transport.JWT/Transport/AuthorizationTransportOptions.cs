@@ -13,11 +13,11 @@ using Yarp.ReverseProxy.Utilities;
 namespace Yarp.ReverseProxy.Transport;
 
 /// <summary>
-/// Gets or sets the adjustment to the 'Not Before' time for the JWT token.
-/// This adjustment is applied to account for clock skew between systems.
 /// Options for configuring authorization transport.
 /// </summary>
-public class AuthorizationTransportOptions : IEquatable<AuthorizationTransportOptions>
+public class AuthorizationTransportOptions
+    : IEquatable<AuthorizationTransportOptions>
+    , ITransportJWTSigningCertificateOptions
 {
     /// <summary>
     /// Gets or sets a value indicating whether the authorization transport is enabled for all clusters.
