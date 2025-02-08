@@ -17,7 +17,7 @@ namespace Yarp.ReverseProxy.Transport;
 /// </summary>
 public class AuthorizationTransportOptions
     : IEquatable<AuthorizationTransportOptions>
-    , ITransportJWTSigningCertificateOptions
+    //TODO: , ITransportJWTSigningCertificateOptions
 {
     /// <summary>
     /// Gets or sets a value indicating whether the authorization transport is enabled for all clusters.

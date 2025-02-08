@@ -36,5 +36,18 @@
   {
     "Name": "ReverseProxy.Tunnel.Certificate",
     "Projects": []
+  },
+  {
+    "Name": "Azure",
+    "Projects": [
+      {
+        "Path": "samples\\Tunnel\\Azure\\AzureFrontEnd\\AzureFrontEnd.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "samples\\Tunnel\\Azure\\LocalBackend\\LocalBackend.csproj",
+        "Action": "Start"
+      }
+    ]
   }
 ]

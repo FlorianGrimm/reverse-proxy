@@ -16,6 +16,10 @@ public static class WebHostBuilderExtensions
     /// <summary>
     /// This adds basic tunnel authentication.
     /// </summary>
+    /// <param name="builder">this builder</param>
+    /// <param name="configuration">Configuration </param>
+    /// <param name="configure">Action to configure the <see cref="TransportTunnelAuthenticationBasicOptions"/></param>
+    /// <returns>fluent htis</returns>
     public static IReverseProxyBuilder AddTransportTunnelBasic(
         this IReverseProxyBuilder builder,
         IConfiguration? configuration = default,

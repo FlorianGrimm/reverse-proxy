@@ -146,6 +146,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReverseProxy.Tunnel.Certifi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Yarp.ReverseProxy.Transport.Loopback", "src\ReverseProxy.Transport.Loopback\Yarp.ReverseProxy.Transport.Loopback.csproj", "{3BD90EE9-B289-412C-80EB-F754592DEB63}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tunnelAzure", "tunnelAzure", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+	ProjectSection(SolutionItems) = preProject
+		samples\Tunnel\Azure\readme.md = samples\Tunnel\Azure\readme.md
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AzureFrontEnd", "samples\Tunnel\Azure\AzureFrontEnd\AzureFrontEnd.csproj", "{927D1E5D-3E48-414A-BE35-B36D6A5CF78B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalBackend", "samples\Tunnel\Azure\LocalBackend\LocalBackend.csproj", "{756DD0DE-CCB1-46E9-8092-01C7C7E81DD5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -570,6 +579,22 @@ Global
 		{3BD90EE9-B289-412C-80EB-F754592DEB63}.Release|Any CPU.Build.0 = Release|Any CPU
 		{3BD90EE9-B289-412C-80EB-F754592DEB63}.Release|x64.ActiveCfg = Release|Any CPU
 		{3BD90EE9-B289-412C-80EB-F754592DEB63}.Release|x64.Build.0 = Release|Any CPU
+		{927D1E5D-3E48-414A-BE35-B36D6A5CF78B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{927D1E5D-3E48-414A-BE35-B36D6A5CF78B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{927D1E5D-3E48-414A-BE35-B36D6A5CF78B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{927D1E5D-3E48-414A-BE35-B36D6A5CF78B}.Debug|x64.Build.0 = Debug|Any CPU
+		{927D1E5D-3E48-414A-BE35-B36D6A5CF78B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{927D1E5D-3E48-414A-BE35-B36D6A5CF78B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{927D1E5D-3E48-414A-BE35-B36D6A5CF78B}.Release|x64.ActiveCfg = Release|Any CPU
+		{927D1E5D-3E48-414A-BE35-B36D6A5CF78B}.Release|x64.Build.0 = Release|Any CPU
+		{756DD0DE-CCB1-46E9-8092-01C7C7E81DD5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{756DD0DE-CCB1-46E9-8092-01C7C7E81DD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{756DD0DE-CCB1-46E9-8092-01C7C7E81DD5}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{756DD0DE-CCB1-46E9-8092-01C7C7E81DD5}.Debug|x64.Build.0 = Debug|Any CPU
+		{756DD0DE-CCB1-46E9-8092-01C7C7E81DD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{756DD0DE-CCB1-46E9-8092-01C7C7E81DD5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{756DD0DE-CCB1-46E9-8092-01C7C7E81DD5}.Release|x64.ActiveCfg = Release|Any CPU
+		{756DD0DE-CCB1-46E9-8092-01C7C7E81DD5}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -636,6 +661,8 @@ Global
 		{38CA0A26-B83D-CCEB-10DF-F97B9BC94C1E} = {789E94BB-C7A7-40BD-B064-CE0A4E657BC9}
 		{E1AE87FD-01C1-7DFB-7C4F-7BD026016679} = {789E94BB-C7A7-40BD-B064-CE0A4E657BC9}
 		{3BD90EE9-B289-412C-80EB-F754592DEB63} = {6CBE18D4-64E9-492B-BB02-58CD57126C10}
+		{927D1E5D-3E48-414A-BE35-B36D6A5CF78B} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{756DD0DE-CCB1-46E9-8092-01C7C7E81DD5} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {31F6924A-E427-4830-96E9-B47CEB7BFE78}
