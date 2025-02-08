@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using k8s.Models;
@@ -9,9 +9,7 @@ namespace Yarp.Kubernetes.Controller.Caching;
 /// <summary>
 /// Holds data needed from a <see cref="V1IngressClass"/> resource.
 /// </summary>
-#pragma warning disable CA1815 // Override equals and operator equals on value types
 public struct IngressClassData
-#pragma warning restore CA1815 // Override equals and operator equals on value types
 {
     public IngressClassData(V1IngressClass ingressClass)
     {

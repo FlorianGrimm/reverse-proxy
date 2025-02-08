@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Threading;
@@ -10,7 +10,7 @@ using Yarp.ReverseProxy.Health;
 
 namespace Yarp.ReverseProxy.Sample;
 
-public class CustomConfigFilter : IProxyConfigFilter
+public sealed class CustomConfigFilter : IProxyConfigFilter
 {
     public ValueTask<ClusterConfig> ConfigureClusterAsync(ClusterConfig cluster, CancellationToken cancel)
     {

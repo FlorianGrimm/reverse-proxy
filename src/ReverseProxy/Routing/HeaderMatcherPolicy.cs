@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Collections.Generic;
@@ -186,7 +186,7 @@ internal sealed class HeaderMatcherPolicy : MatcherPolicy, IEndpointComparerPoli
         return matcher.Mode == HeaderMatchMode.NotContains;
     }
 
-    private class HeaderMetadataEndpointComparer : EndpointMetadataComparer<IHeaderMetadata>
+    private sealed class HeaderMetadataEndpointComparer : EndpointMetadataComparer<IHeaderMetadata>
     {
         protected override int CompareMetadata(IHeaderMetadata? x, IHeaderMetadata? y)
         {

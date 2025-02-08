@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Collections.Generic;
@@ -11,10 +11,10 @@ namespace Yarp.ReverseProxy.Transforms;
 
 internal sealed class PathTransformFactory : ITransformFactory
 {
-    internal static readonly string PathSetKey = "PathSet";
-    internal static readonly string PathPrefixKey = "PathPrefix";
-    internal static readonly string PathRemovePrefixKey = "PathRemovePrefix";
-    internal static readonly string PathPatternKey = "PathPattern";
+    internal const string PathSetKey = "PathSet";
+    internal const string PathPrefixKey = "PathPrefix";
+    internal const string PathRemovePrefixKey = "PathRemovePrefix";
+    internal const string PathPatternKey = "PathPattern";
 
     private readonly TemplateBinderFactory _binderFactory;
 
@@ -54,7 +54,7 @@ internal sealed class PathTransformFactory : ITransformFactory
         return true;
     }
 
-    private void CheckPathNotNull(TransformRouteValidationContext context, string fieldName, string? path)
+    private static void CheckPathNotNull(TransformRouteValidationContext context, string fieldName, string? path)
     {
         if (path is null)
         {
@@ -103,7 +103,7 @@ internal sealed class PathTransformFactory : ITransformFactory
         {
             throw new ArgumentNullException(nameof(path));
         }
-        if (!path.StartsWith("/", StringComparison.Ordinal))
+        if (!path.StartsWith('/'))
         {
             path = "/" + path;
         }

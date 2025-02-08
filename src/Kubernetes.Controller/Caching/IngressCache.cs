@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using k8s;
 using k8s.Models;
@@ -47,12 +47,10 @@ public class IngressCache : ICache
 
         if (!string.Equals(_options.ControllerClass, ingressClass.Spec.Controller, StringComparison.OrdinalIgnoreCase))
         {
-#pragma warning disable CA1303 // Do not pass literals as localized parameters
             _logger.LogInformation(
                 "Ignoring {IngressClassNamespace}/{IngressClassName} as the spec.controller is not the same as this ingress",
                 ingressClass.Metadata.NamespaceProperty,
                 ingressClass.Metadata.Name);
-#pragma warning restore CA1303 // Do not pass literals as localized parameters
             return;
         }
 

@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Collections.Concurrent;
@@ -177,9 +177,9 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
     /// <inheritdoc/>
     public override IChangeToken GetChangeToken() => Volatile.Read(ref _endpointsChangeToken);
 
-    private static IReadOnlyList<IProxyConfig> ExtractListOfProxyConfigs(IEnumerable<ConfigState> configStates)
+    private static IProxyConfig[] ExtractListOfProxyConfigs(IEnumerable<ConfigState> configStates)
     {
-        return configStates.Select(state => state.LatestConfig).ToList().AsReadOnly();
+        return configStates.Select(state => state.LatestConfig).ToArray();
     }
 
     private class PreloadOnce
@@ -1151,7 +1151,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
         }
     }
 
-    private class ConfigState
+    private sealed class ConfigState
     {
         public ConfigState(IProxyConfigProvider provider, IProxyConfig config)
         {

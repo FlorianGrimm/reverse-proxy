@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Collections.Generic;
@@ -9,7 +9,7 @@ using Yarp.ReverseProxy.Transforms.Builder;
 
 namespace Yarp.ReverseProxy.Sample;
 
-internal class MyTransformFactory : ITransformFactory
+internal sealed class MyTransformFactory : ITransformFactory
 {
     public bool Validate(TransformRouteValidationContext context, IReadOnlyDictionary<string, string> transformValues)
     {

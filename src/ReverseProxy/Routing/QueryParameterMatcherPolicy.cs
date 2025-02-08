@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Collections.Generic;
@@ -127,7 +127,7 @@ internal sealed class QueryParameterMatcherPolicy : MatcherPolicy, IEndpointComp
         }
     }
 
-    private class QueryParameterMetadataEndpointComparer : EndpointMetadataComparer<IQueryParameterMetadata>
+    private sealed class QueryParameterMetadataEndpointComparer : EndpointMetadataComparer<IQueryParameterMetadata>
     {
         protected override int CompareMetadata(IQueryParameterMetadata? x, IQueryParameterMetadata? y)
         {

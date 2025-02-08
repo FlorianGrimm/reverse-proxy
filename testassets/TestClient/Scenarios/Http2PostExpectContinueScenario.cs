@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Diagnostics;
@@ -16,7 +16,7 @@ namespace SampleClient.Scenarios;
 /// This scenario can be encountered in real world scenarios, usually when authentication fails on the destination.
 /// The <c>Expect: 100-continue</c> behavior causes the request body copy to not even start on YARP in this case.
 /// </summary>
-internal class Http2PostExpectContinueScenario : IScenario
+internal sealed class Http2PostExpectContinueScenario : IScenario
 {
     public async Task ExecuteAsync(CommandLineArgs args, CancellationToken cancellation)
     {

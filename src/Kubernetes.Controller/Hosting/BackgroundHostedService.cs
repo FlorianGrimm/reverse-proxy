@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -24,9 +24,7 @@ public abstract class BackgroundHostedService : IHostedService, IDisposable
     private readonly CancellationTokenSource _runCancellation = new CancellationTokenSource();
     private readonly string _serviceTypeName;
     private bool _disposedValue;
-#pragma warning disable CA2213 // Disposable fields should be disposed
     private Task _runTask;
-#pragma warning restore CA2213 // Disposable fields should be disposed
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BackgroundHostedService"/> class.
@@ -69,7 +67,7 @@ public abstract class BackgroundHostedService : IHostedService, IDisposable
     public Task StartAsync(CancellationToken cancellationToken)
     {
         // fork off a new async causality line beginning with the call to RunAsync
-        _runTask = Task.Run(CallRunAsync);
+        _runTask = Task.Run(CallRunAsync, CancellationToken.None);
 
         // the rest of the startup sequence should proceed without delay
         return Task.CompletedTask;

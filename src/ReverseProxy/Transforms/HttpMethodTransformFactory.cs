@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Collections.Generic;
@@ -9,8 +9,8 @@ namespace Yarp.ReverseProxy.Transforms;
 
 internal sealed class HttpMethodTransformFactory : ITransformFactory
 {
-    internal static readonly string HttpMethodChangeKey = "HttpMethodChange";
-    internal static readonly string SetKey = "Set";
+    internal const string HttpMethodChangeKey = "HttpMethodChange";
+    internal const string SetKey = "Set";
 
     public bool Validate(TransformRouteValidationContext context, IReadOnlyDictionary<string, string> transformValues)
     {

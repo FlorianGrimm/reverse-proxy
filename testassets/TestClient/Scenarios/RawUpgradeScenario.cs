@@ -1,5 +1,5 @@
-﻿// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Diagnostics;
@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace SampleClient.Scenarios;
 
-internal class RawUpgradeScenario : IScenario
+internal sealed class RawUpgradeScenario : IScenario
 {
     public async Task ExecuteAsync(CommandLineArgs args, CancellationToken cancellation)
     {
@@ -43,7 +43,7 @@ internal class RawUpgradeScenario : IScenario
         for (var i = 0; i <= 255; i++)
         {
             buffer[0] = (byte)i;
-            await rawStream.WriteAsync(buffer, 0, 1, cancellation);
+            await rawStream.WriteAsync(buffer, cancellation);
             var read = await rawStream.ReadAsync(buffer, cancellation);
             if (i == 255)
             {

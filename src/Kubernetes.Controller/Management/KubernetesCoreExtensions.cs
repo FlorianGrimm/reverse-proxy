@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using k8s;
 using Microsoft.Extensions.Options;
@@ -24,17 +24,14 @@ public static class KubernetesCoreExtensions
         {
             services = services.Configure<KubernetesClientOptions>(options =>
             {
-                if (options.Configuration is null)
-                {
-                    options.Configuration = KubernetesClientConfiguration.BuildDefaultConfig();
-                }
+                options.Configuration ??= KubernetesClientConfiguration.BuildDefaultConfig();
             });
 
             services = services.AddSingleton<IKubernetes>(sp =>
             {
                 var options = sp.GetRequiredService<IOptions<KubernetesClientOptions>>().Value;
 
-                return new k8s.Kubernetes(options.Configuration);
+                return new Kubernetes(options.Configuration);
             });
         }
 

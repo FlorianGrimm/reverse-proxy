@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -64,7 +64,7 @@ app.MapForwarder("/{**catch-all}", "https://example.com", requestConfig, transfo
 
 app.Run();
 
-internal class CustomTransformer : HttpTransformer
+internal sealed class CustomTransformer : HttpTransformer
 {
     public override async ValueTask TransformRequestAsync(HttpContext httpContext, HttpRequestMessage proxyRequest, string destinationPrefix, CancellationToken cancellationToken)
     {

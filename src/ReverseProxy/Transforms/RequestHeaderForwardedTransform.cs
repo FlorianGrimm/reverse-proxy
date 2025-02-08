@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Diagnostics;
@@ -19,9 +19,9 @@ public class RequestHeaderForwardedTransform : RequestTransform
     internal static readonly RequestHeaderForwardedTransform RemoveTransform =
         new RequestHeaderForwardedTransform(new NullRandomFactory(), NodeFormat.Random, NodeFormat.Random, false, false, ForwardedTransformActions.Remove);
 
-    private static readonly string ForwardedHeaderName = "Forwarded";
+    private const string ForwardedHeaderName = "Forwarded";
     // obfnode = "_" 1*( ALPHA / DIGIT / "." / "_" / "-")
-    private static readonly string ObfChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-";
+    private const string ObfChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-";
 
     private readonly IRandomFactory _randomFactory;
 

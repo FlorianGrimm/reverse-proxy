@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 #if NET7_0_OR_GREATER
 using System;
@@ -21,7 +21,7 @@ internal interface IYarpOutputCachePolicyProvider
     ValueTask<object?> GetPolicyAsync(string policyName);
 }
 
-internal class YarpOutputCachePolicyProvider : IYarpOutputCachePolicyProvider
+internal sealed class YarpOutputCachePolicyProvider : IYarpOutputCachePolicyProvider
 {
 #if NET7_0_OR_GREATER
     private readonly OutputCacheOptions _outputCacheOptions;

@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Diagnostics;
@@ -95,7 +95,9 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory
         }
         if (newConfig.DangerousAcceptAnyServerCertificate ?? false)
         {
+#pragma warning disable CA5359 // Do Not Disable Certificate Validation -- this setting is explicitly opt-in by the user.
             handler.SslOptions.RemoteCertificateValidationCallback = delegate { return true; };
+#pragma warning restore CA5359
         }
 
         handler.EnableMultipleHttp2Connections = newConfig.EnableMultipleHttp2Connections.GetValueOrDefault(true);
@@ -120,7 +122,7 @@ public class ForwarderHttpClientFactory : IForwarderHttpClientFactory
         }
     }
 
-    private static IWebProxy? TryCreateWebProxy(WebProxyConfig? webProxyConfig)
+    private static WebProxy? TryCreateWebProxy(WebProxyConfig? webProxyConfig)
     {
         if (webProxyConfig is null || webProxyConfig.Address is null)
         {

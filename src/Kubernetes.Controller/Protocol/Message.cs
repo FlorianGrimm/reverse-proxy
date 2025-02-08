@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
@@ -14,18 +14,14 @@ public enum MessageType
     Remove,
 }
 
-#pragma warning disable CA1815 // Override equals and operator equals on value types
 public struct Message
-#pragma warning restore CA1815 // Override equals and operator equals on value types
 {
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public MessageType MessageType { get; set; }
 
     public string Key { get; set; }
 
-#pragma warning disable CA2227 // Collection properties should be read only
     public List<RouteConfig> Routes { get; set; }
 
     public List<ClusterConfig> Cluster { get; set; }
-#pragma warning restore CA2227 // Collection properties should be read only
 }

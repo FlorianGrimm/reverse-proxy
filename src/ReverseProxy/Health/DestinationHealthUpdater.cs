@@ -1,8 +1,9 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Yarp.ReverseProxy.Model;
@@ -67,7 +68,7 @@ internal sealed class DestinationHealthUpdater : IDestinationHealthUpdater, IDis
         {
             healthState.Passive = newHealth;
             ScheduleReactivation(cluster, destination, newHealth, reactivationPeriod);
-            return Task.Factory.StartNew(c => UpdateDestinations(c!), cluster, TaskCreationOptions.RunContinuationsAsynchronously);
+            return Task.Factory.StartNew(c => UpdateDestinations(c!), cluster, CancellationToken.None, TaskCreationOptions.RunContinuationsAsynchronously, TaskScheduler.Default);
         }
         return Task.CompletedTask;
     }

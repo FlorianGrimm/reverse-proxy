@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using Autofac.Core;
@@ -13,7 +13,7 @@ namespace Yarp.Tests.Common;
 /// </summary>
 public class TestAutoMockBase : IDisposable
 {
-    private bool _isDisposed = false;
+    private bool _isDisposed;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TestAutoMockBase" /> class.

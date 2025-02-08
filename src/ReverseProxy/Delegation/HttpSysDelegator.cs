@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Collections.Concurrent;
@@ -227,7 +227,7 @@ internal sealed class HttpSysDelegator : IHttpSysDelegator, IClusterChangeListen
         }
     }
 
-    private class DelegationQueue
+    private sealed class DelegationQueue
     {
         public const uint ERROR_FILE_NOT_FOUND = 2;
 
@@ -306,7 +306,7 @@ internal sealed class HttpSysDelegator : IHttpSysDelegator, IClusterChangeListen
         }
     }
 
-    private class DelegationQueueState
+    private sealed class DelegationQueueState
     {
         public DelegationQueueState()
         {

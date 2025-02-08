@@ -1,5 +1,5 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
 using System.Collections.Generic;
@@ -82,7 +82,7 @@ public sealed class InMemoryConfigProvider : IProxyConfigProvider
     /// <summary>
     /// Implementation of IProxyConfig which is a snapshot of the current config state. The data for this class should be immutable.
     /// </summary>
-    private class InMemoryConfig : IProxyConfig
+    private sealed class InMemoryConfig : IProxyConfig
     {
         // Used to implement the change token for the state
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
