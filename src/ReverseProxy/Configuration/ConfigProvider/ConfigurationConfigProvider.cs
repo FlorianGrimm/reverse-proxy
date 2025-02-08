@@ -166,12 +166,12 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         };
     }
 
-    private string ConvertTransportMode(string? value)
+    private static string ConvertTransportMode(string? value)
         => (value is { Length: > 0 })
             ? value
             : Yarp.ReverseProxy.Tunnel.TunnelConstants.TransportNameForwarder;
 
-    private ClusterTunnelAuthenticationConfig CreateClusterTunnelAuthenticationConfig(IConfigurationSection section)
+    private static ClusterTunnelAuthenticationConfig CreateClusterTunnelAuthenticationConfig(IConfigurationSection section)
     {
         return new ClusterTunnelAuthenticationConfig()
         {
@@ -210,7 +210,7 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         };
     }
 
-    private string[] CreateUserNamesConfig(IConfigurationSection configSection)
+    private static string[] CreateUserNamesConfig(IConfigurationSection configSection)
     {
         var result = new List<string>();
         foreach (var section in configSection.GetChildren())

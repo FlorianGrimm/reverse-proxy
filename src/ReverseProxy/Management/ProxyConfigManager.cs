@@ -184,7 +184,7 @@ internal sealed class ProxyConfigManager : EndpointDataSource, IProxyStateLookup
 
     private class PreloadOnce
     {
-        public bool Loaded = false;
+        public bool Loaded;
         public IReadOnlyList<IProxyConfig> ProxyConfigs = [];
     }
 

@@ -75,4 +75,14 @@
     <MicrosoftIdentityClientMsal>4.63.0</MicrosoftIdentityClientMsal>
     <MicrosoftAspNetCoreAuthenticationJwtBearer>9.0.0</MicrosoftAspNetCoreAuthenticationJwtBearer>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <SystemCollectionsImmutableVersion>9.0.0</SystemCollectionsImmutableVersion>
+    <MicrosoftBclTimeProviderVersion>9.0.0</MicrosoftBclTimeProviderVersion>
+    <MicrosoftAspNetCoreHttpConnectionsClient>9.0.0</MicrosoftAspNetCoreHttpConnectionsClient>
+    <MicrosoftAspNetCoreAuthenticationCertificate>9.0.0</MicrosoftAspNetCoreAuthenticationCertificate>
+    <MicrosoftAspNetCoreAuthenticationNegotiate>9.0.0</MicrosoftAspNetCoreAuthenticationNegotiate>
+    <MicrosoftIdentityClient>4.63.0</MicrosoftIdentityClient>
+    <MicrosoftIdentityClientMsal>4.63.0</MicrosoftIdentityClientMsal>
+    <MicrosoftAspNetCoreAuthenticationJwtBearer>9.0.0</MicrosoftAspNetCoreAuthenticationJwtBearer>
+  </PropertyGroup>
 </Project>

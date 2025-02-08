@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable CA1513 ObjectDisposedException.ThrowIf does not exist in dotnet 6.0
+
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -159,7 +161,7 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
     /// Checks if the options have changed since the old client was created. If not then the
     /// old client will be re-used. Re-use can avoid the latency of creating new connections.
     /// </summary>
-    private bool CanReuseOldClient(ForwarderHttpClientContext context)
+    private static bool CanReuseOldClient(ForwarderHttpClientContext context)
     {
         return context.OldClient is not null && context.NewConfig == context.OldConfig;
     }
@@ -171,7 +173,7 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
     /// <see cref="SocketsHttpHandler.AutomaticDecompression"/>, and <see cref="SocketsHttpHandler.UseCookies"/>
     /// are disabled prior to this call.
     /// </summary>
-    private void ConfigureHandler(ForwarderHttpClientContext context, SocketsHttpHandler handler)
+    private static void ConfigureHandler(ForwarderHttpClientContext context, SocketsHttpHandler handler)
     {
         var newConfig = context.NewConfig;
         if (newConfig.SslProtocols.HasValue)
@@ -184,7 +186,7 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
         }
         if (newConfig.DangerousAcceptAnyServerCertificate ?? false)
         {
-            handler.SslOptions.RemoteCertificateValidationCallback = delegate { return true; };
+            handler.SslOptions.RemoteCertificateValidationCallback = static delegate { return true; };
         }
         handler.EnableMultipleHttp2Connections = newConfig.EnableMultipleHttp2Connections.GetValueOrDefault(true);
 

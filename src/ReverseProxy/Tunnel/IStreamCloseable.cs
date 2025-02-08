@@ -1,3 +1,8 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+namespace Yarp.ReverseProxy.Tunnel;
+
 /// <summary>
 /// Represents an interface for a stream that can be closed.
 /// </summary>

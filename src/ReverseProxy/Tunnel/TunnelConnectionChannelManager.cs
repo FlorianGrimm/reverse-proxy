@@ -191,7 +191,7 @@ public sealed partial class TunnelConnectionRequest(ILogger logger)
     : IDisposable
 /* IResettable */
 {
-    private static long _nextId = 0;
+    private static long _nextId;
     private readonly long _id = System.Threading.Interlocked.Increment(ref _nextId);
     private readonly ILogger _logger = logger;
     private SemaphoreSlim _lock = new(0, 1);

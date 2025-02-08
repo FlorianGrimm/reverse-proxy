@@ -137,7 +137,7 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
     /// Checks if the options have changed since the old client was created. If not then the
     /// old client will be re-used. Re-use can avoid the latency of creating new connections.
     /// </summary>
-    private bool CanReuseOldClient(ForwarderHttpClientContext context)
+    private static bool CanReuseOldClient(ForwarderHttpClientContext context)
     {
         return context.OldClient is not null && context.NewConfig == context.OldConfig;
     }
@@ -162,7 +162,7 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
         }
         if (newConfig.DangerousAcceptAnyServerCertificate ?? false)
         {
-            handler.SslOptions.RemoteCertificateValidationCallback = delegate { return true; };
+            handler.SslOptions.RemoteCertificateValidationCallback = static delegate { return true; };
         }
         handler.EnableMultipleHttp2Connections = newConfig.EnableMultipleHttp2Connections.GetValueOrDefault(true);
 

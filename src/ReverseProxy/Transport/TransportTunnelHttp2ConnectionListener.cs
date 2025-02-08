@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable CA1513 ObjectDisposedException.ThrowIf does not exist in dotnet 6.0
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
