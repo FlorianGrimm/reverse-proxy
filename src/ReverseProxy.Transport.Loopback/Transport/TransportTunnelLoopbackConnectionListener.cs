@@ -1,3 +1,8 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+#pragma warning disable CA1513 // ObjectDisposedException.ThrowIf does not exist in dotnet 6.0
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -119,34 +124,6 @@ internal sealed class TransportTunnelLoopbackConnectionListener
         }
     }
 
-    private async Task<HttpMessageInvoker> CreateHttpMessageInvoker()
-    {
-        var socketsHttpHandler = new SocketsHttpHandler
-        {
-            EnableMultipleHttp2Connections = true,
-            ConnectTimeout = TimeSpan.FromSeconds(5),
-            PooledConnectionLifetime = Timeout.InfiniteTimeSpan,
-            PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
-        };
-
-        var config = _tunnel.Model.Config;
-
-        var result = await _authenticator.ConfigureSocketsHttpHandlerAsync(_tunnel, socketsHttpHandler);
-
-        // allow the user to configure the handler
-        if (_options.ConfigureSocketsHttpHandlerAsync is { } configureSocketsHttpHandlerAsync)
-        {
-            await configureSocketsHttpHandlerAsync(config, socketsHttpHandler, _authenticator);
-        }
-
-        if (result is null)
-        {
-            result = new HttpMessageInvoker(socketsHttpHandler);
-        }
-        Log.TunnelCreateHttpMessageInvoker(_logger, config.TunnelId, config.Url);
-        return result;
-    }
-
     public async ValueTask DisposeAsync()
     {
         var listConnections = _connections.Values.ToList();
@@ -164,6 +141,19 @@ internal sealed class TransportTunnelLoopbackConnectionListener
         System.GC.SuppressFinalize(this);
     }
 
+#if NET8_0_OR_GREATER
+    public async ValueTask UnbindAsync(CancellationToken cancellationToken = default)
+    {
+        await _closedCts.CancelAsync();
+
+        var listConnections = _connections.Values.ToList();
+        foreach (var connection in listConnections)
+        {
+            // REVIEW: Graceful?
+            connection.Abort();
+        }
+    }
+#else
     public ValueTask UnbindAsync(CancellationToken cancellationToken = default)
     {
         _closedCts.Cancel();
@@ -177,6 +167,7 @@ internal sealed class TransportTunnelLoopbackConnectionListener
 
         return ValueTask.CompletedTask;
     }
+#endif
 
     private void Dispose(bool disposing)
     {

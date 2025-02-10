@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#pragma warning disable CA1513 ObjectDisposedException.ThrowIf does not exist in dotnet 6.0
+#pragma warning disable CA1513 // ObjectDisposedException.ThrowIf does not exist in dotnet 6.0
 
 using System;
 using System.Diagnostics;
@@ -186,7 +186,9 @@ internal sealed class TunnelHTTP2HttpClientFactoryForCluster
         }
         if (newConfig.DangerousAcceptAnyServerCertificate ?? false)
         {
+#pragma warning disable CA5359 // Do Not Disable Certificate Validation
             handler.SslOptions.RemoteCertificateValidationCallback = static delegate { return true; };
+#pragma warning restore CA5359 // Do Not Disable Certificate Validation
         }
         handler.EnableMultipleHttp2Connections = newConfig.EnableMultipleHttp2Connections.GetValueOrDefault(true);
 

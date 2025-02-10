@@ -94,7 +94,7 @@ internal class AuthorizationTransportSigningCertificate
         if (!(_options.SigningCertificate is { Length: > 0 } signingCertificate)) { return null; }
 
         var certificateCollection = _certificateManager.GetCertificateCollection(signingCertificate);
-        if (!(certificateCollection is { Value: { Count: > 0 } })) { return null; }
+        if (!(certificateCollection is { Value.Count: > 0 })) { return null; }
 
         var signingCertificate2 = certificateCollection.Value[0];
         X509SecurityKey securityKey = new(signingCertificate2);

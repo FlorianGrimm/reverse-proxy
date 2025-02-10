@@ -120,7 +120,7 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         }
     }
 
-    private TransportTunnelConfig CreateTunnel(IConfigurationSection section)
+    private static TransportTunnelConfig CreateTunnel(IConfigurationSection section)
     {
         return new TransportTunnelConfig
         {
@@ -133,7 +133,7 @@ internal sealed class ConfigurationConfigProvider : IProxyConfigProvider, IDispo
         };
     }
 
-    private TransportTunnelAuthenticationConfig CreateTunnelAuthentication(IConfigurationSection section)
+    private static TransportTunnelAuthenticationConfig CreateTunnelAuthentication(IConfigurationSection section)
     {
         return new TransportTunnelAuthenticationConfig
         {

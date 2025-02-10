@@ -47,4 +47,11 @@ public class TransportJwtBearerTokenOptions : AuthenticationSchemeOptions
     /// </summary>
     public Func<SecurityKey>? CreateSecurityKey { get; set; }
 
+    // TODP: src\ReverseProxy.Transport.JWT\Transport\AuthorizationTransportOptions.cs
+
+    /// <summary>
+    /// Gets or sets the function to create the SigningCredentials (and SigningKey).
+    /// </summary>
+    public Func<SigningCredentials>? CreateSigningCredential { get; set; }
+
 }

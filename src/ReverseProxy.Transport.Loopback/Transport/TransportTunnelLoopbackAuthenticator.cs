@@ -53,7 +53,7 @@ internal sealed class TransportTunnelLoopbackAuthenticator(
 }
 
 // TODO: Until i know what I want
-internal class TransportTunnelLoopbackAuthenticatorLoopback : ITransportTunnelLoopbackAuthenticator
+internal sealed class TransportTunnelLoopbackAuthenticatorLoopback : ITransportTunnelLoopbackAuthenticator
 {
     public string GetAuthenticationName() => "Loopback";
 

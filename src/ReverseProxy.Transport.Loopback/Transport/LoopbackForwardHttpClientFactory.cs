@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable CA1513 // ObjectDisposedException.ThrowIf does not exist in dotnet 6.0
+
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -23,7 +25,7 @@ internal sealed class LoopbackForwardHttpClientFactory
 {
     private readonly TunnelConnectionChannelManager _tunnelConnectionChannelManager;
     private readonly ILogger<LoopbackForwardHttpClientFactory> _logger;
-    private bool _isDisposed = false;
+    private bool _isDisposed;
     private ObjectPool<TunnelConnectionRequest> _poolTunnelConnectionRequest;
 
     public LoopbackForwardHttpClientFactory(

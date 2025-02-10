@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#pragma warning disable CA1513 // ObjectDisposedException.ThrowIf does not exist in dotnet 6.0
+
 using System;
 using System.Diagnostics;
 using System.Net;
@@ -149,7 +151,7 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
     /// <see cref="SocketsHttpHandler.AutomaticDecompression"/>, and <see cref="SocketsHttpHandler.UseCookies"/>
     /// are disabled prior to this call.
     /// </summary>
-    private void ConfigureHandler(ForwarderHttpClientContext context, SocketsHttpHandler handler)
+    private static void ConfigureHandler(ForwarderHttpClientContext context, SocketsHttpHandler handler)
     {
         var newConfig = context.NewConfig;
         if (newConfig.SslProtocols.HasValue)
@@ -162,7 +164,9 @@ internal sealed class TunnelWebSocketHttpClientFactoryForCluster
         }
         if (newConfig.DangerousAcceptAnyServerCertificate ?? false)
         {
+#pragma warning disable CA5359
             handler.SslOptions.RemoteCertificateValidationCallback = static delegate { return true; };
+#pragma warning restore CA5359
         }
         handler.EnableMultipleHttp2Connections = newConfig.EnableMultipleHttp2Connections.GetValueOrDefault(true);
 

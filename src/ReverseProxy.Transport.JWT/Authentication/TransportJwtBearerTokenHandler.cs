@@ -21,6 +21,7 @@ using Yarp.ReverseProxy.Tunnel;
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Yarp.ReverseProxy.Transport;
+using Yarp.ReverseProxy.Utilities;
 
 namespace Yarp.ReverseProxy.Authentication;
 
@@ -74,17 +75,23 @@ public class TransportJwtBearerTokenHandler
     {
         try
         {
+            /*
             var context = Context;
             var bearerToken = TransportJwtBearerUtility.GetBearerToken(context.Request.Headers.Authorization);
             if (bearerToken is null)
             {
                 _logger.LogInformation("No bearer token");
-                //return Task.FromResult(false);
                 return false;
             }
 
             var transportJwtBearerTokenSigningCertificate = Context.RequestServices.GetRequiredService<TransportJwtBearerTokenSigningCertificate>();
-            SecurityKey issuerSigningKey = transportJwtBearerTokenSigningCertificate.GetIssuerSigningKey();
+            var sharedIssuerSigningKey = transportJwtBearerTokenSigningCertificate.GetIssuerSigningKey();
+            if (!(sharedIssuerSigningKey?.Value is { } issuerSigningKey))
+            {
+                _logger.LogError("No issuer signing key");
+                return false;
+            }
+
             //TransportJwtBearerTokenHandler
 
             var jsonWebTokenHandler = new Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler();
@@ -103,40 +110,26 @@ public class TransportJwtBearerTokenHandler
 
             if (!tokenValidationResult.IsValid)
             {
+                _logger.LogError("Invalid token");
+                return false;
             }
+
             var principal = new ClaimsPrincipal(tokenValidationResult.ClaimsIdentity);
-            //var jwtSecurityTokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-            //var principal=jwtSecurityTokenHandler.ValidateToken(bearerToken, new TokenValidationParameters
-            //{
-            //    ValidateIssuer = true,
-            //    ValidateAudience = true,
-            //    ValidateLifetime = true,
-            //    ValidateIssuerSigningKey = true,
-            //    ValidIssuer = "", //jwtToken.Issuer,
-            //    ValidIssuers = new[] { "" }, //jwtToken.ValidIssuers,
-            //    ValidAudience = "", //jwtToken.Audience,
-            //    ValidAudiences = new[] { "" }, //jwtToken.ValidAudiences,
-            //    ValidateTokenReplay = true,
-            //    IssuerSigningKey = issuerSigningKey
-            //}, out var validatedToken);
-
-            //Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler
-
-            var jwtToken = new JwtSecurityToken(bearerToken);
-            var issuer = ClaimsIssuer;
-            var listClaims = new List<Claim>();
-            listClaims.AddRange(jwtToken.Claims.Select(claim => new Claim(claim.Type, claim.Value, claim.ValueType, issuer)));
-            var identity = new ClaimsIdentity(listClaims, issuer);
-            var principal = new ClaimsPrincipal(identity);
             var ticket = new AuthenticationTicket(principal, Scheme.Name);
             var result = AuthenticateResult.Success(ticket);
-            context.User = principal;
+            */
+            var context = Context;
+            var result = await this.HandleAuthenticateAsync();
+            if (result.Principal is null)
+            {
+                return false;
+            }
+
+            context.User = result.Principal;
             var authFeatures = new YetAnotherAuthenticationFeatures(result);
             context.Features.Set<IHttpAuthenticationFeature>(authFeatures);
             context.Features.Set<IAuthenticateResultFeature>(authFeatures);
-
-            //return Task.FromResult(false);
-            return false;
+            return true;
         }
         catch (System.Exception error)
         {
@@ -150,7 +143,7 @@ public class TransportJwtBearerTokenHandler
     /// Handles the authentication process.
     /// </summary>
     /// <returns>The authentication result.</returns>
-    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         try
         {
@@ -159,23 +152,47 @@ public class TransportJwtBearerTokenHandler
             if (bearerToken is null)
             {
                 _logger.LogInformation("No bearer token");
-                return Task.FromResult(AuthenticateResult.NoResult());
+                return AuthenticateResult.NoResult();
             }
 
-            var jwtToken = new JwtSecurityToken(bearerToken);
+            var transportJwtBearerTokenSigningCertificate = Context.RequestServices.GetRequiredService<TransportJwtBearerTokenSigningCertificate>();
+            var sharedIssuerSigningKey = transportJwtBearerTokenSigningCertificate.GetIssuerSigningKey();
+            if (!(sharedIssuerSigningKey?.Value is { } issuerSigningKey))
+            {
+                _logger.LogError("No issuer signing key");
+                return AuthenticateResult.NoResult();
+            }
 
-            var issuer = ClaimsIssuer;
-            var listClaims = new List<Claim>();
-            listClaims.AddRange(jwtToken.Claims.Select(claim => new Claim(claim.Type, claim.Value, claim.ValueType, issuer)));
-            var identity = new ClaimsIdentity(listClaims, issuer);
-            var principal = new ClaimsPrincipal(identity);
+            //TransportJwtBearerTokenHandler
+
+            var jsonWebTokenHandler = new Microsoft.IdentityModel.JsonWebTokens.JsonWebTokenHandler();
+            var jwtToken = jsonWebTokenHandler.ReadJsonWebToken(bearerToken);
+            var tokenValidationResult = await jsonWebTokenHandler.ValidateTokenAsync(bearerToken, new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidAudience = Options.Audience,
+                ValidIssuers = Options.ValidIssuers,
+                ValidateTokenReplay = true,
+                IssuerSigningKey = issuerSigningKey
+            });
+
+            if (!tokenValidationResult.IsValid)
+            {
+                _logger.LogError("Invalid token");
+                return AuthenticateResult.NoResult();
+            }
+
+            var principal = new ClaimsPrincipal(tokenValidationResult.ClaimsIdentity);
             var ticket = new AuthenticationTicket(principal, Scheme.Name);
-            return Task.FromResult(AuthenticateResult.Success(ticket));
+            return AuthenticateResult.Success(ticket);
         }
         catch (System.Exception error)
         {
             _logger.LogError(error, "Failed");
-            return Task.FromResult(AuthenticateResult.NoResult());
+            return AuthenticateResult.NoResult();
         }
     }
 

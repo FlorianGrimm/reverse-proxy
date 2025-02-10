@@ -79,10 +79,7 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
 
     public void ConfigureKestrelServer(KestrelServerOptions kestrelServerOptions)
     {
-        kestrelServerOptions.ConfigureHttpsDefaults((HttpsConnectionAdapterOptions httpsOptions) =>
-        {
-            ConfigureHttpsConnectionAdapterOptions(httpsOptions);
-        });
+        kestrelServerOptions.ConfigureHttpsDefaults(ConfigureHttpsConnectionAdapterOptions);
         kestrelServerOptions.ConfigureEndpointDefaults((ListenOptions listenOptions) =>
         {
             listenOptions.UseHttps(ConfigureHttpsConnectionAdapterOptions);

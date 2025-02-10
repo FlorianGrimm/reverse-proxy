@@ -18,7 +18,7 @@ public interface IAsyncLockWithOwner
 /// <summary>
 /// <see cref="AsyncLockWithOwner"/> Wraps a <see cref="SemaphoreSlim"/>.
 /// <see cref="LockAsync(object?, CancellationToken)"/> is only allowed for a maximum times otherwise it waits.
-/// The result is a AsyncLockOwner, which responsiblity is to <see cref="IAsyncLockOwnership.Release{T}(T?)"/> after the resource is no more used.
+/// The result is a AsyncLockOwner, which responsiblity is to <see cref="IAsyncLockOwnership.Release"/> after the resource is no more used.
 /// The ownership can be transferred. Only if latest owner release it's actual released.
 /// </summary>
 public sealed class AsyncLockWithOwner

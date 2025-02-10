@@ -22,7 +22,7 @@ public class CertificateManagerOptions
     /// <summary>
     /// Allow self signed certificate.
     /// </summary>
-    public bool AllowSelfSigned { get; set; } = false;
+    public bool AllowSelfSigned { get; set; }
 
     /// <summary>
     /// The configuration for certificates by an id.

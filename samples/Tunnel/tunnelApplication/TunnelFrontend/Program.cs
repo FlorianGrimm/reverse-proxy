@@ -1,5 +1,5 @@
 
-namespace AzureFrontEnd;
+namespace Yarp.ReverseProxy.TunnelFrontEnd;
 
 public class Program
 {
@@ -10,18 +10,14 @@ public class Program
         builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
         builder.Logging.AddLocalFile(configuration: builder.Configuration.GetSection("Logging:LocalFile"));
 
-
         builder.Services
             .AddReverseProxy()
             .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-            .AddTransportTunnel()
+            .AddTunnelServices()
             .AddTunnelServicesBasic(
                 configuration: builder.Configuration.GetSection("ReverseProxy:AuthenticationBasic"))
             ;
-
         var app = builder.Build();
-
-        app.UseHttpsRedirection();
 
         app.Run();
     }

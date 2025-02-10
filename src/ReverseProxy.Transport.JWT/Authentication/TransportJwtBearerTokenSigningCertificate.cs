@@ -33,6 +33,8 @@ internal class TransportJwtBearerTokenSigningCertificate
 
     internal ISharedValue<SecurityKey?>? GetIssuerSigningKey()
     {
+        // TODO: Implement this method
+        throw new NotImplementedException();
     }
     internal ISharedValue<SigningCredentials?>? GetSigningCredentials()
     {
@@ -88,7 +90,7 @@ internal class TransportJwtBearerTokenSigningCertificate
         if (!(_options.SigningCertificate is { Length: > 0 } signingCertificate)) { return null; }
 
         var certificateCollection = _certificateManager.GetCertificateCollection(signingCertificate);
-        if (!(certificateCollection is { Value: { Count: > 0 } })) { return null; }
+        if (!(certificateCollection is { Value.Count: > 0 })) { return null; }
 
         var signingCertificate2 = certificateCollection.Value[0];
         X509SecurityKey securityKey = new(signingCertificate2);

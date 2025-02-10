@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #pragma warning disable IDE0058 // Expression value is never used
+#pragma warning disable CA1513 // ObjectDisposedException.ThrowIf does not exist in dotnet 6.0
 
 using System;
 using System.Collections.Concurrent;
@@ -187,13 +188,12 @@ public sealed class TunnelConnectionChannels : IDisposable
 /// <summary>
 /// Represents a stream for a tunnel connection.
 /// </summary>
-public sealed partial class TunnelConnectionRequest(ILogger logger)
+public sealed partial class TunnelConnectionRequest
     : IDisposable
 /* IResettable */
 {
     private static long _nextId;
     private readonly long _id = System.Threading.Interlocked.Increment(ref _nextId);
-    private readonly ILogger _logger = logger;
     private SemaphoreSlim _lock = new(0, 1);
     private Stream? _stream;
     private bool _isDisposed;
@@ -320,7 +320,7 @@ public sealed partial class TunnelConnectionRequest(ILogger logger)
         /// Create a <see cref="TunnelConnectionRequest"/>.
         /// </summary>
         /// <returns>The <see cref="TunnelConnectionRequest"/> which was created.</returns>
-        public override TunnelConnectionRequest Create() => new TunnelConnectionRequest(_logger);
+        public override TunnelConnectionRequest Create() => new TunnelConnectionRequest();
 
         /// <summary>
         /// Runs some processing when an object was returned to the pool. Can be used to reset the state of an object and indicate if the object should be returned to the pool.

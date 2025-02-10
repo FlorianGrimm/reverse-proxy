@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#pragma warning disable CA1513 ObjectDisposedException.ThrowIf does not exist in dotnet 6.0
+#pragma warning disable CA1513 // ObjectDisposedException.ThrowIf does not exist in dotnet 6.0
 
 using System;
 using System.Collections.Concurrent;
@@ -144,9 +144,9 @@ internal sealed class TransportTunnelHttp2ConnectionListener
                     catch (Exception error)
                     {
                         Log.TransportFailureSendTransportTunnel(_logger, config.TunnelId, config.Url, config.Transport);
-                        if (requestMessage is not null) { requestMessage.Dispose(); }
+                        requestMessage?.Dispose();
                         if (connectionContext is not null) { await connectionContext.DisposeAsync(); }
-                        if (httpContent is not null) { httpContent.Dispose(); }
+                        httpContent?.Dispose();
 
                         if (error is OperationCanceledException) { return null; }
 
@@ -188,10 +188,7 @@ internal sealed class TransportTunnelHttp2ConnectionListener
             await configureSocketsHttpHandlerAsync(config, socketsHttpHandler, _authenticator);
         }
 
-        if (result is null)
-        {
-            result = new HttpMessageInvoker(socketsHttpHandler);
-        }
+        result ??= new HttpMessageInvoker(socketsHttpHandler);
         Log.TunnelCreateHttpMessageInvoker(_logger, config.TunnelId, config.Url);
         return result;
     }

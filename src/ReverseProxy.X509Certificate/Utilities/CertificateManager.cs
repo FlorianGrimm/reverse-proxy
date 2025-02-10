@@ -155,7 +155,6 @@ public class CertificateManager : ICertificateManager, ICertificateVerifier
                 else if (collection is { })
                 {
                     result.AddRange(collection);
-                    collection = null;
                 }
             }
             if (result is { })

@@ -1,3 +1,5 @@
+// TODO: weichei
+#if weichei
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
@@ -25,3 +27,4 @@ public static class SslClientAuthenticationOptionsExtension
         }
     }
 }
+#endif
