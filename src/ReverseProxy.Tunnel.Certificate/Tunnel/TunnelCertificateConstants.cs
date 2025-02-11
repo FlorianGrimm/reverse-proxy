@@ -8,8 +8,7 @@ public class TunnelCertificateConstants
     /// <summary>
     /// "ClientCertificate"
     /// </summary>
-    public const string AuthenticationName = "ClientCertificate";
-
+    public const string AuthenticationMode = "ClientCertificate";
 
     //public const string AuthenticationScheme = "Certificate";
 

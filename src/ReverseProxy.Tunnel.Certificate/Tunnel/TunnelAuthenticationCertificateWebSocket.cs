@@ -71,7 +71,7 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
         _logger = logger;
     }
 
-    public string GetAuthenticationMode() => TunnelCertificateConstants.AuthenticationName;
+    public string GetAuthenticationMode() => TunnelCertificateConstants.AuthenticationMode;
 
     public string GetTransport() => TunnelConstants.TransportNameTunnelWebSocket;
 
@@ -170,13 +170,13 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
                 if (string.Equals(clusterCertificate.Thumbprint, clientCertificateThumbprint, System.StringComparison.Ordinal)
                     && clusterCertificate.Equals(clientCertificate))
                 {
-                    Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, TunnelCertificateConstants.AuthenticationName, clusterCertificate.Subject);
+                    Log.ClusterAuthenticationSuccess(_logger, cluster.ClusterId, TunnelCertificateConstants.AuthenticationMode, clusterCertificate.Subject);
                     return true;
                 }
             }
 
             {
-                Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, TunnelCertificateConstants.AuthenticationName, clientCertificate.Subject);
+                Log.ClusterAuthenticationFailed(_logger, cluster.ClusterId, TunnelCertificateConstants.AuthenticationMode, clientCertificate.Subject);
                 return false;
             }
         }
@@ -279,7 +279,7 @@ internal sealed class TunnelAuthenticationCertificateWebSocket
     }
 
     public static bool IsClientCertificate(string? mode)
-        => string.Equals(mode, TunnelCertificateConstants.AuthenticationName, System.StringComparison.OrdinalIgnoreCase);
+        => string.Equals(mode, TunnelCertificateConstants.AuthenticationMode, System.StringComparison.OrdinalIgnoreCase);
 
     private static class Log
     {

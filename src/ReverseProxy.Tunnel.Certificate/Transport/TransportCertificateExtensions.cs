@@ -140,7 +140,7 @@ public static class TransportCertificateExtensions
     public static bool IsClientCertificate(string? mode)
         => string.Equals(
             mode,
-            Yarp.ReverseProxy.Tunnel.TunnelCertificateConstants.AuthenticationName,
+            Yarp.ReverseProxy.Tunnel.TunnelCertificateConstants.AuthenticationMode,
             System.StringComparison.OrdinalIgnoreCase);
 
     public static void Bind(

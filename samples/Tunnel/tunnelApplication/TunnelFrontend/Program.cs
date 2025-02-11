@@ -8,7 +8,19 @@ public class Program
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
-        builder.Logging.AddLocalFile(configuration: builder.Configuration.GetSection("Logging:LocalFile"));
+        builder.Logging.AddLocalFile(
+            configure: (options) => {
+                if (System.Environment.GetEnvironmentVariable("HOME") is { Length: > 0 } home)
+                {
+                    options.BaseDirectory = home;
+                }
+                else {
+                    options.BaseDirectory = builder.Environment.ContentRootPath;
+                }
+                options.LogDirectory = "LogFiles\\Application";
+                
+            },
+            configuration: builder.Configuration.GetSection("Logging:LocalFile"));
 
         builder.Services
             .AddReverseProxy()

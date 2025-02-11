@@ -1,0 +1,6 @@
+@Yarp.TunnelApplication_HostAddress = http://localhost:5120
+
+GET {{Yarp.TunnelApplication_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

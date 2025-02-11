@@ -41,7 +41,7 @@ internal sealed class TransportTunnelHttp2AuthenticatorCertificate
         _logger = logger;
     }
 
-    public string GetAuthenticationName() => Yarp.ReverseProxy.Tunnel.TunnelCertificateConstants.AuthenticationName;
+    public string GetAuthenticationName() => Yarp.ReverseProxy.Tunnel.TunnelCertificateConstants.AuthenticationMode;
 
     public ValueTask<HttpMessageInvoker?> ConfigureSocketsHttpHandlerAsync(TunnelState tunnel, SocketsHttpHandler socketsHttpHandler)
     {

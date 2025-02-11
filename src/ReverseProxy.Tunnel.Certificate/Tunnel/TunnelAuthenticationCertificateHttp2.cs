@@ -56,7 +56,7 @@ internal sealed class TunnelAuthenticationCertificateHttp2
         _certificateManager = certificateManager;
         _logger = logger;
     }
-    public string GetAuthenticationMode() => TunnelCertificateConstants.AuthenticationName;
+    public string GetAuthenticationMode() => TunnelCertificateConstants.AuthenticationMode;
 
     public string GetTransport() => TunnelConstants.TransportNameTunnelHTTP2;
 
